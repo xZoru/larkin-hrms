@@ -246,96 +246,75 @@
                         </div>
                     </div>
 
-                                        <!-- SALARY SECTION -->
-                    <div id="tab-salary" class="tab-content" style="display:none;">
-                        <div class="grid-2">
+                    <!-- SALARY SECTION -->
+                    <div class="mt-8 border-t border-gray-200 pt-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Salary Information</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            
+                            <!-- Monthly Salary -->
                             <div>
-                                <div class="section-title">Salary Information</div>
-                                
-                                <!-- Monthly Salary -->
-                                <div class="form-group">
-                                    <label class="form-label">Monthly Salary (K)</label>
-                                    <input type="number" 
-                                        step="0.01" 
-                                        name="monthly_salary" 
-                                        id="monthly_salary"
-                                        class="form-input" 
-                                        value="{{ old('monthly_salary') }}" 
-                                        placeholder="0.00"
-                                        oninput="calculateHourlyRate()">
-                                    <p class="mt-1 text-xs text-gray-500">Enter monthly salary to auto-calculate hourly rate</p>
-                                </div>
-                                
-                                <!-- Hourly Rate -->
-                                <div class="form-group">
-                                    <label class="form-label">Hourly Rate (K)</label>
-                                    <input type="number" 
-                                        step="0.01" 
-                                        name="hourly_rate" 
-                                        id="hourly_rate"
-                                        class="form-input" 
-                                        value="{{ old('hourly_rate', $employee->hourly_rate ?? '') }}" 
-                                        placeholder="0.00"
-                                        oninput="calculateMonthlySalary()">
-                                    <p class="mt-1 text-xs text-gray-500">Enter hourly rate to auto-calculate monthly salary</p>
-                                </div>
-                                
-                                <!-- Fortnight Hours (for different companies) -->
-                                <div class="form-group">
-                                    <label class="form-label">Fortnight Hours</label>
-                                    <select name="fortnight_hours" id="fortnight_hours" class="form-select">
-                                        <option value="84">Standard (84 hours)</option>
-                                        <option value="144">Security (144 hours)</option>
-                                        <option value="custom">Custom</option>
-                                    </select>
-                                </div>
-                                
-                                <div class="form-group" id="custom_hours_container" style="display:none;">
-                                    <label class="form-label">Custom Fortnight Hours</label>
-                                    <input type="number" name="custom_fortnight_hours" id="custom_fortnight_hours" class="form-input" placeholder="Enter hours">
-                                </div>
-                                
-                                <div class="mt-2 p-3 bg-blue-50 rounded-lg">
-                                    <div class="text-sm text-gray-600">
-                                        <span class="font-medium">Formula:</span>
-                                        <span id="formula_display">Monthly Salary ÷ 182 = Hourly Rate</span>
-                                    </div>
-                                    <div class="text-sm text-gray-600 mt-1">
-                                        <span class="font-medium">Based on:</span>
-                                        <span id="hours_display">84 hours per fortnight × 26 fortnights ÷ 12 months = 182 hours/month</span>
-                                    </div>
-                                </div>
+                                <label class="block text-sm font-medium text-gray-700">Monthly Salary (K)</label>
+                                <input type="number" 
+                                    step="0.01" 
+                                    name="monthly_salary" 
+                                    id="monthly_salary"
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" 
+                                    value="{{ old('monthly_salary') }}" 
+                                    placeholder="0.00"
+                                    oninput="calculateHourlyRate()">
+                                <p class="mt-1 text-xs text-gray-500">Enter monthly salary to auto-calculate hourly rate</p>
                             </div>
                             
+                            <!-- Hourly Rate -->
                             <div>
-                                <div class="section-title">Quick Calculations</div>
-                                <div class="bg-gray-50 p-4 rounded-lg">
-                                    <div class="grid grid-cols-2 gap-4 text-sm">
-                                        <div>
-                                            <span class="text-gray-500">Daily Rate (8 hrs):</span>
-                                            <span class="font-medium" id="daily_rate">K 0.00</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-gray-500">Weekly Rate (40 hrs):</span>
-                                            <span class="font-medium" id="weekly_rate">K 0.00</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-gray-500">Fortnightly Rate:</span>
-                                            <span class="font-medium" id="fortnightly_rate">K 0.00</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-gray-500">Annual Salary:</span>
-                                            <span class="font-medium" id="annual_salary">K 0.00</span>
-                                        </div>
+                                <label class="block text-sm font-medium text-gray-700">Hourly Rate (K)</label>
+                                <input type="number" 
+                                    step="0.01" 
+                                    name="hourly_rate" 
+                                    id="hourly_rate"
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" 
+                                    value="{{ old('hourly_rate') }}" 
+                                    placeholder="0.00"
+                                    oninput="calculateMonthlySalary()">
+                                <p class="mt-1 text-xs text-gray-500">Enter hourly rate to auto-calculate monthly salary</p>
+                            </div>
+                            
+                            <!-- Fortnight Hours -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Fortnight Hours</label>
+                                <select name="fortnight_hours" id="fortnight_hours" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                                    <option value="84">Standard (84 hours)</option>
+                                    <option value="144">Security (144 hours)</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                            </div>
+                            
+                            <div id="custom_hours_container" style="display:none;">
+                                <label class="block text-sm font-medium text-gray-700">Custom Fortnight Hours</label>
+                                <input type="number" name="custom_fortnight_hours" id="custom_fortnight_hours" 
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" 
+                                    placeholder="Enter hours">
+                            </div>
+                            
+                            <!-- Quick Calculations -->
+                            <div class="md:col-span-2 mt-2 p-3 bg-blue-50 rounded-lg">
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                                    <div>
+                                        <span class="text-gray-500">Daily Rate (8 hrs):</span>
+                                        <span class="font-medium" id="daily_rate">K 0.00</span>
                                     </div>
-                                </div>
-                                
-                                <div class="mt-4 p-3 bg-yellow-50 rounded-lg">
-                                    <p class="text-xs text-gray-600">
-                                        💡 <span class="font-medium">Tip:</span> 
-                                        Enter either Monthly Salary or Hourly Rate. 
-                                        The other field will auto-calculate.
-                                    </p>
+                                    <div>
+                                        <span class="text-gray-500">Weekly Rate (40 hrs):</span>
+                                        <span class="font-medium" id="weekly_rate">K 0.00</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-gray-500">Fortnightly Rate:</span>
+                                        <span class="font-medium" id="fortnightly_rate">K 0.00</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-gray-500">Annual Salary:</span>
+                                        <span class="font-medium" id="annual_salary">K 0.00</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

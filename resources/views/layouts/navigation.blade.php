@@ -39,6 +39,10 @@
                         <i class="fas fa-user-cog"></i>
                         <span>User Management</span>
                     </a>
+                    <a href="{{ route('company-bank-details.index') }}" class="sidebar-link submenu-link">
+                        <i class="fas fa-university"></i>
+                        <span>Company Bank Details</span>
+                    </a>
                     <a href="{{ route('tax-tables.index') }}" class="sidebar-link submenu-link">
                         <i class="fas fa-calculator"></i>
                         <span>Tax Tables</span>

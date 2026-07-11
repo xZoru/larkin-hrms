@@ -19,7 +19,11 @@ class Company extends Model
         'logo_path',
         'is_active',
         'settings',
-        'regular_hours'
+        'regular_hours',
+        'bank_name',
+        'bsb_code',
+        'bank_account_number',
+        'bank_account_name',
     ];
 
     protected $casts = [

@@ -13,6 +13,7 @@ use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\PositionController;
 use App\Http\Controllers\TaxTableController;
 use App\Http\Controllers\HolidayController;
+use App\Http\Controllers\CompanyBankDetailsController;
 
 // OR if using the route group:
 
@@ -165,6 +166,13 @@ Route::middleware(['auth'])->prefix('holidays')->name('holidays.')->group(functi
     Route::put('/{holiday}', [HolidayController::class, 'update'])->name('update');
     Route::delete('/{holiday}', [HolidayController::class, 'destroy'])->name('destroy');
     Route::post('/{holiday}/toggle', [HolidayController::class, 'toggle'])->name('toggle');
+});
+
+// ============ COMPANY BANK DETAILS ROUTES ============
+Route::middleware(['auth'])->prefix('company-bank-details')->name('company-bank-details.')->group(function () {
+    Route::get('/', [CompanyBankDetailsController::class, 'index'])->name('index');
+    Route::get('/{company}/edit', [CompanyBankDetailsController::class, 'edit'])->name('edit');
+    Route::put('/{company}', [CompanyBankDetailsController::class, 'update'])->name('update');
 });
 
 

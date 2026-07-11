@@ -37,6 +37,9 @@ class ABAGeneratorController extends Controller
             $companyId = session('current_company_id');
         }
         
+        if ($companyId && !Company::find($companyId)) {
+            $companyId = null;
+        }
         \Log::info('ABA Index - Company ID:', ['company_id' => $companyId]);
         
         if (!$companyId && $companies->isNotEmpty()) {
