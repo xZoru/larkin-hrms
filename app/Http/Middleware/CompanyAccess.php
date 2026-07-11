@@ -9,28 +9,40 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CompanyAccess
 {
-    /**
-     * Handle an incoming request.
-     *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
-     */
     public function handle(Request $request, Closure $next): Response
     {
         $user = Auth::user();
 
-        // If not logged in, redirect to login
         if (!$user) {
             return redirect()->route('login');
         }
 
-        // Super Admin can access everything without company restriction
-        if ($user->hasRole('Super Admin')) {
+        // Super Admin bypasses all checks
+        if ($user->isSuperAdmin()) {
             return $next($request);
         }
 
-        // Other users must have a company assigned
-        if (!$user->company_id) {
-            return redirect()->route('dashboard')->with('error', 'Please select a company first.');
+        // ✅ Ensure user has companies assigned
+        if ($user->companies()->count() === 0) {
+            return redirect()->route('dashboard')
+                ->with('error', 'You are not assigned to any company. Please contact your administrator.');
+        }
+
+        // ✅ Ensure session has a company ID
+        if (!session('current_company_id')) {
+            $defaultCompany = $user->default_company;
+            if ($defaultCompany) {
+                session(['current_company_id' => $defaultCompany->id]);
+                session(['current_company_name' => $defaultCompany->name]);
+            } else {
+                // Set first company as default
+                $firstCompany = $user->companies()->first();
+                if ($firstCompany) {
+                    $user->setDefaultCompany($firstCompany->id);
+                    session(['current_company_id' => $firstCompany->id]);
+                    session(['current_company_name' => $firstCompany->name]);
+                }
+            }
         }
 
         return $next($request);

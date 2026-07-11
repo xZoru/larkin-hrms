@@ -10,11 +10,11 @@ class CompanyBankDetailsController extends Controller
 {
     public function index()
     {
-        $companyId = Auth::user()->company_id;
+        $user = auth()->user();
+        $companyId = $this->getCompanyId();
         
-        // Super Admin can see all companies, others see only their company
-        if (auth()->user()->hasRole('Super Admin')) {
-            $companies = Company::where('is_active', true)->orderBy('name')->get();
+        if ($user->isSuperAdmin()) {
+            $companies = Company::where('is_active', true)->get();
         } else {
             $companies = Company::where('id', $companyId)->get();
         }
@@ -24,26 +24,52 @@ class CompanyBankDetailsController extends Controller
 
     public function edit(Company $company)
     {
+        $user = auth()->user();
+        
+        if (!$user->isSuperAdmin()) {
+            $companyId = $this->getCompanyId();
+            if ($company->id !== $companyId) {
+                abort(403, 'You are not authorized to edit this company.');
+            }
+        }
+        
         return view('management.company-bank-details.edit', compact('company'));
     }
 
     public function update(Request $request, Company $company)
     {
+        $user = auth()->user();
+        
+        if (!$user->isSuperAdmin()) {
+            $companyId = $this->getCompanyId();
+            if ($company->id !== $companyId) {
+                abort(403, 'You are not authorized to update this company.');
+            }
+        }
+        
         $request->validate([
             'bank_name' => 'nullable|string|max:255',
             'bsb_code' => 'nullable|string|max:20',
             'bank_account_number' => 'nullable|string|max:50',
             'bank_account_name' => 'nullable|string|max:255',
         ]);
-
-        $company->update([
-            'bank_name' => $request->bank_name,
-            'bsb_code' => $request->bsb_code,
-            'bank_account_number' => $request->bank_account_number,
-            'bank_account_name' => $request->bank_account_name,
-        ]);
-
+        
+        $company->update($request->only([
+            'bank_name',
+            'bsb_code',
+            'bank_account_number',
+            'bank_account_name',
+        ]));
+        
         return redirect()->route('company-bank-details.index')
-            ->with('success', 'Bank details updated successfully for ' . $company->name);
+            ->with('success', 'Company bank details updated successfully.');
+    }
+
+    /**
+     * Helper method to get company ID from session or default
+     */
+    private function getCompanyId()
+    {
+        return auth()->user()->getCurrentCompanyId();
     }
 }

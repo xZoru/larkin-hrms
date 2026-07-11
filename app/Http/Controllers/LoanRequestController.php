@@ -14,28 +14,33 @@ class LoanRequestController extends Controller
 {
     public function index()
     {
-
-    $companyId = Auth::user()->company_id;
-    
-    $loans = Loan::with(['employee', 'approver', 'releaser', 'creator'])
-        ->where('company_id', $companyId)
-        ->orderBy('created_at', 'desc')
-        ->paginate(15);
-    
-    $employees = Employee::where('company_id', Auth::user()->company_id)
-        ->where('status', 'Active')
-        ->orderBy('last_name')
-        ->get();
+        $user = auth()->user();
+        $companyId = $user->getCurrentCompanyId(); // FIXED: Use helper method
+        $allowedTypes = $user->getAllowedEmployeeTypes();
+        
+        $loans = Loan::with(['employee', 'approver', 'releaser', 'creator'])
+            ->where('company_id', $companyId)
+            ->orderBy('created_at', 'desc')
+            ->paginate(15);
+        
+        $employees = Employee::where('company_id', $companyId) //  FIXED: Use $companyId
+            ->where('status', 'Active')
+            ->whereIn('employee_type', $allowedTypes)
+            ->orderBy('last_name')
+            ->get();
 
         return view('loan-requests.index', compact('loans', 'employees'));
     }
 
     public function create()
     {
-        $companyId = Auth::user()->company_id;
+        $user = auth()->user();
+        $companyId = $user->getCurrentCompanyId(); //  FIXED: Use helper method
+        $allowedTypes = $user->getAllowedEmployeeTypes();
 
-        $employees = Employee::where('company_id', Auth::user()->company_id)
-            ->where('status', 'active')
+        $employees = Employee::where('company_id', $companyId) //  FIXED: Use $companyId
+            ->where('status', 'Active')
+            ->whereIn('employee_type', $allowedTypes)
             ->orderBy('last_name')
             ->get();
 
@@ -44,22 +49,32 @@ class LoanRequestController extends Controller
 
     public function store(Request $request)
     {
+        $user = auth()->user();
+        $companyId = $user->getCurrentCompanyId(); //  FIXED: Use helper method
+        $allowedTypes = $user->getAllowedEmployeeTypes();
+        
+        $request->validate([
+            'loans' => 'required|array|min:1',
+            'loans.*.employee_id' => 'required|exists:employees,id',
+            'loans.*.loan_type' => 'required|in:Cash Advance,Loan,Company Deductions',
+            'loans.*.amount' => 'required|numeric|min:1',
+            'loans.*.reason' => 'nullable|string|max:500',
+        ]);
 
-    $request->validate([
-        'loans' => 'required|array|min:1',
-        'loans.*.employee_id' => 'required|exists:employees,id',
-        'loans.*.loan_type' => 'required|in:Cash Advance,Loan,Company Deductions',
-        'loans.*.amount' => 'required|numeric|min:1',
-        'loans.*.reason' => 'nullable|string|max:500',
-    ]);
-
-        $companyId = Auth::user()->company_id;
         $createdCount = 0;
         $errors = [];
 
         foreach ($request->loans as $loanData) {
             try {
-                $installmentCount = 4; // Default
+                // Verify employee exists and is allowed
+                $employee = Employee::find($loanData['employee_id']);
+                if (!$employee || !in_array($employee->employee_type, $allowedTypes)) {
+                    $errors[] = "Employee ID: {$loanData['employee_id']} - Not authorized";
+                    continue;
+                }
+                
+                // Get installment count from the hidden field
+                $installmentCount = $loanData['installment_count'] ?? 4;
                 $amount = $loanData['amount'];
                 $deductionPerCutoff = $loanData['deduction'] ?? ($amount / $installmentCount);
 
@@ -110,8 +125,12 @@ class LoanRequestController extends Controller
             return back()->with('error', 'This loan request cannot be edited.');
         }
 
-        $employees = Employee::where('company_id', Auth::user()->company_id)
-            ->where('status', 'active')
+        $user = auth()->user();
+        $companyId = $user->getCurrentCompanyId(); // ✅ FIXED: Use helper method
+        $allowedTypes = $user->getAllowedEmployeeTypes();
+        $employees = Employee::where('company_id', $companyId)
+            ->where('status', 'Active')
+            ->whereIn('employee_type', $allowedTypes)
             ->orderBy('last_name')
             ->get();
 
@@ -133,6 +152,13 @@ class LoanRequestController extends Controller
             'installment_count' => 'nullable|integer|min:1',
             'reason' => 'nullable|string|max:500',
         ]);
+
+        // Verify employee is allowed
+        $user = auth()->user();
+        $employee = Employee::find($request->employee_id);
+        if (!$user->canViewEmployee($employee)) {
+            return back()->with('error', 'You are not authorized to create a loan for this employee.');
+        }
 
         $installmentCount = $request->installment_count ?? 4;
         $deductionPerCutoff = $request->amount / $installmentCount;
@@ -245,15 +271,19 @@ class LoanRequestController extends Controller
     public function searchEmployees(Request $request)
     {
         $search = $request->get('q');
+        $user = auth()->user();
+        $companyId = $user->getCurrentCompanyId(); // ✅ FIXED: Use helper method
+        $allowedTypes = $user->getAllowedEmployeeTypes();
         
-        $employees = Employee::where('company_id', Auth::user()->company_id)
+        $employees = Employee::where('company_id', $companyId)
+            ->whereIn('employee_type', $allowedTypes)
             ->where(function($query) use ($search) {
                 $query->where('employee_number', 'LIKE', "%{$search}%")
                     ->orWhere('first_name', 'LIKE', "%{$search}%")
                     ->orWhere('last_name', 'LIKE', "%{$search}%")
                     ->orWhere(DB::raw("CONCAT(first_name, ' ', last_name)"), 'LIKE', "%{$search}%");
             })
-            ->where('status', 'active')
+            ->where('status', 'Active')
             ->limit(10)
             ->get(['id', 'employee_number', 'first_name', 'last_name']);
 
@@ -263,6 +293,11 @@ class LoanRequestController extends Controller
     // API: Get employee loan history
     public function employeeLoans(Employee $employee)
     {
+        $user = auth()->user();
+        if (!$user->canViewEmployee($employee)) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+        
         $loans = Loan::where('employee_id', $employee->id)
             ->where('company_id', Auth::user()->company_id)
             ->orderBy('created_at', 'desc')
@@ -274,6 +309,10 @@ class LoanRequestController extends Controller
     // Bulk add - multiple loan requests at once
     public function bulkStore(Request $request)
     {
+        $user = auth()->user();
+        $companyId = $user->getCurrentCompanyId(); // ✅ FIXED: Use helper method
+        $allowedTypes = $user->getAllowedEmployeeTypes();
+        
         $request->validate([
             'loans' => 'required|array|min:1',
             'loans.*.employee_id' => 'required|exists:employees,id',
@@ -283,12 +322,17 @@ class LoanRequestController extends Controller
             'loans.*.reason' => 'nullable|string|max:500',
         ]);
 
-        $companyId = Auth::user()->company_id;
         $createdCount = 0;
         $errors = [];
 
         foreach ($request->loans as $loanData) {
             try {
+                $employee = Employee::find($loanData['employee_id']);
+                if (!$employee || !in_array($employee->employee_type, $allowedTypes)) {
+                    $errors[] = "Employee ID: {$loanData['employee_id']} - Not authorized";
+                    continue;
+                }
+                
                 $installmentCount = $loanData['installment_count'] ?? 4;
                 $deductionPerCutoff = $loanData['amount'] / $installmentCount;
 
@@ -355,7 +399,9 @@ class LoanRequestController extends Controller
 
     private function authorizeCompany(Loan $loanRequest)
     {
-        if ($loanRequest->company_id !== Auth::user()->company_id) {
+        $user = auth()->user();
+        $companyId = $user->getCurrentCompanyId(); // ✅ FIXED: Use helper method
+        if ($loanRequest->company_id !== $companyId) {
             abort(403, 'Unauthorized access to this loan request.');
         }
     }

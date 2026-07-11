@@ -14,6 +14,13 @@ use App\Http\Controllers\PositionController;
 use App\Http\Controllers\TaxTableController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\CompanyBankDetailsController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\LeaveController;
+use App\Http\Controllers\BackupController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\UserController;
+use App\Http\Middleware\SuperAdminMiddleware;
 
 // OR if using the route group:
 
@@ -48,18 +55,12 @@ Route::prefix('aba')->name('aba.')->middleware(['auth'])->group(function () {
     Route::get('/history', [ABAGeneratorController::class, 'history'])->name('history');
     Route::get('/preview/{id}', [ABAGeneratorController::class, 'preview'])->name('preview');
     Route::delete('/delete/{id}', [ABAGeneratorController::class, 'destroy'])->name('destroy');
-    Route::post('/save-manual-entries', [ABAGeneratorController::class, 'saveManualEntries'])->name('save.manual.entries'); //newly added route for saving manual entries
+    Route::post('/save-manual-entries', [ABAGeneratorController::class, 'saveManualEntries'])->name('save.manual.entries');
     Route::delete('/delete-manual-entry/{payrollItemId}', [ABAGeneratorController::class, 'deleteManualEntry'])->name('delete.manual.entry');
-        // newly added route for previewing payroll before generating ABA file
     Route::get('/preview-payroll/{payrollId}', [ABAGeneratorController::class, 'previewPayroll'])->name('preview.payroll');
+    Route::post('/save-all-entries', [ABAGeneratorController::class, 'saveAllEntries'])->name('save.all.entries'); // ✅ ADD THIS
     
     Route::get('/api/payrolls-by-company', [ABAGeneratorController::class, 'getPayrollsByCompany'])->name('api.payrolls.by-company');
-    Route::get('/export-excel/{id}', [ABAGeneratorController::class, 'exportExcel'])->name('export.excel');
-    
-    
-    Route::get('/api/payrolls-by-company', [ABAGeneratorController::class, 'getPayrollsByCompany'])->name('api.payrolls.by-company');
-    
-    
     Route::get('/export-excel/{id}', [ABAGeneratorController::class, 'exportExcel'])->name('export.excel');
 });
 // ============ EMPLOYEE ROUTES ============
@@ -141,10 +142,12 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/departments/{department}', [DepartmentController::class, 'destroy'])->name('departments.destroy');
 });
 
-Route::middleware(['auth'])->group(function () {
-    Route::get('/positions', [PositionController::class, 'index'])->name('positions.index');
-    Route::post('/positions', [PositionController::class, 'store'])->name('positions.store');
-    Route::delete('/positions/{position}', [PositionController::class, 'destroy'])->name('positions.destroy');
+// ============ POSITIONS ROUTES ============
+Route::middleware(['auth'])->prefix('positions')->name('positions.')->group(function () {
+    Route::get('/', [PositionController::class, 'index'])->name('index');
+    Route::post('/', [PositionController::class, 'store'])->name('store');
+    Route::delete('/{position}', [PositionController::class, 'destroy'])->name('destroy');
+    Route::post('/{position}/toggle', [PositionController::class, 'toggle'])->name('toggle');
 });
 
 Route::middleware(['auth'])->prefix('tax-tables')->name('tax-tables.')->group(function () {
@@ -167,7 +170,6 @@ Route::middleware(['auth'])->prefix('holidays')->name('holidays.')->group(functi
     Route::delete('/{holiday}', [HolidayController::class, 'destroy'])->name('destroy');
     Route::post('/{holiday}/toggle', [HolidayController::class, 'toggle'])->name('toggle');
 });
-
 // ============ COMPANY BANK DETAILS ROUTES ============
 Route::middleware(['auth'])->prefix('company-bank-details')->name('company-bank-details.')->group(function () {
     Route::get('/', [CompanyBankDetailsController::class, 'index'])->name('index');
@@ -175,6 +177,56 @@ Route::middleware(['auth'])->prefix('company-bank-details')->name('company-bank-
     Route::put('/{company}', [CompanyBankDetailsController::class, 'update'])->name('update');
 });
 
+//=========== REPORT ROUTES ============
+Route::middleware(['auth'])->group(function () {
+        // NASFUND Report
+    Route::get('/reports/nasfund', [ReportController::class, 'nasfundIndex'])->name('reports.nasfund.index');
+    Route::post('/reports/nasfund/export', [ReportController::class, 'exportNasfund'])->name('reports.nasfund.export');
+    Route::get('/reports/swt', [ReportController::class, 'swtIndex'])->name('reports.swt.index');
+    Route::post('/reports/swt/export', [ReportController::class, 'exportSwt'])->name('reports.swt.export');
+    Route::get('/reports/earnings', [ReportController::class, 'earningsIndex'])->name('reports.earnings.index');
+    Route::post('/reports/earnings/export', [ReportController::class, 'exportEarnings'])->name('reports.earnings.export');
+    Route::get('/reports/profile', [ReportController::class, 'profileIndex'])->name('reports.profile.index');
+    Route::post('/reports/profile/export', [ReportController::class, 'exportProfile'])->name('reports.profile.export');
+});
 
+// ============ LEAVE MANAGEMENT ============
+Route::prefix('leave')->name('leave.')->middleware(['auth'])->group(function () {
+    Route::get('/', [LeaveController::class, 'index'])->name('index');
+    Route::get('/create', [LeaveController::class, 'create'])->name('create');
+    Route::post('/', [LeaveController::class, 'store'])->name('store');
+    Route::get('/{leaveRequest}', [LeaveController::class, 'show'])->name('show');
+    Route::get('/{leaveRequest}/edit', [LeaveController::class, 'edit'])->name('edit');
+    Route::put('/{leaveRequest}', [LeaveController::class, 'update'])->name('update');
+    Route::delete('/{leaveRequest}', [LeaveController::class, 'destroy'])->name('destroy');
+    Route::post('/{leaveRequest}/approve', [LeaveController::class, 'approve'])->name('approve');
+    Route::post('/{leaveRequest}/reject', [LeaveController::class, 'reject'])->name('reject');
+    Route::post('/{leaveRequest}/cancel', [LeaveController::class, 'cancel'])->name('cancel');
+    Route::get('/api/balance', [LeaveController::class, 'getBalance'])->name('api.balance');
+});
 
+// ============ BACKUP ROUTES ============
+Route::middleware(['auth'])->prefix('backup')->name('backup.')->group(function () {
+    Route::get('/', [BackupController::class, 'index'])->name('index');
+    Route::post('/create', [BackupController::class, 'create'])->name('create');
+    Route::get('/download/{filename}', [BackupController::class, 'download'])->name('download');
+    Route::post('/restore', [BackupController::class, 'restore'])->name('restore');
+    Route::delete('/{filename}', [BackupController::class, 'destroy'])->name('destroy');
+});
+
+// ============ USER MANAGEMENT - SUPER ADMIN ONLY ============
+Route::middleware(['auth', SuperAdminMiddleware::class])
+    ->prefix('users')
+    ->name('users.')
+    ->group(function () {
+        Route::get('/', [UserController::class, 'index'])->name('index');
+        Route::get('/create', [UserController::class, 'create'])->name('create');
+        Route::post('/', [UserController::class, 'store'])->name('store');
+        Route::get('/{user}', [UserController::class, 'show'])->name('show');
+        Route::get('/{user}/edit', [UserController::class, 'edit'])->name('edit');
+        Route::put('/{user}', [UserController::class, 'update'])->name('update');
+        Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
+        Route::post('/{user}/toggle-active', [UserController::class, 'toggleActive'])->name('toggle-active');
+    });
+    
 require __DIR__.'/auth.php';

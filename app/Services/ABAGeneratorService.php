@@ -84,18 +84,11 @@ class ABAGeneratorService
     {
         $lines = [];
         
-        // ============================================================
         // LINE 1: HEADER RECORD (120 characters)
-        // Format: 0 + 17 spaces + 01 + BSP + 7 spaces + Company Name (26 chars, no space before APCA) + 000000 + Description (12 chars) + Date (DDMMYY) + 40 spaces
-        // ============================================================
         $header = $this->formatHeader($company, $bankDetails);
         $lines[] = $this->padTo120($header);
 
-        // ============================================================
-        // TRANSACTION LINES (CODE 1) - Employee payments ONLY
-        // Format: 1 + BSB(XXX-XXX) + Account(9 chars, left-justified) + space + 53 + Amount(10 digits cents) + Name(32 chars) + 58 spaces
-        // NO Corporate Debit/Contra lines (Code 13)
-        // ============================================================
+        // LINE 2 - N: DETAIL RECORDS (120 characters each)
         $transactionCount = 0;
         $totalAmount = 0;
 
@@ -111,7 +104,8 @@ class ABAGeneratorService
                 $bankAccount,
                 $employee,
                 $item->net_pay,
-                $bankDetails['payment_type'] ?? 'SALARY'
+                $bankDetails['payment_type'] ?? 'SALARY',
+                $bankDetails['debit_description'] ?? ''  // ✅ PASS DESCRIPTION HERE
             );
             
             $lines[] = $this->padTo120($detail);
@@ -120,14 +114,10 @@ class ABAGeneratorService
             $totalAmount += $item->net_pay;
         }
 
-        // ============================================================
-        // TRAILER RECORD (120 characters) - Directly after last employee
-        // Format: 7 + 999-999 + 12 spaces + Net Total(10 digits) + Credit Total(10 digits) + Debit Total(10 digits) + 24 spaces + Transaction Count(6 digits) + 40 spaces
-        // ============================================================
+        // LINE N+1: TRAILER RECORD (120 characters)
         $trailer = $this->formatTrailerRecord($transactionCount, $totalAmount);
         $lines[] = $this->padTo120($trailer);
 
-        // Join lines with CRLF
         return implode("\r\n", $lines);
     }
 
@@ -203,19 +193,16 @@ class ABAGeneratorService
      * Positions 31-62: Employee Name (32 chars, left-aligned, uppercase)
      * Positions 63-120: 58 blank spaces (NO corporate codes or references)
      */
-    private function formatDetailRecord($bankAccount, $employee, $amount, $paymentType)
+    private function formatDetailRecord($bankAccount, $employee, $amount, $paymentType, $debitDescription = '')
     {
         $line = '';
         
         // Position 1: Record Type
         $line .= '1';
-
         
         // Positions 2-8: BSB with hyphen (XXX-XXX)
         $bsb = $bankAccount->bsb_code ?? '';
         $bsb = preg_replace('/[^0-9]/', '', $bsb);
-        
-        // Take the last 6 digits (in case of extra characters)
         if (strlen($bsb) > 6) {
             $bsb = substr($bsb, -6);
         }
@@ -243,8 +230,12 @@ class ABAGeneratorService
         $accountName = strtoupper(substr($accountName, 0, 32));
         $line .= str_pad($accountName, 32, ' ', STR_PAD_RIGHT);
         
-        // ✅ Positions 63-120: 58 blank spaces (NO corporate codes or references)
-        $line .= str_repeat(' ', 58);
+        // ✅ Positions 63-80: Description (18 chars) - This is the REFERENCE field
+        $description = strtoupper(substr($debitDescription, 0, 18));
+        $line .= str_pad($description, 18, ' ', STR_PAD_RIGHT);
+        
+        // ✅ Positions 81-120: 40 blank spaces (remaining)
+        $line .= str_repeat(' ', 40);
         
         return $line;
     }

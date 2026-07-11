@@ -15,15 +15,19 @@ class AttendanceController extends Controller
     // ============ MAIN ATTENDANCE PAGE ============
     public function index(Request $request)
     {
-        $companyId = auth()->user()->company_id;
+        $user = auth()->user();
+        $companyId = $user->getCurrentCompanyId(); // ✅ FIXED
+        $allowedTypes = $user->getAllowedEmployeeTypes();
+        
         $fortnight = $request->fortnight ?? $this->getCurrentFortnight();
         $currentFortnight = $this->getCurrentFortnight();
         $selectedEmployeeId = $request->employee_id;
 
-        // Check if selected employee belongs to this company
+        // Check if selected employee belongs to this company and allowed type
         if ($selectedEmployeeId) {
             $employee = Employee::where('id', $selectedEmployeeId)
                 ->where('company_id', $companyId)
+                ->whereIn('employee_type', $allowedTypes)
                 ->first();
             
             if (!$employee) {
@@ -45,9 +49,10 @@ class AttendanceController extends Controller
 
         $period = $this->getFortnightPeriod($fortnight);
 
-        // Get all employees for dropdown
+        // Get all employees for dropdown - filtered by user type and company
         $employees = Employee::where('company_id', $companyId)
             ->where('status', 'Active')
+            ->whereIn('employee_type', $allowedTypes)
             ->orderBy('last_name')
             ->get();
 
@@ -92,7 +97,7 @@ class AttendanceController extends Controller
             'selectedDayLogs',
             'currentFortnight', 
             'timesheetStatus',
-            'holidayDates'  //  ADD THIS
+            'holidayDates'
         ));
     }
 
@@ -111,6 +116,16 @@ class AttendanceController extends Controller
         $attendanceData = $request->attendance;
         $companyId = auth()->user()->company_id;
         $publicHolidays = $this->getPublicHolidays($companyId);
+
+        // Check if employee is allowed
+        $user = auth()->user();
+        $employee = Employee::find($employeeId);
+        if (!$user->canViewEmployee($employee)) {
+            return redirect()->route('attendance.index', [
+                'fortnight' => $fortnight,
+                'employee_id' => $employeeId
+            ])->with('error', 'You are not authorized to manage this employee.');
+        }
 
         // Check current status
         $existingLog = AttendanceLog::where('employee_id', $employeeId)
@@ -157,7 +172,7 @@ class AttendanceController extends Controller
                 'fortnight_number' => $fortnight,
             ];
 
-            //  Only change status if NOT Final
+            // Only change status if NOT Final
             if ($currentStatus !== 'Final') {
                 if ($action === 'finalize') {
                     $updateData['timesheet_status'] = 'Final';
@@ -172,7 +187,7 @@ class AttendanceController extends Controller
                 }
             }
 
-            //  If Save - keep existing status
+            // If Save - keep existing status
             if ($action === 'save') {
                 // Don't change status
             }
@@ -259,6 +274,14 @@ class AttendanceController extends Controller
             'has_break' => 'nullable|boolean',
         ]);
 
+        // Check if employee is allowed
+        $user = auth()->user();
+        $employee = Employee::find($request->employee_id);
+        if (!$user->canViewEmployee($employee)) {
+            return redirect()->route('attendance.index')
+                ->with('error', 'You are not authorized to manage this employee.');
+        }
+
         $fortnight = $this->getFortnightNumber($request->date);
         $isSunday = Carbon::parse($request->date)->isSunday();
         $publicHolidays = $this->getPublicHolidays();
@@ -302,6 +325,14 @@ class AttendanceController extends Controller
     // ============ DELETE ATTENDANCE ============
     public function destroy(AttendanceLog $log)
     {
+        // Check if employee is allowed
+        $user = auth()->user();
+        $employee = Employee::find($log->employee_id);
+        if (!$user->canViewEmployee($employee)) {
+            return redirect()->route('attendance.index')
+                ->with('error', 'You are not authorized to delete this attendance record.');
+        }
+
         $date = $log->date->format('Y-m-d');
         $fortnight = $log->fortnight_number;
         $employeeId = $log->employee_id;
@@ -416,6 +447,11 @@ class AttendanceController extends Controller
 
     public function show(Request $request, Employee $employee)
     {
+        $user = auth()->user();
+        if (!$user->canViewEmployee($employee)) {
+            abort(403, 'You are not authorized to view this employee.');
+        }
+
         $date = $request->date ?? now()->toDateString();
         $fortnight = $this->getFortnightNumber($date);
         

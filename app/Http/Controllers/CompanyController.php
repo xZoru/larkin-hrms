@@ -8,18 +8,29 @@ use Illuminate\Support\Facades\Auth;
 
 class CompanyController extends Controller
 {
-    public function switch(Request $request, Company $company)
+    public function switch(Request $request, $companyId)
     {
-        // Store company in session
-        session(['current_company_id' => $company->id, 'current_company_name' => $company->name]);
+        $user = auth()->user();
         
-        // Also update user's company_id if they're Super Admin
-        $user = Auth::user();
-        if ($user->hasRole('Super Admin')) {
-            $user->company_id = $company->id;
-            $user->save();
+        // ✅ Check if user belongs to this company
+        if (!$user->belongsToCompany($companyId)) {
+            return response()->json(['success' => false, 'message' => 'You do not have access to this company.'], 403);
         }
         
-        return response()->json(['success' => true, 'message' => 'Switched to ' . $company->name]);
+        $company = Company::find($companyId);
+        
+        if (!$company) {
+            return response()->json(['success' => false, 'message' => 'Company not found.'], 404);
+        }
+        
+        // ✅ Set session
+        session(['current_company_id' => $company->id]);
+        session(['current_company_name' => $company->name]);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Switched to ' . $company->name,
+            'company' => $company
+        ]);
     }
 }

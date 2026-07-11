@@ -656,29 +656,17 @@ var payrollData = [];
 
 function showPreview() {
     var payrollId = document.getElementById('payroll_id').value;
+    var debitDescription = document.getElementById('debit_description').value; // ✅ GET THE VALUE
+    
     if (!payrollId) {
         alert('Please select a payroll first.');
         return;
     }
     
-    // Show modal using Bootstrap's vanilla JS
+    // Show modal
     var modal = document.getElementById('previewModal');
     if (modal) {
-        // Try Bootstrap 5 modal API
-        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-            var myModal = new bootstrap.Modal(modal);
-            myModal.show();
-        } else {
-            // Fallback: just show it manually
-            modal.style.display = 'block';
-            modal.classList.add('show');
-            document.body.classList.add('modal-open');
-            
-            // Add backdrop
-            var backdrop = document.createElement('div');
-            backdrop.className = 'modal-backdrop fade show';
-            document.body.appendChild(backdrop);
-        }
+        $('#previewModal').modal('show');
     }
     
     document.getElementById('previewLoader').style.display = 'block';
@@ -686,7 +674,8 @@ function showPreview() {
     document.getElementById('previewTableBody').innerHTML = '';
     manualEntries = [];
     
-    fetch('/aba/preview-payroll/' + payrollId)
+    // ✅ PASS DEBIT DESCRIPTION TO THE AJAX CALL
+    fetch('/aba/preview-payroll/' + payrollId + '?debit_description=' + encodeURIComponent(debitDescription))
         .then(response => response.json())
         .then(response => {
             document.getElementById('previewLoader').style.display = 'none';
@@ -884,29 +873,58 @@ function closePreview() {
     }
 }
 function saveManualEntries() {
-    if (manualEntries.length === 0) {
-        alert('No manual entries to save.');
-        return;
-    }
+    var allEntries = [];
     
-    var entriesToSave = manualEntries.map(function(item, index) {
+    // ✅ 1. Get all edited payroll items (existing employees)
+    var tableRows = document.querySelectorAll('#previewTableBody tr');
+    tableRows.forEach(function(row, index) {
+        var dataIndex = row.dataset.index;
+        var amountInput = row.querySelector('.amount-input');
+        var isManual = row.querySelector('.bg-yellow-50') !== null;
+        
+        // Check if this is a manual entry or payroll item
+        if (dataIndex < payrollData.length) {
+            // ✅ This is an existing payroll item - save it
+            var item = payrollData[dataIndex];
+            allEntries.push({
+                id: item.id,
+                type: 'payroll_item',
+                payroll_item_id: item.id,
+                amount: parseFloat(amountInput.value) || 0,
+                account_name: item.account_name,
+                account_number: item.account_number,
+                bsb: item.bsb,
+                description: item.description || 'UPDATE'
+            });
+        }
+    });
+    
+    // ✅ 2. Get manual entries
+    manualEntries.forEach(function(item, index) {
         var globalIndex = payrollData.length + index;
         var amountInput = document.querySelector('#previewTableBody tr[data-index="' + globalIndex + '"] .amount-input');
         var amount = amountInput ? parseFloat(amountInput.value) : item.amount;
         
-        return {
+        allEntries.push({
+            type: 'manual_entry',
             bsb: item.bsb,
             account_number: item.account_number,
             amount: amount || 0,
             account_name: item.account_name,
             description: item.description || 'MANUAL'
-        };
+        });
     });
-   
+    
+    if (allEntries.length === 0) {
+        alert('No entries to save.');
+        return;
+    }
+    
     var payrollId = document.getElementById('payroll_id').value;
     var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
     
-    fetch('/aba/save-manual-entries', {
+    // ✅ Save ALL entries (both payroll items and manual)
+    fetch('/aba/save-all-entries', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -914,13 +932,13 @@ function saveManualEntries() {
         },
         body: JSON.stringify({
             payroll_id: payrollId,
-            entries: entriesToSave
+            entries: allEntries
         })
     })
     .then(response => response.json())
     .then(response => {
         if (response.success) {
-            alert('Manual entries saved successfully!');
+            alert('All changes saved successfully!');
             manualEntries = [];
             showPreview();
         } else {

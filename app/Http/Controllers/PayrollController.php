@@ -11,13 +11,15 @@ use App\Models\TaxTable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use App\Services\ABAGeneratorService;
 
 class PayrollController extends Controller
 {
     // ============ LIST PAYROLLS ============
     public function index(Request $request)
     {
-        $companyId = auth()->user()->company_id;
+        $user = auth()->user();
+        $companyId = $user->getCurrentCompanyId();
         
         $payrolls = Payroll::where('company_id', $companyId)
             ->orderBy('period_start', 'desc')
@@ -28,7 +30,6 @@ class PayrollController extends Controller
             ->pluck('fortnight_number')
             ->toArray();
         
-        // BUILD FORTNIGHT PERIODS
         $fortnightPeriods = [];
         foreach ($fortnights as $fn) {
             $fortnightPeriods[$fn] = $this->getFortnightPeriod($fn);
@@ -40,7 +41,10 @@ class PayrollController extends Controller
     // ============ CREATE PAYROLL ============
     public function create(Request $request)
     {
-        $companyId = auth()->user()->company_id;
+        $user = auth()->user();
+        $companyId = $user->getCurrentCompanyId();
+        $allowedTypes = $user->getAllowedEmployeeTypes();
+        
         $fortnight = $request->fortnight ?? $this->getCurrentFortnight();
         $period = $this->getFortnightPeriod($fortnight);
 
@@ -53,12 +57,12 @@ class PayrollController extends Controller
 
         $employees = Employee::where('company_id', $companyId)
             ->where('status', 'Active')
+            ->whereIn('employee_type', $allowedTypes)
             ->with(['attendanceSummaries' => function($query) use ($fortnight) {
                 $query->where('fortnight_number', $fortnight);
             }])
             ->get();
 
-        // Get active loans for each employee (for display in create view)
         $activeLoans = Loan::where('company_id', $companyId)
             ->whereIn('status', ['Approved', 'Released'])
             ->where('remaining_balance', '>', 0)
@@ -77,11 +81,12 @@ class PayrollController extends Controller
             'employee_ids.*' => 'exists:employees,id',
         ]);
 
-        $companyId = auth()->user()->company_id;
+        $user = auth()->user();
+        $companyId = $user->getCurrentCompanyId();
+        $allowedTypes = $user->getAllowedEmployeeTypes();
         $fortnight = $request->fortnight;
         $period = $this->getFortnightPeriod($fortnight);
 
-        // Create payroll
         $payroll = Payroll::create([
             'company_id' => $companyId,
             'fortnight_number' => $fortnight,
@@ -92,9 +97,9 @@ class PayrollController extends Controller
             'created_by' => auth()->id(),
         ]);
 
-        // Get ONLY the selected employees
         $employees = Employee::where('company_id', $companyId)
             ->whereIn('id', $request->employee_ids)
+            ->whereIn('employee_type', $allowedTypes)
             ->with(['attendanceSummaries' => function($query) use ($fortnight) {
                 $query->where('fortnight_number', $fortnight);
             }])
@@ -141,105 +146,73 @@ class PayrollController extends Controller
     {
         $summary = $employee->attendanceSummaries->first();
 
-        // ✅ Get hours from summary
         $regularHours = $summary ? $summary->regular_hours : 0;
         $overtimeHours = $summary ? $summary->overtime_hours : 0;
         $sundayHours = $summary ? $summary->sunday_hours : 0;
         $holidayHours = $summary ? $summary->holiday_hours : 0;
         $totalHours = $summary ? $summary->total_hours : 0;
 
-        // ✅ Hourly rates
         $hourlyRate = $employee->hourly_rate ?? 0;
         $overtimeRate = $hourlyRate * 1.5;
         $sundayRate = $hourlyRate * 2;
         $holidayRate = $hourlyRate * 2;
 
-        // ✅ Calculate pay components
         $regularPay = $regularHours * $hourlyRate;
         $overtimePay = $overtimeHours * $overtimeRate;
         $sundayPay = $sundayHours * $sundayRate;
         $holidayPay = $holidayHours * $holidayRate;
         $allowance = $employee->allowance ?? 0;
         
-        // ✅ Initial gross before tax (for Expatriate calculation)
         $grossPayBeforeTax = $regularPay + $overtimePay + $sundayPay + $holidayPay + $allowance;
 
-        // ✅ NASFUND - only if employee has NASFUND number (calculated on gross before tax)
         $nasfundEE = 0;
         $nasfundER = 0;
         if ($employee->nasfund_number) {
-            $nasfundEE = $grossPayBeforeTax * 0.06;   // 6% Employee
-            $nasfundER = $grossPayBeforeTax * 0.084;  // 8.4% Employer
+            $nasfundEE = $grossPayBeforeTax * 0.06;
+            $nasfundER = $grossPayBeforeTax * 0.084;
         }
 
-        // ✅ Loan deduction
         $loanDeduction = $this->calculateLoanDeduction($employee);
         $otherDeductions = 0;
 
-        // ============================================================
-        // ✅ TAX CALCULATION - SOW Compliant
-        // National: Tax calculated directly from wages
-        // Expatriate: Tax calculated from net wages and added to gross wage
-        // ============================================================
         $tax = 0;
         $grossPay = $grossPayBeforeTax;
 
         if ($employee->employee_type === 'Expatriate') {
-            // Expatriate: Tax calculated on NET wages
-            // 1. Calculate provisional net (gross - other deductions)
             $provisionalNet = $grossPayBeforeTax - $nasfundEE - $loanDeduction - $otherDeductions;
-            
-            // 2. Calculate tax on net wages
             $tax = $this->calculateTaxOnNet($employee, $provisionalNet);
-            
-            // 3. Add tax back to gross (as required by SOW)
             $grossPay = $grossPayBeforeTax + $tax;
         } else {
-            // National: Tax calculated directly from gross wages
             $tax = $this->calculateTax($employee, $grossPayBeforeTax);
             $grossPay = $grossPayBeforeTax;
         }
 
-        // ✅ Total deductions and net pay
         $totalDeductions = $tax + $nasfundEE + $loanDeduction + $otherDeductions;
         $netPay = $grossPay - $totalDeductions;
 
         return [
-            // ✅ Hours
             'regular_hours' => $regularHours,
             'overtime_hours' => $overtimeHours,
             'sunday_hours' => $sundayHours,
             'holiday_hours' => $holidayHours,
             'hours_worked' => $totalHours,
-
-            // ✅ Rates
             'hourly_rate' => $hourlyRate,
             'overtime_rate' => $overtimeRate,
-
-            // ✅ Pay components
             'regular_pay' => $regularPay,
             'overtime_pay' => $overtimePay,
             'sunday_pay' => $sundayPay,
             'holiday_pay' => $holidayPay,
             'allowance' => $allowance,
             'gross_wage' => $grossPay,
-
-            // ✅ Deductions
             'tax' => $tax,
             'nasfund_ee' => $nasfundEE,
             'nasfund_er' => $nasfundER,
             'loan_deduction' => $loanDeduction,
             'other_deductions' => $otherDeductions,
             'total_deductions' => $totalDeductions,
-
-            // ✅ Net
             'net_pay' => $netPay,
-
-            // ✅ Payment
             'payment_method' => $employee->payment_method ?? 'Bank Transfer',
             'bank_account' => $employee->getBankAccountDetails()['account_number'] ?? null,
-
-            // ✅ Details
             'details' => [
                 'company_name' => $employee->company->name ?? '',
                 'employee_type' => $employee->employee_type,
@@ -248,12 +221,14 @@ class PayrollController extends Controller
     }
 
     /**
-     * Calculate tax for National employees (directly from gross wages)
+     * Calculate tax for ALL employees using Resident/National rates
+     * ✅ FIXED: Always uses National tax tables regardless of employee type
      */
     private function calculateTax($employee, $grossPay)
     {
+        // ✅ ALWAYS use National/Resident tax tables for ALL employees
         $taxTable = TaxTable::where('company_id', $employee->company_id)
-            ->where('employee_type', $employee->employee_type)
+            ->where('employee_type', 'National')
             ->where('is_active', true)
             ->where('min_amount', '<=', $grossPay)
             ->where(function($query) use ($grossPay) {
@@ -266,20 +241,19 @@ class PayrollController extends Controller
             return 0;
         }
 
-        // Tax = (Income × Rate) - Offset
         $tax = ($grossPay * $taxTable->tax_rate / 100) - $taxTable->fixed_tax;
-
         return max(0, $tax);
     }
 
     /**
      * Calculate tax for Expatriate employees (on NET wages)
-     * SOW: Expatriate Employee Tax calculated from net wages and added to gross wage
+     * ✅ FIXED: Always uses National/Resident tax tables for ALL employees
      */
     private function calculateTaxOnNet($employee, $netPay)
     {
+        // ✅ ALWAYS use National/Resident tax tables for ALL employees
         $taxTable = TaxTable::where('company_id', $employee->company_id)
-            ->where('employee_type', $employee->employee_type)
+            ->where('employee_type', 'National')
             ->where('is_active', true)
             ->where('min_amount', '<=', $netPay)
             ->where(function($query) use ($netPay) {
@@ -292,16 +266,13 @@ class PayrollController extends Controller
             return 0;
         }
 
-        // Tax = (Net × Rate) - Offset
         $tax = ($netPay * $taxTable->tax_rate / 100) - $taxTable->fixed_tax;
-
         return max(0, $tax);
     }
 
     // ============ CALCULATE LOAN DEDUCTION ============
     private function calculateLoanDeduction($employee)
     {
-        // Use remaining_balance instead of balance, and check for Approved/Released status
         $activeLoans = Loan::where('employee_id', $employee->id)
             ->whereIn('status', ['Approved', 'Released'])
             ->where('remaining_balance', '>', 0)
@@ -310,11 +281,9 @@ class PayrollController extends Controller
         $totalDeduction = 0;
         
         foreach ($activeLoans as $loan) {
-            // Use remaining_balance and deduction_per_cutoff
             $deduction = min($loan->deduction_per_cutoff, $loan->remaining_balance);
             $totalDeduction += $deduction;
             
-            // Update the loan balance using remaining_balance
             $loan->remaining_balance -= $deduction;
             
             if ($loan->remaining_balance <= 0) {
@@ -322,10 +291,9 @@ class PayrollController extends Controller
             }
             $loan->save();
 
-            // Create a loan payment record
             $loan->addPayment(
                 $deduction,
-                null, // payroll_id will be linked later
+                null,
                 'Auto deduction from payroll'
             );
         }
@@ -343,7 +311,9 @@ class PayrollController extends Controller
     // ============ PAYROLL SUMMARY ============
     public function summary(Request $request)
     {
-        $companyId = auth()->user()->company_id;
+        $user = auth()->user();
+        $companyId = $user->getCurrentCompanyId();
+        $allowedTypes = $user->getAllowedEmployeeTypes();
         
         $fortnights = Payroll::where('company_id', $companyId)
             ->distinct()
@@ -410,6 +380,7 @@ class PayrollController extends Controller
         
         $employees = Employee::where('company_id', $companyId)
             ->where('status', 'Active')
+            ->whereIn('employee_type', $allowedTypes)
             ->get();
         
         return view('payroll.summary', compact(
@@ -458,54 +429,29 @@ class PayrollController extends Controller
             ->with('success', 'Payroll approved successfully.');
     }
 
-    // ============ EXPORT ABA ============
     public function exportABA(Payroll $payroll)
     {
-        // Get bank transfer payments
-        $bankPayments = $payroll->items()
-            ->where('payment_method', 'Bank Transfer')
-            ->with('employee')
-            ->get();
-
-        if ($bankPayments->isEmpty()) {
-            return redirect()->route('payroll.show', $payroll)
-                ->with('info', 'No bank transfer payments to export.');
-        }
-
-        $filename = "aba_export_{$payroll->id}.csv";
-
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => "attachment; filename={$filename}",
+        $company = $payroll->company;
+        
+        $bankDetails = [
+            'bank_name' => $company->bank_name,
+            'bsb_number' => $company->bsb_code,
+            'account_number' => $company->bank_account_number,
+            'account_name' => $company->bank_account_name,
+            'payment_type' => 'SALARY',
+            'payment_date' => now()->format('Y-m-d'),
         ];
-
-        $callback = function() use ($bankPayments) {
-            $handle = fopen('php://output', 'w');
-
-            // Headers
-            fputcsv($handle, ['Account Name', 'Account Number', 'Bank Name', 'BSB Code', 'Amount', 'Reference']);
-
-            // Data rows
-            foreach ($bankPayments as $item) {
-                $employee = $item->employee;
-                $bankAccount = $employee->getBankAccountDetails();
-
-                fputcsv($handle, [
-                    $bankAccount['account_name'] ?? $employee->full_name,
-                    $bankAccount['account_number'] ?? '',
-                    $bankAccount['bank_name'] ?? '',
-                    $bankAccount['bsb_code'] ?? '',
-                    number_format($item->net_pay, 2),
-                    $employee->employee_number,
-                ]);
-            }
-
-            fclose($handle);
-        };
-
-        return response()->stream($callback, 200, $headers);
+        
+        try {
+            $service = new ABAGeneratorService();
+            $batch = $service->generate($payroll, $company, $bankDetails);
+            return $service->download($batch->id);
+        } catch (\Exception $e) {
+            return redirect()->route('payroll.show', $payroll)
+                ->with('error', 'ABA generation failed: ' . $e->getMessage());
+        }
     }
-
+    
     // ============ HELPER METHODS ============
     public function getFortnightPeriod($fortnight)
     {

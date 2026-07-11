@@ -12,8 +12,6 @@ use App\Services\ABAGeneratorService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
-
-
 class ABAGeneratorController extends Controller
 {
     protected $abaService;
@@ -30,7 +28,6 @@ class ABAGeneratorController extends Controller
     {
         $companies = Company::where('is_active', true)->get();
         
-        // Get company ID from query parameter, session, or first company
         $companyId = $request->get('company_id');
         
         if (!$companyId) {
@@ -40,18 +37,15 @@ class ABAGeneratorController extends Controller
         if ($companyId && !Company::find($companyId)) {
             $companyId = null;
         }
-        \Log::info('ABA Index - Company ID:', ['company_id' => $companyId]);
         
         if (!$companyId && $companies->isNotEmpty()) {
             $companyId = $companies->first()->id;
         }
         
-        // Save to session
         if ($companyId) {
             session(['current_company_id' => $companyId]);
         }
         
-        // Get payrolls for this company
         $payrolls = collect();
         $companyBankDetails = [];
         $currentFortnight = '';
@@ -61,7 +55,6 @@ class ABAGeneratorController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get();
             
-            // Get company bank details
             $company = Company::find($companyId);
             if ($company) {
                 $companyBankDetails = [
@@ -72,7 +65,6 @@ class ABAGeneratorController extends Controller
                 ];
             }
             
-            // Get current fortnight for debit description
             if ($payrolls->isNotEmpty()) {
                 $latestPayroll = $payrolls->first();
                 $currentFortnight = $latestPayroll->fortnight_number ?? '';
@@ -106,13 +98,11 @@ class ABAGeneratorController extends Controller
             $payroll = Payroll::findOrFail($request->payroll_id);
             $company = Company::findOrFail($request->company_id);
             
-            // Check if ABA already generated for this payroll
             if ($this->abaService->existsForPayroll($payroll->id)) {
                 return redirect()->back()
                     ->with('warning', 'ABA file already generated for this payroll.');
             }
             
-            // Prepare bank details from form input (or use company defaults)
             $bankDetails = [
                 'bank_name' => $request->bank_name ?? $company->bank_name ?? 'HRMS Bank',
                 'bsb_number' => $request->bsb_number ?? $company->bsb_code ?? '0000000',
@@ -133,6 +123,7 @@ class ABAGeneratorController extends Controller
                 ->with('error', 'Failed to generate ABA file: ' . $e->getMessage());
         }
     }
+    
     /**
      * Show ABA file details
      */
@@ -179,13 +170,9 @@ class ABAGeneratorController extends Controller
                     ->with('error', 'No employees with valid bank details found for this payroll.');
             }
 
-            // Get company name
             $companyName = $batch->account_name ?? 'Company Name';
             
-            // Build CSV content
             $content = [];
-            
-            // Header section
             $content[] = ['Company Name:', $companyName];
             $content[] = ['Type of Payment:', $batch->metadata['payment_type'] ?? 'SALARY'];
             
@@ -203,13 +190,9 @@ class ABAGeneratorController extends Controller
             $content[] = ['Total Amount:', number_format($batch->total_amount, 2)];
             $content[] = ['Debit Description:', $batch->metadata['debit_description'] ?? 'PAYROLL'];
             
-            // Empty row
             $content[] = [];
-            
-            // Table headers
             $content[] = ['BSB', 'Account Number', 'Amount', 'Account Name', 'Description'];
             
-            // Data rows
             foreach ($payrollItems as $item) {
                 $employee = $item->employee;
                 $bankAccount = $employee->bankAccounts()->where('is_active', true)->first();
@@ -229,11 +212,9 @@ class ABAGeneratorController extends Controller
                 ];
             }
             
-            // Total row
             $content[] = [];
             $content[] = ['', 'TOTAL:', number_format($batch->total_amount, 2), '', ''];
 
-            // Generate CSV
             $filename = 'ABA_' . $batch->batch_number . '_' . date('Ymd') . '.csv';
             
             $handle = fopen('php://temp', 'w+');
@@ -254,6 +235,7 @@ class ABAGeneratorController extends Controller
                 ->with('error', 'Failed to export: ' . $e->getMessage());
         }
     }
+    
     /**
      * Show ABA generation history
      */
@@ -261,7 +243,6 @@ class ABAGeneratorController extends Controller
     {
         $companyId = $request->get('company_id', session('current_company_id'));
         $history = $this->abaService->getHistory($companyId);
-        
         $companies = Company::where('is_active', true)->get();
         
         return view('aba.history', compact('history', 'companies', 'companyId'));
@@ -298,7 +279,6 @@ class ABAGeneratorController extends Controller
         try {
             $batch = ABABatch::findOrFail($id);
             
-            // Delete file if exists
             if ($batch->file_path && \Storage::disk('public')->exists($batch->file_path)) {
                 \Storage::disk('public')->delete($batch->file_path);
             }
@@ -324,14 +304,12 @@ class ABAGeneratorController extends Controller
             return response()->json([]);
         }
         
-        // Set the company in session
         session(['current_company_id' => $companyId]);
         
         $payrolls = Payroll::where('company_id', $companyId)
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function($payroll) {
-                // Get display period
                 $period = 'Payroll #' . $payroll->id;
                 if ($payroll->fortnight_number) {
                     $period = 'FN' . $payroll->fortnight_number;
@@ -379,15 +357,16 @@ class ABAGeneratorController extends Controller
 
             $payroll = Payroll::findOrFail($request->payroll_id);
             $entries = $request->entries;
+            $user = auth()->user();
+            $allowedTypes = $user->getAllowedEmployeeTypes();
 
             foreach ($entries as $entry) {
-                // Find or create employee for manual entry
                 $employee = Employee::where('company_id', $payroll->company_id)
                     ->where('full_name', 'LIKE', '%' . $entry['account_name'] . '%')
+                    ->whereIn('employee_type', $allowedTypes)
                     ->first();
 
                 if (!$employee) {
-                    // Create temporary employee for manual payment
                     $employee = Employee::create([
                         'company_id' => $payroll->company_id,
                         'first_name' => $entry['account_name'],
@@ -396,10 +375,9 @@ class ABAGeneratorController extends Controller
                         'employee_type' => 'National',
                         'status' => 'Active',
                         'employee_number' => 'MANUAL-' . time() . rand(100, 999),
-                        'position' => 'Manual Payment', // ADD THIS - REQUIRED FIELD
+                        'position' => 'Manual Payment',
                     ]);
 
-                    // Add bank account
                     $bankAccount = new \App\Models\BankAccount();
                     $bankAccount->employee_id = $employee->id;
                     $bankAccount->account_name = $entry['account_name'];
@@ -412,7 +390,6 @@ class ABAGeneratorController extends Controller
                     $bankAccount->save();
                 }
 
-                // Create payroll item with description
                 PayrollItem::create([
                     'payroll_id' => $payroll->id,
                     'employee_id' => $employee->id,
@@ -439,12 +416,11 @@ class ABAGeneratorController extends Controller
                     'payment_method' => 'Bank Transfer',
                     'details' => json_encode([
                         'type' => 'manual_entry',
-                        'description' => $entry['description'] ?? 'Manual Payment', // FIX: Save description here
+                        'description' => $entry['description'] ?? 'Manual Payment',
                     ])
                 ]);
             }
 
-            // Recalculate payroll totals
             $payroll->calculateTotals();
 
             return response()->json([
@@ -468,7 +444,6 @@ class ABAGeneratorController extends Controller
         try {
             $payrollItem = PayrollItem::findOrFail($payrollItemId);
             
-            // Check if this is a manual entry - details is already an array
             $details = $payrollItem->details;
             if (!is_array($details) || !isset($details['type']) || $details['type'] !== 'manual_entry') {
                 return response()->json([
@@ -478,11 +453,8 @@ class ABAGeneratorController extends Controller
             }
             
             $payrollId = $payrollItem->payroll_id;
-            
-            // Delete the payroll item
             $payrollItem->delete();
             
-            // Recalculate payroll totals
             $payroll = Payroll::find($payrollId);
             if ($payroll) {
                 $payroll->calculateTotals();
@@ -501,77 +473,194 @@ class ABAGeneratorController extends Controller
         }
     }
 
-
     /**
      * Preview payroll data in table format
      */
-    public function previewPayroll($payrollId)
-    {
-        try {
-            $payroll = Payroll::with(['items.employee.bankAccounts' => function($query) {
-                $query->where('is_active', true)
-                    ->orderBy('is_preferred', 'desc')
-                    ->orderBy('priority', 'asc');
-            }])->findOrFail($payrollId);
-            
-            $payrollItems = $payroll->items()
-                ->where('net_pay', '>', 0)
-                ->get()
-                ->filter(function($item) {
-                    return $item->employee && 
-                        $item->employee->bankAccounts && 
-                        $item->employee->bankAccounts->isNotEmpty();
-                });
+public function previewPayroll($payrollId, Request $request)
+{
+    try {
+        $payroll = Payroll::with(['items.employee.bankAccounts' => function($query) {
+            $query->where('is_active', true)
+                ->orderBy('is_preferred', 'desc')
+                ->orderBy('priority', 'asc');
+        }])->findOrFail($payrollId);
+        
+        // ✅ GET DEBIT DESCRIPTION FROM REQUEST
+        $debitDescription = $request->get('debit_description', '');
+        
+        $payrollItems = $payroll->items()
+            ->where('net_pay', '>', 0)
+            ->get()
+            ->filter(function($item) {
+                return $item->employee && 
+                    $item->employee->bankAccounts && 
+                    $item->employee->bankAccounts->isNotEmpty();
+            });
 
-            $data = [];
-            foreach ($payrollItems as $item) {
-                $employee = $item->employee;
-                $bankAccount = $employee->bankAccounts()->where('is_active', true)->first();
-                
-                // Format BSB - remove any existing dashes first, then add one
-                $bsb = $bankAccount->bsb_code ?? '';
-                // Remove any non-numeric characters (including dashes)
-                $bsb = preg_replace('/[^0-9]/', '', $bsb);
-                // If we have 6 digits, format as XXX-XXX
-                if (strlen($bsb) >= 6) {
-                    $bsb = substr($bsb, 0, 3) . '-' . substr($bsb, 3, 3);
-                }
-                
-                // Check if this is a manual entry
-                $details = $item->details;
-                $isManualEntry = is_array($details) && isset($details['type']) && $details['type'] === 'manual_entry';
-                
-                // Get description from details if available
-                $description = '';
+        $data = [];
+        foreach ($payrollItems as $item) {
+            $employee = $item->employee;
+            $bankAccount = $employee->bankAccounts()->where('is_active', true)->first();
+            
+            $bsb = $bankAccount->bsb_code ?? '';
+            $bsb = preg_replace('/[^0-9]/', '', $bsb);
+            if (strlen($bsb) >= 6) {
+                $bsb = substr($bsb, 0, 3) . '-' . substr($bsb, 3, 3);
+            }
+            
+            $details = $item->details;
+            $isManualEntry = is_array($details) && isset($details['type']) && $details['type'] === 'manual_entry';
+            
+            // ✅ USE DEBIT DESCRIPTION FROM REQUEST
+            $description = $debitDescription;
+            if (!$description) {
+                // Fallback to existing logic
                 if ($isManualEntry && isset($details['description'])) {
                     $description = $details['description'];
                 } elseif ($payroll->fortnight_number) {
                     $description = 'FN' . $payroll->fortnight_number;
                 }
-                
-                $data[] = [
-                    'id' => $item->id,
-                    'bsb' => $bsb,
-                    'account_number' => $bankAccount->account_number ?? '',
-                    'amount' => $item->net_pay,
-                    'account_name' => strtoupper($bankAccount->account_name ?? $employee->full_name),
-                    'description' => strtoupper($description),
-                    'is_manual_entry' => $isManualEntry,
-                ];
             }
-
-            return response()->json([
-                'success' => true,
-                'data' => $data,
-                'total' => $payroll->total_net ?? 0,
-                'count' => count($data),
-            ]);
             
-        } catch (\Exception $e) {
+            $data[] = [
+                'id' => $item->id,
+                'bsb' => $bsb,
+                'account_number' => $bankAccount->account_number ?? '',
+                'amount' => $item->net_pay,
+                'account_name' => strtoupper($bankAccount->account_name ?? $employee->full_name),
+                'description' => strtoupper($description),
+                'is_manual_entry' => $isManualEntry,
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+            'total' => $payroll->total_net ?? 0,
+            'count' => count($data),
+        ]);
+        
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage()
+        ], 500);
+    }
+}
+
+public function saveAllEntries(Request $request)
+{
+    try {
+        $validator = Validator::make($request->all(), [
+            'payroll_id' => 'required|exists:payrolls,id',
+            'entries' => 'required|array',
+        ]);
+
+        if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
+                'message' => $validator->errors()->first()
+            ], 422);
         }
+
+        $payroll = Payroll::findOrFail($request->payroll_id);
+        $entries = $request->entries;
+        $updatedCount = 0;
+        $manualCount = 0;
+
+        foreach ($entries as $entry) {
+            if ($entry['type'] === 'payroll_item') {
+                // ✅ Update existing payroll item
+                $payrollItem = PayrollItem::find($entry['payroll_item_id']);
+                if ($payrollItem) {
+                    // Calculate the difference to adjust gross/net
+                    $oldAmount = $payrollItem->net_pay;
+                    $newAmount = $entry['amount'];
+                    $difference = $newAmount - $oldAmount;
+                    
+                    // Update the payroll item
+                    $payrollItem->net_pay = $newAmount;
+                    $payrollItem->gross_wage = $payrollItem->gross_wage + $difference;
+                    $payrollItem->save();
+                    
+                    $updatedCount++;
+                }
+            } else {
+                // ✅ Create new manual entry
+                $employee = Employee::where('company_id', $payroll->company_id)
+                    ->where('full_name', 'LIKE', '%' . $entry['account_name'] . '%')
+                    ->first();
+
+                if (!$employee) {
+                    $employee = Employee::create([
+                        'company_id' => $payroll->company_id,
+                        'first_name' => $entry['account_name'],
+                        'last_name' => 'MANUAL',
+                        'full_name' => $entry['account_name'],
+                        'employee_type' => 'National',
+                        'status' => 'Active',
+                        'employee_number' => 'MANUAL-' . time() . rand(100, 999),
+                        'position' => 'Manual Payment',
+                    ]);
+
+                    $bankAccount = new \App\Models\BankAccount();
+                    $bankAccount->employee_id = $employee->id;
+                    $bankAccount->account_name = $entry['account_name'];
+                    $bankAccount->account_number = $entry['account_number'];
+                    $bankAccount->bsb_code = str_replace('-', '', $entry['bsb']);
+                    $bankAccount->bank_name = 'Manual Entry';
+                    $bankAccount->is_active = true;
+                    $bankAccount->is_preferred = true;
+                    $bankAccount->priority = 1;
+                    $bankAccount->save();
+                }
+
+                PayrollItem::create([
+                    'payroll_id' => $payroll->id,
+                    'employee_id' => $employee->id,
+                    'gross_wage' => $entry['amount'],
+                    'net_pay' => $entry['amount'],
+                    'regular_hours' => 0,
+                    'overtime_hours' => 0,
+                    'sunday_hours' => 0,
+                    'holiday_hours' => 0,
+                    'hours_worked' => 0,
+                    'hourly_rate' => 0,
+                    'overtime_rate' => 0,
+                    'regular_pay' => 0,
+                    'overtime_pay' => 0,
+                    'sunday_pay' => 0,
+                    'holiday_pay' => 0,
+                    'allowance' => 0,
+                    'tax' => 0,
+                    'nasfund_ee' => 0,
+                    'nasfund_er' => 0,
+                    'loan_deduction' => 0,
+                    'other_deductions' => 0,
+                    'total_deductions' => 0,
+                    'payment_method' => 'Bank Transfer',
+                    'details' => json_encode([
+                        'type' => 'manual_entry',
+                        'description' => $entry['description'] ?? 'Manual Payment',
+                    ])
+                ]);
+                $manualCount++;
+            }
+        }
+
+        // Recalculate payroll totals
+        $payroll->calculateTotals();
+
+        return response()->json([
+            'success' => true,
+            'message' => $updatedCount . ' payroll items updated and ' . $manualCount . ' manual entries added.'
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage()
+        ], 500);
     }
+}
 }

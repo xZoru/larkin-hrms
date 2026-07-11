@@ -12,18 +12,31 @@ use App\Http\Requests\UpdateEmployeeRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
-
 class EmployeeController extends Controller
 {
+    /**
+     * Helper method to get company ID from session or default
+     */
+    private function getCompanyId()
+    {
+        return auth()->user()->getCurrentCompanyId();
+    }
+
     // Display a listing of employees
     public function index(Request $request)
     {
-        $companyId = auth()->user()->company_id;
+        $user = auth()->user();
+        $companyId = $this->getCompanyId();
+        $allowedTypes = $user->getAllowedEmployeeTypes();
 
-        $employees = Employee::with(['company', 'department', 'position'])
-            ->when($companyId, function($query) use ($companyId) {
-                return $query->where('company_id', $companyId);
-            })
+        $query = Employee::with(['company', 'department', 'position']);
+
+        // Super Admin sees ALL employees (no company filter)
+        if (!$user->isSuperAdmin()) {
+            $query->where('company_id', $companyId);
+        }
+
+        $query->whereIn('employee_type', $allowedTypes)
             ->when($request->search, function($query) use ($request) {
                 return $query->where(function($q) use ($request) {
                     $q->where('full_name', 'like', '%' . $request->search . '%')
@@ -41,8 +54,9 @@ class EmployeeController extends Controller
             })
             ->when($request->status, function($query) use ($request) {
                 return $query->where('status', $request->status);
-            })
-            ->paginate(20);
+            });
+
+        $employees = $query->paginate(20);
 
         // Get positions for the filter dropdown
         $positions = Position::where('company_id', $companyId)
@@ -57,16 +71,18 @@ class EmployeeController extends Controller
     public function create()
     {
         $user = auth()->user();
+        $companyId = $this->getCompanyId(); // ✅ FIXED: Use helper method
         
-        if ($user->hasRole('Super Admin')) {
+        if ($user->isSuperAdmin()) {
             $companies = Company::where('is_active', true)->get();
         } else {
-            $companies = Company::where('id', $user->company_id)->get();
+            $companies = Company::where('id', $companyId)->get();
         }
         
-        $departments = Department::where('company_id', $user->company_id)->get();
+        $departments = Department::where('company_id', $companyId)->get();
         
-        $positions = Position::where('company_id', $user->company_id)
+        // ✅ FIXED: Use companyId from helper, not $user->company_id
+        $positions = Position::where('company_id', $companyId)
             ->where('is_active', true)
             ->with('department')
             ->orderBy('name')
@@ -95,10 +111,7 @@ class EmployeeController extends Controller
         }
 
         $data['full_name'] = $fullName;
-
-        // Save position_id (foreign key)
         $data['position_id'] = $request->position_id;
-
         $data['status'] = $request->status ?? 'Active';
         $data['employee_type'] = $request->employee_type ?? 'National';
         $data['marital_status'] = $request->marital_status;
@@ -113,28 +126,22 @@ class EmployeeController extends Controller
             $fortnightHours = $request->custom_fortnight_hours ?? 84;
         }
         
-        // Save fortnight hours
         $data['fortnight_hours'] = $fortnightHours;
         
-        // If monthly salary is provided, calculate hourly rate
         if ($request->filled('monthly_salary') && $request->monthly_salary > 0) {
             $monthlyHours = ($fortnightHours * 26) / 12;
             $data['hourly_rate'] = round($request->monthly_salary / $monthlyHours, 2);
             $data['monthly_salary'] = $request->monthly_salary;
-        } 
-        // If hourly rate is provided, calculate monthly salary
-        else if ($request->filled('hourly_rate') && $request->hourly_rate > 0) {
+        } else if ($request->filled('hourly_rate') && $request->hourly_rate > 0) {
             $monthlyHours = ($fortnightHours * 26) / 12;
             $data['monthly_salary'] = round($request->hourly_rate * $monthlyHours, 2);
             $data['hourly_rate'] = $request->hourly_rate;
         }
         
-        // Calculate base salary (fortnightly)
         if (!empty($data['hourly_rate'])) {
             $data['base_salary'] = $data['hourly_rate'] * $fortnightHours;
         }
 
-        // Generate employee number if not provided
         if (empty($data['employee_number'])) {
             $company = Company::find($data['company_id']);
             $lastEmployee = Employee::where('company_id', $data['company_id'])
@@ -151,20 +158,16 @@ class EmployeeController extends Controller
             $data['employee_number'] = substr($company->code, 0, 3) . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
         }
 
-        // Handle photo upload
         if ($request->hasFile('photo')) {
             $data['photo_path'] = $request->file('photo')->store('employees/photos', 'public');
         }
 
-        // Calculate base salary (84 hours per fortnight)
         if (!empty($data['hourly_rate'])) {
             $data['base_salary'] = $data['hourly_rate'] * 84;
         }
 
-        // Create employee with all data
         $employee = Employee::create($data);
 
-        // Save bank accounts (up to 2) - only if toggle is ON
         if ($request->input('bank_toggle') == 'on') {
             if ($request->has('bank_accounts')) {
                 foreach ($request->bank_accounts as $index => $account) {
@@ -189,7 +192,6 @@ class EmployeeController extends Controller
             }
         }
 
-        // Check which button was clicked
         if ($request->input('action') === 'save_new') {
             return redirect()->route('employees.create')
                 ->with('success', 'Employee created successfully. Add another?');
@@ -202,9 +204,17 @@ class EmployeeController extends Controller
     // Display the specified employee
     public function show(Employee $employee)
     {
+        $user = auth()->user();
+        
+        // Super Admin can view any employee
+        if (!$user->isSuperAdmin()) {
+            if (!$user->canViewEmployee($employee)) {
+                abort(403, 'You are not authorized to view this employee.');
+            }
+        }
+        
         $employee->load(['company', 'department', 'position', 'bankAccounts', 'documents']);
         
-        // Expiry notifications (90 days before)
         $expiringDocs = [];
         if ($employee->employee_type === 'Expatriate') {
             if ($employee->passport_expiry && $employee->passport_expiry <= now()->addDays(90)) {
@@ -226,10 +236,19 @@ class EmployeeController extends Controller
     {
         $user = auth()->user();
         
-        if ($user->hasRole('Super Admin')) {
+        // Super Admin can edit any employee
+        if (!$user->isSuperAdmin()) {
+            if (!$user->canViewEmployee($employee)) {
+                abort(403, 'You are not authorized to edit this employee.');
+            }
+        }
+        
+        $companyId = $this->getCompanyId(); // ✅ FIXED: Use helper method
+        
+        if ($user->isSuperAdmin()) {
             $companies = Company::where('is_active', true)->get();
         } else {
-            $companies = Company::where('id', $user->company_id)->get();
+            $companies = Company::where('id', $companyId)->get();
         }
         
         $departments = Department::where('company_id', $employee->company_id)->get();
@@ -250,15 +269,22 @@ class EmployeeController extends Controller
     // Update the specified employee
     public function update(UpdateEmployeeRequest $request, Employee $employee)
     {
+        $user = auth()->user();
+        
+        // Super Admin can update any employee
+        if (!$user->isSuperAdmin()) {
+            if (!$user->canViewEmployee($employee)) {
+                abort(403, 'You are not authorized to update this employee.');
+            }
+        }
+        
         $data = $request->validated();
 
-        // Store individual name fields
         $data['first_name'] = $request->first_name;
         $data['middle_name'] = $request->middle_name;
         $data['last_name'] = $request->last_name;
         $data['extension_name'] = $request->extension_name;
 
-        // Combine name fields into full_name
         $fullName = $request->first_name;
         if ($request->middle_name) {
             $fullName .= ' ' . $request->middle_name;
@@ -269,45 +295,32 @@ class EmployeeController extends Controller
         }
 
         $data['full_name'] = $fullName;
-
-        // Save position_id (foreign key) - FIXED: use position_id, not position
         $data['position_id'] = $request->position_id;
 
-        // Check if hourly_rate changed
         $oldRate = $employee->hourly_rate;
         $newRate = $request->hourly_rate;
 
-            $fortnightHours = $request->fortnight_hours ?? 84;
-    if ($request->fortnight_hours === 'custom') {
-        $fortnightHours = $request->custom_fortnight_hours ?? 84;
-    }
-    
-    // Save fortnight hours
-    $data['fortnight_hours'] = $fortnightHours;
-    
-    // Check if hourly_rate changed
-    $oldRate = $employee->hourly_rate;
-    $newRate = $request->hourly_rate;
-    
-    // If monthly salary is provided, calculate hourly rate
-    if ($request->filled('monthly_salary') && $request->monthly_salary > 0) {
-        $monthlyHours = ($fortnightHours * 26) / 12;
-        $data['hourly_rate'] = round($request->monthly_salary / $monthlyHours, 2);
-        $data['monthly_salary'] = $request->monthly_salary;
-    } 
-    // If hourly rate is provided, calculate monthly salary
-    else if ($request->filled('hourly_rate') && $request->hourly_rate > 0) {
-        $monthlyHours = ($fortnightHours * 26) / 12;
-        $data['monthly_salary'] = round($request->hourly_rate * $monthlyHours, 2);
-        $data['hourly_rate'] = $request->hourly_rate;
-    }
-    
-    // Calculate base salary (fortnightly)
-    if (!empty($data['hourly_rate'])) {
-        $data['base_salary'] = $data['hourly_rate'] * $fortnightHours;
-    }
+        $fortnightHours = $request->fortnight_hours ?? 84;
+        if ($request->fortnight_hours === 'custom') {
+            $fortnightHours = $request->custom_fortnight_hours ?? 84;
+        }
+        
+        $data['fortnight_hours'] = $fortnightHours;
+        
+        if ($request->filled('monthly_salary') && $request->monthly_salary > 0) {
+            $monthlyHours = ($fortnightHours * 26) / 12;
+            $data['hourly_rate'] = round($request->monthly_salary / $monthlyHours, 2);
+            $data['monthly_salary'] = $request->monthly_salary;
+        } else if ($request->filled('hourly_rate') && $request->hourly_rate > 0) {
+            $monthlyHours = ($fortnightHours * 26) / 12;
+            $data['monthly_salary'] = round($request->hourly_rate * $monthlyHours, 2);
+            $data['hourly_rate'] = $request->hourly_rate;
+        }
+        
+        if (!empty($data['hourly_rate'])) {
+            $data['base_salary'] = $data['hourly_rate'] * $fortnightHours;
+        }
 
-        // Handle photo upload
         if ($request->hasFile('photo')) {
             if ($employee->photo_path) {
                 Storage::disk('public')->delete($employee->photo_path);
@@ -315,14 +328,12 @@ class EmployeeController extends Controller
             $data['photo_path'] = $request->file('photo')->store('employees/photos', 'public');
         }
 
-        // Calculate base salary
         if (!empty($data['hourly_rate'])) {
             $data['base_salary'] = $data['hourly_rate'] * 84;
         }
 
         $employee->update($data);
 
-        // Save pay raise history if rate changed
         if ($oldRate != $newRate && $newRate > 0) {
             $increasePercentage = $oldRate > 0 
                 ? (($newRate - $oldRate) / $oldRate) * 100 
@@ -339,7 +350,6 @@ class EmployeeController extends Controller
             ]);
         }
 
-        // Update bank accounts based on toggle state
         if ($request->input('bank_toggle') == 'on') {
             if ($request->has('bank_accounts')) {
                 $employee->bankAccounts()->delete();
@@ -368,7 +378,6 @@ class EmployeeController extends Controller
             $employee->bankAccounts()->delete();
         }
 
-        // Check which button was clicked
         if ($request->input('action') === 'update_stay') {
             return redirect()->route('employees.edit', $employee)
                 ->with('success', 'Employee updated successfully. Continue editing?');
@@ -381,6 +390,15 @@ class EmployeeController extends Controller
     // Delete the specified employee
     public function destroy(Employee $employee)
     {
+        $user = auth()->user();
+        
+        // Super Admin can delete any employee
+        if (!$user->isSuperAdmin()) {
+            if (!$user->canViewEmployee($employee)) {
+                abort(403, 'You are not authorized to delete this employee.');
+            }
+        }
+        
         if ($employee->photo_path) {
             Storage::disk('public')->delete($employee->photo_path);
         }
@@ -392,6 +410,15 @@ class EmployeeController extends Controller
 
     public function uploadDocument(Request $request, Employee $employee)
     {
+        $user = auth()->user();
+        
+        // Super Admin can upload documents for any employee
+        if (!$user->isSuperAdmin()) {
+            if (!$user->canViewEmployee($employee)) {
+                abort(403, 'You are not authorized to upload documents for this employee.');
+            }
+        }
+        
         $validator = validator($request->all(), [
             'document' => 'required|file|max:10240',
             'document_name' => 'required|string|max:255',
@@ -399,7 +426,6 @@ class EmployeeController extends Controller
         ]);
 
         if ($validator->fails()) {
-            \Log::error('Validation failed', ['errors' => $validator->errors()->toArray()]);
             return redirect()->route('employees.edit', $employee->id)
                 ->with('document_error', 'Validation failed: ' . $validator->errors()->first());
         }
@@ -417,13 +443,10 @@ class EmployeeController extends Controller
                 'uploaded_by' => auth()->id()
             ]);
 
-            \Log::info('Document uploaded successfully', ['employee_id' => $employee->id, 'path' => $path]);
-
             return redirect()->route('employees.edit', $employee->id)
                 ->with('document_success', 'Document "' . $request->document_name . '" uploaded successfully!');
                     
         } catch (\Exception $e) {
-            \Log::error('Upload error', ['message' => $e->getMessage()]);
             return redirect()->route('employees.edit', $employee->id)
                 ->with('document_error', 'Error uploading document: ' . $e->getMessage());
         }
@@ -432,9 +455,12 @@ class EmployeeController extends Controller
     // Get expiring documents (for dashboard notifications)
     public function getExpiringDocuments()
     {
-        $companyId = auth()->user()->company_id;
+        $user = auth()->user();
+        $companyId = $this->getCompanyId();
+        $allowedTypes = $user->getAllowedEmployeeTypes();
         
         $employees = Employee::where('company_id', $companyId)
+            ->whereIn('employee_type', $allowedTypes)
             ->where(function($query) {
                 $query->where('passport_expiry', '<=', now()->addDays(90))
                       ->orWhere('visa_expiry', '<=', now()->addDays(90))
@@ -447,6 +473,15 @@ class EmployeeController extends Controller
 
     public function destroyDocument(Employee $employee, $documentId)
     {
+        $user = auth()->user();
+        
+        // Super Admin can delete documents for any employee
+        if (!$user->isSuperAdmin()) {
+            if (!$user->canViewEmployee($employee)) {
+                abort(403, 'You are not authorized to delete documents for this employee.');
+            }
+        }
+        
         try {
             $document = $employee->documents()->findOrFail($documentId);
             
