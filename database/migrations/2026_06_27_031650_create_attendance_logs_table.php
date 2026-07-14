@@ -18,6 +18,7 @@ return new class extends Migration
             $table->boolean('has_break')->default(false);
             $table->boolean('is_holiday')->default(false);
             $table->boolean('is_sunday')->default(false);
+            $table->string('attendance_type')->default('Work');      
             $table->text('notes')->nullable();
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('fortnight_number', 10);

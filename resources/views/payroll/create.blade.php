@@ -328,14 +328,18 @@
                                 $holidayHours = $summary ? $summary->holiday_hours : 0;
                                 
                                 $hourlyRate = $employee->hourly_rate ?? 0;
-                                $overtimeRate = $hourlyRate * 1.5;
-                                $sundayRate = $hourlyRate * 2;
-                                $holidayRate = $hourlyRate * 2;
+                                $calculationHourlyRate = $hourlyRate;
+                                $fortnightHours = (float) ($employee->fortnight_hours ?? 84);
+
+                                if ((float) $employee->monthly_salary > 0 && $fortnightHours > 0) {
+                                    $calculationHourlyRate = ((float) $employee->monthly_salary * 12)
+                                        / ($fortnightHours * 26);
+                                }
                                 
-                                $regularPay = $regularHours * $hourlyRate;
-                                $overtimePay = $overtimeHours * $overtimeRate;
-                                $sundayPay = $sundayHours * $sundayRate;
-                                $holidayPay = $holidayHours * $holidayRate;
+                                $regularPay = round($regularHours * $calculationHourlyRate, 2);
+                                $overtimePay = round($overtimeHours * $calculationHourlyRate * 1.5, 2);
+                                $sundayPay = round($sundayHours * $calculationHourlyRate * 2, 2);
+                                $holidayPay = round($holidayHours * $calculationHourlyRate * 2, 2);
                                 $allowance = $employee->allowance ?? 0;
                                 $grossPay = $regularPay + $overtimePay + $sundayPay + $holidayPay + $allowance;
                                 

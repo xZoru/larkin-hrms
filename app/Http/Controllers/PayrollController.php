@@ -161,15 +161,23 @@ class PayrollController extends Controller
             $holidayHours = 0;
         }
 
+        // Keep the saved hourly rate at two decimals for display, but calculate
+        // earnings from the exact monthly-salary rate. Rounding the rate first
+        // turns K 2,200.00 (84 hours) into K 2,199.96 at K 26.19/hour.
         $hourlyRate = $employee->hourly_rate ?? 0;
-        $overtimeRate = $hourlyRate * 1.5;
-        $sundayRate = $hourlyRate * 2;
-        $holidayRate = $hourlyRate * 2;
+        $calculationHourlyRate = $hourlyRate;
+        $fortnightHours = (float) ($employee->fortnight_hours ?? 84);
 
-        $regularPay = $regularHours * $hourlyRate;
-        $overtimePay = $overtimeHours * $overtimeRate;
-        $sundayPay = $sundayHours * $sundayRate;
-        $holidayPay = $holidayHours * $holidayRate;
+        if ((float) $employee->monthly_salary > 0 && $fortnightHours > 0) {
+            $calculationHourlyRate = ((float) $employee->monthly_salary * 12)
+                / ($fortnightHours * 26);
+        }
+
+        $overtimeRate = $hourlyRate * 1.5;
+        $regularPay = round($regularHours * $calculationHourlyRate, 2);
+        $overtimePay = round($overtimeHours * $calculationHourlyRate * 1.5, 2);
+        $sundayPay = round($sundayHours * $calculationHourlyRate * 2, 2);
+        $holidayPay = round($holidayHours * $calculationHourlyRate * 2, 2);
         $allowance = $employee->allowance ?? 0;
         
         $grossPayBeforeTax = $regularPay + $overtimePay + $sundayPay + $holidayPay + $allowance;
@@ -235,9 +243,8 @@ class PayrollController extends Controller
      */
     private function calculateTax($employee, $grossPay)
     {
-        // ✅ ALWAYS use National/Resident tax tables for ALL employees
-        $taxTable = TaxTable::where('company_id', $employee->company_id)
-            ->where('employee_type', 'National')
+        // 🌟 FIX: Remove company_id filter since tax tables are now universal (null)
+        $taxTable = TaxTable::where('employee_type', 'National')
             ->where('is_active', true)
             ->where('min_amount', '<=', $grossPay)
             ->where(function($query) use ($grossPay) {
@@ -250,19 +257,19 @@ class PayrollController extends Controller
             return 0;
         }
 
+        // IRC Formula: (Gross × Rate%) - Offset
         $tax = ($grossPay * $taxTable->tax_rate / 100) - $taxTable->fixed_tax;
-        return max(0, $tax);
+        return max(0, round($tax, 2));
     }
 
     /**
      * Calculate tax for Expatriate employees (on NET wages)
-     * ✅ FIXED: Always uses National/Resident tax tables for ALL employees
+     * FIXED: Always uses Universal National/Resident tax tables
      */
     private function calculateTaxOnNet($employee, $netPay)
     {
-        // ✅ ALWAYS use National/Resident tax tables for ALL employees
-        $taxTable = TaxTable::where('company_id', $employee->company_id)
-            ->where('employee_type', 'National')
+        //  FIX: Remove company_id filter since tax tables are now universal (null)
+        $taxTable = TaxTable::where('employee_type', 'National')
             ->where('is_active', true)
             ->where('min_amount', '<=', $netPay)
             ->where(function($query) use ($netPay) {
@@ -276,8 +283,9 @@ class PayrollController extends Controller
         }
 
         $tax = ($netPay * $taxTable->tax_rate / 100) - $taxTable->fixed_tax;
-        return max(0, $tax);
+        return max(0, round($tax, 2));
     }
+
 
     // ============ CALCULATE LOAN DEDUCTION ============
     private function calculateLoanDeduction($employee)

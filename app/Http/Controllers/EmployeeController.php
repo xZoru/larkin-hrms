@@ -123,25 +123,31 @@ class EmployeeController extends Controller
         $data['company_id'] = $request->company_id;
         $data['department_id'] = $request->department_id;
 
-        $fortnightHours = $request->fortnight_hours ?? 84;
+         $fortnightHours = $request->fortnight_hours ?? 84;
         if ($request->fortnight_hours === 'custom') {
             $fortnightHours = $request->custom_fortnight_hours ?? 84;
         }
         
         $data['fortnight_hours'] = $fortnightHours;
         
+        //  HIGH-PRECISION PAYROLL MATH BLOCK
         if ($request->filled('monthly_salary') && $request->monthly_salary > 0) {
-            $monthlyHours = ($fortnightHours * 26) / 12;
-            $data['hourly_rate'] = round($request->monthly_salary / $monthlyHours, 2);
+            // Step 1: Calculate the exact fortnightly base pay using standard PNG logic
+            $preciseFortnightlyBase = ($request->monthly_salary * 12) / 26;
+            
+            // Step 2: Assign your precise base salary first so it locks to K2,200.00
+            $data['base_salary'] = round($preciseFortnightlyBase, 2);
+            
+            // Step 3: Compute the clean hourly rate from that base amount
+            $data['hourly_rate'] = round($preciseFortnightlyBase / $fortnightHours, 2);
             $data['monthly_salary'] = $request->monthly_salary;
-        } else if ($request->filled('hourly_rate') && $request->hourly_rate > 0) {
+        } 
+        else if ($request->filled('hourly_rate') && $request->hourly_rate > 0) {
+            $data['hourly_rate'] = $request->hourly_rate;
+            $data['base_salary'] = round($request->hourly_rate * $fortnightHours, 2);
+            
             $monthlyHours = ($fortnightHours * 26) / 12;
             $data['monthly_salary'] = round($request->hourly_rate * $monthlyHours, 2);
-            $data['hourly_rate'] = $request->hourly_rate;
-        }
-        
-        if (!empty($data['hourly_rate'])) {
-            $data['base_salary'] = $data['hourly_rate'] * $fortnightHours;
         }
 
         if (empty($data['employee_number'])) {
@@ -164,9 +170,6 @@ class EmployeeController extends Controller
             $data['photo_path'] = $request->file('photo')->store('employees/photos', 'public');
         }
 
-        if (!empty($data['hourly_rate'])) {
-            $data['base_salary'] = $data['hourly_rate'] * 84;
-        }
         
         if (!empty($data['position_id'])) {
             // 1. Look inside the positions table for the row with ID 1 (e.g., Painter)
@@ -321,17 +324,15 @@ class EmployeeController extends Controller
         $data['fortnight_hours'] = $fortnightHours;
         
         if ($request->filled('monthly_salary') && $request->monthly_salary > 0) {
-            $monthlyHours = ($fortnightHours * 26) / 12;
-            $data['hourly_rate'] = round($request->monthly_salary / $monthlyHours, 2);
+            $preciseFortnightlyBase = ($request->monthly_salary * 12) / 26;
+            $data['hourly_rate'] = round($preciseFortnightlyBase / $fortnightHours, 2);
             $data['monthly_salary'] = $request->monthly_salary;
+            $data['base_salary'] = round($preciseFortnightlyBase, 2);
         } else if ($request->filled('hourly_rate') && $request->hourly_rate > 0) {
             $monthlyHours = ($fortnightHours * 26) / 12;
             $data['monthly_salary'] = round($request->hourly_rate * $monthlyHours, 2);
             $data['hourly_rate'] = $request->hourly_rate;
-        }
-        
-        if (!empty($data['hourly_rate'])) {
-            $data['base_salary'] = $data['hourly_rate'] * $fortnightHours;
+            $data['base_salary'] = round($request->hourly_rate * $fortnightHours, 2);
         }
 
         if ($request->hasFile('photo')) {
@@ -339,10 +340,6 @@ class EmployeeController extends Controller
                 Storage::disk('public')->delete($employee->photo_path);
             }
             $data['photo_path'] = $request->file('photo')->store('employees/photos', 'public');
-        }
-
-        if (!empty($data['hourly_rate'])) {
-            $data['base_salary'] = $data['hourly_rate'] * 84;
         }
 
         $employee->update($data);
