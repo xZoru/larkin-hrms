@@ -171,11 +171,12 @@
 
     <!-- Footer Section (Company Switcher + User) -->
     <div class="sidebar-footer">
-        <!-- Company Switcher -->
+       <!-- Company Switcher -->
         <div class="sidebar-company" x-data="{ open: false }">
             <button @click="open = !open" class="company-selector" type="button">
                 <i class="fas fa-building"></i>
-                <span id="currentCompanyName">{{ session('current_company_name', 'Select Company') }}</span>
+                {{-- 🌟 Updated to use our new smart name helper method --}}
+                <span id="currentCompanyName">{{ auth()->user()->getCurrentCompanyName() }}</span>
                 <i class="fas fa-chevron-down" :class="{ 'rotated': open }"></i>
             </button>
             
@@ -183,17 +184,22 @@
                 @click.away="open = false" 
                 class="company-dropdown">
                 @php
-                    $companies = auth()->user()->companies;
+                    //  If Super Admin, fetch all companies from the database.
+                    // Otherwise, pull only the limited companies explicitly assigned to the user profile.
+                    $dropdownCompanies = auth()->user()->isSuperAdmin()
+                        ? \App\Models\Company::where('is_active', true)->orderBy('name')->get()
+                        : auth()->user()->companies;
                 @endphp
-                @forelse($companies as $company)
+                @forelse($dropdownCompanies as $company)
                     @php
                         $companyName = addslashes($company->name);
                     @endphp
                     <a href="#" 
-                    class="company-item {{ session('current_company_id') == $company->id ? 'active' : '' }}" 
+                    class="company-item {{ auth()->user()->getCurrentCompanyId() == $company->id ? 'active' : '' }}" 
                     @click.prevent="open = false; switchCompany({{ $company->id }}, '{{ $companyName }}')">
                         {{ $company->name }}
-                        @if($company->pivot->is_default)
+                        {{--  Wrap pivot check in an if-statement so it doesn't crash on Super Admins --}}
+                        @if(!auth()->user()->isSuperAdmin() && $company->pivot?->is_default)
                             <span class="text-xs text-blue-400 ml-1">(Default)</span>
                         @endif
                     </a>

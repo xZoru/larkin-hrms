@@ -438,11 +438,11 @@
                             <tbody id="loanRows">
                                 <tr class="loan-row">
                                     <td>
-                                        <select name="loans[0][employee_id]" class="form-control-custom form-control-custom-sm employee-select" required>
-                                            <option value="">Search employee by name or</option>
+                                        <select name="loans[0][employee_id]" class="form-control-custom form-control-custom-sm searchable-select" required>
+                                            <option value="">Search employee...</option>
                                             @foreach($employees ?? [] as $employee)
-                                                <option value="{{ $employee->id }}" data-code="{{ $employee->employee_number }}" data-name="{{ $employee->first_name }} {{ $employee->last_name }}">
-                                                    {{ $employee->employee_number }} | {{ $employee->first_name }} {{ $employee->last_name }}
+                                                <option value="{{ $employee->id }}" data-code="{{ $employee->employee_number }}">
+                                                    {{ $employee->employee_number }} | {{ $employee->full_name ?? ($employee->first_name . ' ' . $employee->last_name) }}
                                                 </option>
                                             @endforeach
                                         </select>

@@ -95,16 +95,6 @@ class RolesAndPermissionsSeeder extends Seeder
             'view loans', // Employees can view their own loans
         ]);
 
-        // ============ CREATE DEFAULT ADMIN USER ============
-        $adminUser = User::firstOrCreate(
-            ['email' => 'admin@hrms.com'],
-            [
-                'name' => 'Super Admin',
-                'password' => bcrypt('password'),
-                'company_id' => 1,
-            ]
-        );
-        $adminUser->assignRole('Super Admin');
 
         $this->command->info('Roles and permissions seeded successfully!');
     }

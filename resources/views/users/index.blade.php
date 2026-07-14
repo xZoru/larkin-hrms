@@ -345,19 +345,25 @@
                                 <div class="text-sm">{{ $user->email }}</div>
                             </td>
                             <td>
-                                <div class="company-list">
-                                    @forelse($user->companies as $company)
-                                        <span class="badge-company {{ $company->pivot->is_default ? 'default' : '' }}">
-                                            {{ Str::limit($company->name, 20) }}
-                                            @if($company->pivot->is_default)
-                                                <span class="text-xs text-blue-600 ml-1">★</span>
-                                            @endif
-                                        </span>
-                                    @empty
-                                        <span class="text-gray-400 text-sm">No companies</span>
-                                    @endforelse
-                                </div>
+                                @if($user->isSuperAdmin())
+                                    <span class="badge-company bg-purple-100 text-purple-800 border-purple-200 font-semibold" style="background-color: #f3e8ff; color: #6b21a8; border-color: #e9d5ff;">
+                                        All Companies
+                                    </span>
+                                @else
+                                    <div class="company-list">
+                                        @if($user->companies->isNotEmpty())
+                                            @foreach($user->companies as $comp)
+                                                <span class="badge-company {{ $comp->pivot->is_default ? 'default' : '' }}">
+                                                    {{ $comp->code }}
+                                                </span>
+                                            @endforeach
+                                        @else
+                                            <span class="text-xs text-gray-400 italic">Unassigned</span>
+                                        @endif
+                                    </div>
+                                @endif
                             </td>
+
                             <td>
                                 <span class="badge-type {{ $user->user_type ?? 'all' }}">
                                     {{ $user->user_type_label ?? 'All Employees' }}

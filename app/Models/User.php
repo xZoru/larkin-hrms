@@ -168,6 +168,12 @@ class User extends Authenticatable
 
     public function getCurrentCompanyId()
     {
+        //  If the logged-in user is a Super Admin, always bypass pivot rows
+        // and link them to the main seeded company layout automatically.
+        if ($this->isSuperAdmin()) {
+            return \App\Models\Company::first()?->id ?? 1;
+        }
+
         // 1. Check session first
         $companyId = session('current_company_id');
         
@@ -195,11 +201,16 @@ class User extends Authenticatable
         return null;
     }
 
+
     /**
      * Get the current company name from session
      */
     public function getCurrentCompanyName()
     {
+        if ($this->isSuperAdmin()) {
+            return \App\Models\Company::first()?->name ?? 'Global Administration';
+        }
+
         return session('current_company_name', 'No Company');
     }
 }

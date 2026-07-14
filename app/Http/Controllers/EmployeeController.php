@@ -165,7 +165,7 @@ class EmployeeController extends Controller
         if (!empty($data['hourly_rate'])) {
             $data['base_salary'] = $data['hourly_rate'] * 84;
         }
-        unset($data['monthly_salary']);
+
         $employee = Employee::create($data);
 
         if ($request->input('bank_toggle') == 'on') {

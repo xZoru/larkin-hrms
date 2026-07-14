@@ -4,14 +4,11 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use App\Models\Department;
-use App\Models\Company;
 
 class DepartmentsSeeder extends Seeder
 {
     public function run()
     {
-        $companies = Company::all();
-
         $departments = [
             'HR',
             'Finance',
@@ -23,23 +20,21 @@ class DepartmentsSeeder extends Seeder
             'Administration'
         ];
 
-        foreach ($companies as $company) {
-            foreach ($departments as $dept) {
-                // ✅ Use firstOrCreate to avoid duplicates
-                Department::firstOrCreate(
-                    [
-                        'company_id' => $company->id,
-                        'name' => $dept,
-                    ],
-                    [
-                        'code' => $company->code . '-' . substr($dept, 0, 3),
-                        'description' => $dept . ' Department for ' . $company->name,
-                        'is_active' => true,
-                    ]
-                );
-            }
+        foreach ($departments as $dept) {
+            // This now creates exactly 1 universal row per department name
+            Department::firstOrCreate(
+                [
+                    'name' => $dept,
+                    'company_id' => null, // null to make it universal
+                ],
+                [
+                    'code' => 'GLOBAL-' . substr($dept, 0, 3),
+                    'description' => $dept . ' Universal System Department',
+                    'is_active' => true,
+                ]
+            );
         }
 
-        $this->command->info('Departments seeded successfully!');
+        $this->command->info('Universal Departments seeded successfully!');
     }
 }
