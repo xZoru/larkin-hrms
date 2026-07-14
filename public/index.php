@@ -1,5 +1,17 @@
 <?php
 
+$sqlitePath = __DIR__ . '/../database/database.sqlite';
+if (!file_exists($sqlitePath)) {
+    if (!is_dir(dirname($sqlitePath))) {
+        mkdir(dirname($sqlitePath), 0755, true);
+    }
+    touch($sqlitePath);
+    
+    // Automatically triggers migrations seamlessly in the background on boot
+    exec('cd ' . escapeshellarg(__DIR__ . '/..') . ' && php artisan migrate --force');
+}
+// ------------------------------------------------
+
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 
