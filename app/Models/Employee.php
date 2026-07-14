@@ -20,6 +20,7 @@ class Employee extends Model
         'extension_name',
         'full_name',
         'position_id',
+        'position',
         'workshift',
         'gender',
         'marital_status',

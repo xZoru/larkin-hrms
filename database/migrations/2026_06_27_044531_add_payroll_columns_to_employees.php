@@ -12,6 +12,9 @@ return new class extends Migration
             $table->decimal('allowance', 10, 2)->default(0)->after('base_salary');
             $table->string('bank_account_number')->nullable()->after('payment_method');
             $table->string('bank_name')->nullable()->after('bank_account_number');
+            $table->decimal('monthly_salary', 12, 2)->nullable()->after('allowance');
+            $table->integer('fortnight_hours')->default(84)->after('monthly_salary');
+
         });
     }
 

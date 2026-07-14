@@ -167,6 +167,17 @@ class EmployeeController extends Controller
         if (!empty($data['hourly_rate'])) {
             $data['base_salary'] = $data['hourly_rate'] * 84;
         }
+        
+        if (!empty($data['position_id'])) {
+            // 1. Look inside the positions table for the row with ID 1 (e.g., Painter)
+            $positionModel = \App\Models\Position::find($data['position_id']);
+            
+            // 2. If it finds it, copy the word "Painter" into the old text column slot!
+            $data['position'] = $positionModel ? $positionModel->name : 'Unassigned';
+        } else {
+            // 3. Fallback text if no ID was selected at all
+            $data['position'] = 'Unassigned';
+        }
 
         $employee = Employee::create($data);
 
