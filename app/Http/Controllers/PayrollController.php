@@ -152,6 +152,15 @@ class PayrollController extends Controller
         $holidayHours = $summary ? $summary->holiday_hours : 0;
         $totalHours = $summary ? $summary->total_hours : 0;
 
+        if ($employee->isExpatriate()) {
+            // Expatriates are paid all recorded time at their standard rate.
+            // Do not apply overtime, Sunday, or holiday premiums.
+            $regularHours = $totalHours;
+            $overtimeHours = 0;
+            $sundayHours = 0;
+            $holidayHours = 0;
+        }
+
         $hourlyRate = $employee->hourly_rate ?? 0;
         $overtimeRate = $hourlyRate * 1.5;
         $sundayRate = $hourlyRate * 2;
@@ -435,7 +444,8 @@ class PayrollController extends Controller
         
         $bankDetails = [
             'bank_name' => $company->bank_name,
-            'bsb_number' => $company->bsb_code,
+            'bsb_number' => $company->bsb_code ?? 'BSP',
+            'apca_user_id' => $company->apca_user_id ?? '000001',
             'account_number' => $company->bank_account_number,
             'account_name' => $company->bank_account_name,
             'payment_type' => 'SALARY',

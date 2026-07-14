@@ -24,6 +24,9 @@ class Company extends Model
         'bsb_code',
         'bank_account_number',
         'bank_account_name',
+        'bank_code',
+        'apca_user_id',
+        'aba_file_format',
     ];
 
     protected $casts = [

@@ -192,12 +192,18 @@
                     @method('PUT')
 
                     <div class="grid-2">
+
+                        <!-- Bank Code -->
                         <div class="form-group">
-                            <label class="form-label">Bank Name</label>
-                            <input type="text" name="bank_name" class="form-control" 
-                                   value="{{ old('bank_name', $company->bank_name) }}" 
-                                   placeholder="e.g., BSP Bank, ANZ, Kina Bank">
-                            <div class="form-hint">Name of the bank</div>
+                            <label>Bank Code (3 characters)</label>
+                            <select name="bank_code" class="form-control">
+                                <option value="BSP" {{ $company->bank_code == 'BSP' ? 'selected' : '' }}>BSP</option>
+                                <option value="ANZ" {{ $company->bank_code == 'ANZ' ? 'selected' : '' }}>ANZ</option>
+                                <option value="KBA" {{ $company->bank_code == 'KBA' ? 'selected' : '' }}>Kina Bank</option>
+                                <option value="WBC" {{ $company->bank_code == 'WBC' ? 'selected' : '' }}>Westpac</option>
+                                <option value="other" {{ !in_array($company->bank_code, ['BSP','ANZ','KBA','WBC']) ? 'selected' : '' }}>Other</option>
+                            </select>
+                            <div class="form-hint">Choose Bank</div>
                         </div>
 
                         <div class="form-group">
@@ -206,6 +212,15 @@
                                    value="{{ old('bsb_code', $company->bsb_code) }}" 
                                    placeholder="e.g., 088-950">
                             <div class="form-hint">6-digit BSB code (with or without hyphen)</div>
+                        </div>
+
+                        <!-- APCA User ID -->
+                        <div class="form-group">
+                            <label>APCA User ID (6 digits)</label>
+                            <input type="text" name="apca_user_id" class="form-control" 
+                                    value="{{ $company->apca_user_id ?? '000001' }}" maxlength="6"
+                                    placeholder="e.g., 000001">
+                            <div class="form-hint">6-digit APCA User ID (default: 000001)</div>
                         </div>
 
                         <div class="form-group">
@@ -223,6 +238,15 @@
                                    placeholder="e.g., LARKIN ENTERPRISES LTD">
                             <div class="form-hint">Name on the account (will be used in ABA file)</div>
                         </div>
+                    </div>
+
+                    <!-- ABA File Format -->
+                    <div class="form-group">
+                        <label>ABA File Format</label>
+                        <select name="aba_file_format" class="form-control">
+                            <option value="STANDARD" {{ $company->aba_file_format == 'STANDARD' ? 'selected' : '' }}>Standard (120 chars)</option>
+                            <option value="KUNDUPEI" {{ $company->aba_file_format == 'KUNDUPEI' ? 'selected' : '' }}>KunduPei BSP (132 chars)</option>
+                        </select>
                     </div>
 
                     <div class="mt-4 p-3 bg-blue-50 rounded-lg">

@@ -515,6 +515,31 @@
                     <input type="hidden" name="employee_id" value="{{ request('employee_id') }}">
                     <input type="hidden" name="fortnight" value="{{ $fortnight }}">
 
+                    @if($selectedEmployee && $selectedEmployee->isExpatriate() && $timesheetStatus === 'Draft')
+                        @php
+                            $companyName = strtolower((string) optional($selectedEmployee->company)->name);
+                            $isYellowjacket = str_contains($companyName, 'yellowjacket')
+                                && (str_contains($companyName, 'port moresby') || str_contains($companyName, 'lae'));
+                        @endphp
+                        <div class="mb-5 rounded-lg border border-indigo-200 bg-indigo-50 p-4 flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <div class="font-semibold text-indigo-900">Expatriate schedule generator</div>
+                                <div class="text-sm text-indigo-700">84 hours: Mon–Fri 8 hrs, Sat 2 hrs. Sundays are set to 0.</div>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="submit" name="action" value="generate_expatriate_schedule" class="btn-save" onclick="this.form.expatriate_schedule_hours.value = '84'; return confirm('Replace this fortnight with the 84-hour expatriate schedule?');">
+                                    Generate 84 hrs
+                                </button>
+                                @if($isYellowjacket)
+                                    <button type="submit" name="action" value="generate_expatriate_schedule" class="btn-save" onclick="this.form.expatriate_schedule_hours.value = '144'; return confirm('Replace this fortnight with the 144-hour Yellowjacket expatriate schedule?');">
+                                        Generate 144 hrs
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
+                        <input type="hidden" name="expatriate_schedule_hours" value="84">
+                    @endif
+
                     <div class="timesheet-wrapper">
                         @php
                             $nonPayTypes = ['Leave Without Pay', 'Absent'];

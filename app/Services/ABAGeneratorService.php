@@ -41,6 +41,8 @@ class ABAGeneratorService
             'payroll_id' => $payroll->id,
             'batch_number' => $batchNumber,
             'bank_name' => $bankDetails['bank_name'] ?? $company->bank_name ?? 'BSP Bank',
+            'bank_code' => $bankDetails['bank_code'] ?? 'BSP',  // NEW
+            'apca_user_id' => $bankDetails['apca_user_id'] ?? '000001',  // NEW
             'bsb_number' => $bankDetails['bsb_number'] ?? $company->bsb_code ?? '088-950',
             'account_number' => $bankDetails['account_number'] ?? $company->bank_account_number ?? '7009276416',
             'account_name' => $bankDetails['account_name'] ?? $company->bank_account_name ?? $company->name,
@@ -71,12 +73,15 @@ class ABAGeneratorService
     {
         $lines = [];
         
+        //  Get file format from bankDetails (default: STANDARD)
+        $fileFormat = $bankDetails['aba_file_format'] ?? 'STANDARD';
+        
         // Tracer Reference
         $tracerReference = $this->formatTracerReference($company, $bankDetails);
         
         // Header
         $header = $this->formatHeader($company, $bankDetails);
-        $lines[] = $this->padTo120($header);
+        $lines[] = $this->padLine($header, $fileFormat);  // ✅ Changed from padTo120
 
         // Detail Records
         $transactionCount = 0;
@@ -100,7 +105,7 @@ class ABAGeneratorService
                 $payroll
             );
             
-            $lines[] = $this->padTo120($detail);
+            $lines[] = $this->padLine($detail, $fileFormat);  // ✅ Changed from padTo120
             
             $transactionCount++;
             $totalAmount += $item->net_pay;
@@ -108,12 +113,12 @@ class ABAGeneratorService
 
         // Contra Record
         $tracerRecord = $this->formatTracerRecord($company, $bankDetails, $totalAmount, $tracerReference, $payroll);
-        $lines[] = $this->padTo120($tracerRecord);
+        $lines[] = $this->padLine($tracerRecord, $fileFormat);  // ✅ Changed from padTo120
         $transactionCount++;
 
         // Trailer
         $trailer = $this->formatTrailerRecord($transactionCount, $totalAmount);
-        $lines[] = $this->padTo120($trailer);
+        $lines[] = $this->padLine($trailer, $fileFormat);  // ✅ Changed from padTo120
 
         return implode("\r\n", $lines);
     }
@@ -161,7 +166,8 @@ class ABAGeneratorService
         $line .= '0';
         $line .= str_repeat(' ', 17);
         $line .= '01';
-        $line .= 'BSP';
+        $bankCode = $bankDetails['bank_code'] ?? 'BSP';
+        $line .= str_pad(substr($bankCode, 0, 3), 3, ' ');
         $line .= str_repeat(' ', 7);
         
         $userName = $bankDetails['account_name'] ?? $company->name ?? 'LARKIN ENTERPRISES LIMITED';
@@ -300,20 +306,24 @@ class ABAGeneratorService
         
         return $line;
     }
-
-private function padTo120($line)
-{
-    $line = preg_replace('/\r\n|\r|\n/', '', $line);
     
-    $length = strlen($line);
-    
-    if ($length < 120) {
-        $line = str_pad($line, 120, ' ');
+    private function padLine($line, $fileFormat = 'STANDARD')
+    {
+        // Remove any existing line breaks
+        $line = preg_replace('/\r\n|\r|\n/', '', $line);
+        
+        // Determine target length based on format
+        $targetLength = ($fileFormat === 'KUNDUPEI') ? 132 : 120;
+        $length = strlen($line);
+        
+        // Only pad if shorter than target (don't truncate)
+        if ($length < $targetLength) {
+            $line = str_pad($line, $targetLength, ' ');
+        }
+        // If longer than target, keep as-is (ABA allows longer lines)
+        
+        return $line;
     }
-    
-    
-    return $line;
-}
 
     private function generateBatchNumber()
     {

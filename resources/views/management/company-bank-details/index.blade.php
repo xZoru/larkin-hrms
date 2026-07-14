@@ -146,7 +146,8 @@
                     <thead>
                         <tr>
                             <th>Company</th>
-                            <th>Bank Name</th>
+                            <th>Bank Code</th>
+                            <th>APCA ID</th>
                             <th>BSB Code</th>
                             <th>Account Number</th>
                             <th>Account Name</th>
@@ -158,7 +159,8 @@
                         @forelse($companies as $company)
                         <tr>
                             <td class="font-medium">{{ $company->name }}</td>
-                            <td>{{ $company->bank_name ?? '-' }}</td>
+                            <td>{{ $company->bank_code ?? '-' }}</td>
+                            <td>{{ $company->apca_user_id ?? '-' }}</td>
                             <td>{{ $company->bsb_code ?? '-' }}</td>
                             <td>{{ $company->bank_account_number ?? '-' }}</td>
                             <td>{{ $company->bank_account_name ?? '-' }}</td>

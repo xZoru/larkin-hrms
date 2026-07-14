@@ -150,6 +150,32 @@ class AttendanceController extends Controller
             ])->with('error', '⚠️ This timesheet is FINALIZED. Only Save and Lock are allowed.');
         }
 
+        if ($action === 'generate_expatriate_schedule') {
+            if (!$employee->isExpatriate()) {
+                return redirect()->route('attendance.index', [
+                    'fortnight' => $fortnight,
+                    'employee_id' => $employeeId,
+                ])->with('error', 'Only expatriate employees can use the automatic schedule.');
+            }
+
+            $scheduleHours = (int) $request->input('expatriate_schedule_hours', 84);
+            if (!in_array($scheduleHours, [84, 144], true)
+                || ($scheduleHours === 144 && !$this->isYellowjacketEmployee($employee))) {
+                return redirect()->route('attendance.index', [
+                    'fortnight' => $fortnight,
+                    'employee_id' => $employeeId,
+                ])->with('error', 'The selected expatriate schedule is not available for this employee.');
+            }
+
+            $this->generateExpatriateSchedule($employee, $fortnight, $scheduleHours, $publicHolidays, $currentStatus);
+            $this->updateSummary($employeeId, $fortnight);
+
+            return redirect()->route('attendance.index', [
+                'fortnight' => $fortnight,
+                'employee_id' => $employeeId,
+            ])->with('success', "{$scheduleHours}-hour expatriate schedule generated successfully.");
+        }
+
         foreach ($attendanceData as $dateKey => $data) {
             $hours = $data['hours'] ?? 0;
             $type = $data['type'] ?? 'Work';
@@ -390,16 +416,22 @@ class AttendanceController extends Controller
         }
 
         $employee = Employee::find($employeeId);
-        if ($employee && $employee->company) {
-            $regularLimit = $employee->company->regular_hours ?? 84;
+        if ($employee && $employee->isExpatriate()) {
+            // Expatriate time is always paid at the normal rate. Holidays and
+            // Sundays do not attract a premium, and there is no overtime cap.
+            $regularHours = $totalHours;
+            $overtimeHours = 0;
+            $sundayHours = 0;
+            $holidayHours = 0;
         } else {
-            $regularLimit = 84;
-        }
+            $regularLimit = $employee?->fortnight_hours
+                ?? ($employee?->company?->regular_hours ?? 84);
 
-        $overtimeHours = 0;
-        if ($regularHours > $regularLimit) {
-            $overtimeHours = $regularHours - $regularLimit;
-            $regularHours = $regularLimit;
+            $overtimeHours = 0;
+            if ($regularHours > $regularLimit) {
+                $overtimeHours = $regularHours - $regularLimit;
+                $regularHours = $regularLimit;
+            }
         }
 
         $summary->regular_hours = $regularHours;
@@ -480,5 +512,44 @@ class AttendanceController extends Controller
                 return $date->format('Y-m-d');
             })
             ->toArray();
+    }
+
+    private function isYellowjacketEmployee(Employee $employee): bool
+    {
+        $companyName = strtolower((string) optional($employee->company)->name);
+
+        return str_contains($companyName, 'yellowjacket')
+            && (str_contains($companyName, 'port moresby') || str_contains($companyName, 'lae'));
+    }
+
+    private function generateExpatriateSchedule(Employee $employee, string $fortnight, int $scheduleHours, array $publicHolidays, string $currentStatus): void
+    {
+        $period = $this->getFortnightPeriod($fortnight);
+
+        for ($i = 0; $i < 14; $i++) {
+            $date = $period['start']->copy()->addDays($i);
+            $isSaturday = $date->isSaturday();
+            $isSunday = $date->isSunday();
+
+            $hours = $isSunday ? 0 : ($scheduleHours === 144 ? 12 : ($isSaturday ? 2 : 8));
+
+            $data = [
+                'hours_worked' => $hours,
+                'attendance_type' => 'Work',
+                'notes' => 'Generated expatriate schedule',
+                'is_sunday' => $isSunday,
+                'is_holiday' => in_array($date->format('Y-m-d'), $publicHolidays, true),
+                'fortnight_number' => $fortnight,
+            ];
+
+            if ($currentStatus === 'Draft') {
+                $data['timesheet_status'] = 'Draft';
+            }
+
+            AttendanceLog::updateOrCreate(
+                ['employee_id' => $employee->id, 'date' => $date->format('Y-m-d')],
+                $data
+            );
+        }
     }
 }

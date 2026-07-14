@@ -49,6 +49,9 @@ class CompanyBankDetailsController extends Controller
         
         $request->validate([
             'bank_name' => 'nullable|string|max:255',
+            'bank_code' => 'nullable|string|max:3',           
+            'apca_user_id' => 'nullable|string|max:6',        
+            'aba_file_format' => 'nullable|string|in:STANDARD,KUNDUPEI',  
             'bsb_code' => 'nullable|string|max:20',
             'bank_account_number' => 'nullable|string|max:50',
             'bank_account_name' => 'nullable|string|max:255',
@@ -56,6 +59,9 @@ class CompanyBankDetailsController extends Controller
         
         $company->update($request->only([
             'bank_name',
+            'bank_code',           
+            'apca_user_id',        
+            'aba_file_format',     
             'bsb_code',
             'bank_account_number',
             'bank_account_name',

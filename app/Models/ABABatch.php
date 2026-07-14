@@ -18,6 +18,8 @@ class ABABatch extends Model
         'filename',
         'file_path',
         'bank_name',
+        'bank_code',
+        'apca_user_id',
         'bsb_number',
         'account_number',
         'account_name',
