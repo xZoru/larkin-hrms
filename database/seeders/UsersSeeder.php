@@ -54,8 +54,17 @@ class UsersSeeder extends Seeder
         foreach ($users as $userData) {
             $role = $userData['role'];
             unset($userData['role']);
-            $user = User::create($userData);
-            $user->assignRole($role);
+            
+            // This safely checks if the email exists first. It only inserts if missing!
+            $user = User::firstOrCreate(
+                ['email' => $userData['email']], // Unique field lookup criteria
+                $userData                       // Attributes to insert if it doesn't exist
+            );
+            
+            // Only assign the role if the user doesn't already have it
+            if (!$user->hasRole($role)) {
+                $user->assignRole($role);
+            }
         }
 
         $this->command->info('Users seeded successfully!');
