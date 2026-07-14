@@ -68,10 +68,11 @@ class EmployeeController extends Controller
     }
 
     // Show the form for creating a new employee
+    // Show the form for creating a new employee
     public function create()
     {
         $user = auth()->user();
-        $companyId = $this->getCompanyId(); // ✅ FIXED: Use helper method
+        $companyId = $this->getCompanyId(); 
         
         if ($user->isSuperAdmin()) {
             $companies = Company::where('is_active', true)->get();
@@ -79,9 +80,9 @@ class EmployeeController extends Controller
             $companies = Company::where('id', $companyId)->get();
         }
         
-        $departments = Department::where('company_id', $companyId)->get();
+        // FIX: Pull ALL departments because they are now universal system-wide!
+        $departments = Department::all(); 
         
-        // ✅ FIXED: Use companyId from helper, not $user->company_id
         $positions = Position::where('company_id', $companyId)
             ->where('is_active', true)
             ->with('department')
@@ -90,6 +91,7 @@ class EmployeeController extends Controller
 
         return view('employees.create', compact('companies', 'departments', 'positions'));
     }
+
 
     // Store a newly created employee
     public function store(StoreEmployeeRequest $request)
