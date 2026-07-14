@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('tax_tables', function (Blueprint $table) {
             $table->id();
+            $table->string('name');
             $table->foreignId('company_id')->constrained()->onDelete('cascade');
             $table->enum('employee_type', ['National', 'Expatriate']);
             $table->decimal('min_amount', 12, 2);
