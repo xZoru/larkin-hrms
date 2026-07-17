@@ -6,6 +6,7 @@ use App\Models\Holiday;
 use App\Models\Company;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class HolidayController extends Controller
@@ -32,10 +33,18 @@ class HolidayController extends Controller
                 ->get();
         }
         
-        $years = Holiday::selectRaw('DISTINCT YEAR(date) as year')
-            ->orderBy('year', 'desc')
-            ->pluck('year')
-            ->toArray();
+        $dbDriver = DB::connection()->getDriverName();
+        if ($dbDriver === 'sqlite') {
+            $years = Holiday::selectRaw('DISTINCT strftime("%Y", date) as year')
+                ->orderBy('year', 'desc')
+                ->pluck('year')
+                ->toArray();
+        } else {
+            $years = Holiday::selectRaw('DISTINCT YEAR(date) as year')
+                ->orderBy('year', 'desc')
+                ->pluck('year')
+                ->toArray();
+        }
         
         if (empty($years)) {
             $years = [date('Y')];
