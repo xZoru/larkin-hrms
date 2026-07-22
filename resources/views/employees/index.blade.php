@@ -371,7 +371,7 @@
                             <th>Workshift</th>
                             <th>Department</th>
                             <th class="text-center">Status</th>
-                            <th class="text-right">FN Rate</th>
+                            <th class="text-right">Hourly Rate</th>
                             <th class="text-center">Allowance</th>
                             <th class="text-center">Default Pay</th>
                             <th class="text-center">NASFUND</th>

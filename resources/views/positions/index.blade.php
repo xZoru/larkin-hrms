@@ -150,6 +150,12 @@
         border-radius: 8px;
         font-size: 13px;
         min-width: 250px;
+        background: #ffffff;
+        color: #111827;
+    }
+    .form-inline input::placeholder {
+        color: #6b7280;
+        opacity: 1;
     }
     .form-inline input:focus {
         border-color: #6366f1;

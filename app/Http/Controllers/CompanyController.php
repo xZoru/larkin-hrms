@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Company;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class CompanyController extends Controller
 {
@@ -12,15 +11,16 @@ class CompanyController extends Controller
     {
         $user = auth()->user();
         
-        // ✅ Check if user belongs to this company
-        if (!$user->belongsToCompany($companyId)) {
-            return response()->json(['success' => false, 'message' => 'You do not have access to this company.'], 403);
-        }
-        
-        $company = Company::find($companyId);
+        $company = Company::where('is_active', true)->find($companyId);
         
         if (!$company) {
             return response()->json(['success' => false, 'message' => 'Company not found.'], 404);
+        }
+
+        // Super Admins can access every active company and are not assigned
+        // company_user pivot rows. All other users need an explicit assignment.
+        if (!$user->isSuperAdmin() && !$user->belongsToCompany($companyId)) {
+            return response()->json(['success' => false, 'message' => 'You do not have access to this company.'], 403);
         }
         
         // ✅ Set session
