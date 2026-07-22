@@ -18,7 +18,8 @@ class DatabaseSeeder extends Seeder
             EmployeeSeeder::class,        
             LeaveRecordSeeder::class,     
             LoanSeeder::class,            
-            NotificationSeeder::class,    
+            NotificationSeeder::class,
+            UsersSeeder::class    
         ]);
     }
 }
