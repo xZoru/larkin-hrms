@@ -31,7 +31,7 @@ class AttendanceLog extends Model
     ];
 
     protected $casts = [
-        'date' => 'date',
+        'date' => 'date:Y-m-d',
         'is_sunday' => 'boolean',
         'is_holiday' => 'boolean',
         'has_break' => 'boolean',

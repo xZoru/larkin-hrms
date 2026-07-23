@@ -442,7 +442,13 @@
                                     </div>
                                     <div class="form-group">
                                         <label class="form-label required-label">Birth Date</label>
-                                        <input type="date" name="date_of_birth" required class="form-input @error('date_of_birth') border-red-500 @enderror" value="{{ old('date_of_birth', $employee->date_of_birth?->format('Y-m-d')) }}">
+                                        <input type="text" 
+                                            name="date_of_birth" 
+                                            id="date_of_birth"
+                                            required 
+                                            class="flatpickr-input form-input @error('date_of_birth') border-red-500 @enderror" 
+                                            value="{{ old('date_of_birth', $employee->date_of_birth?->format('d/m/Y')) }}"
+                                            placeholder="DD/MM/YYYY">
                                         @error('date_of_birth') <p class="form-error">{{ $message }}</p> @enderror
                                     </div>
                                     <div class="form-group">
@@ -470,13 +476,19 @@
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label required-label">Department</label>
-                                    <select name="department_id" required class="form-select @error('department_id') border-red-500 @enderror">
-                                        <option value="">Select Department</option>
+                                    <input type="text" 
+                                        name="department_name" 
+                                        list="department_suggestions" 
+                                        required
+                                        class="form-input @error('department_name') border-red-500 @enderror"
+                                        value="{{ old('department_name', $employee->department->name ?? '') }}"
+                                        placeholder="Type or select a department">
+                                    <datalist id="department_suggestions">
                                         @foreach($departments as $department)
-                                            <option value="{{ $department->id }}" {{ old('department_id', $employee->department_id) == $department->id ? 'selected' : '' }}>{{ $department->name }}</option>
+                                            <option value="{{ $department->name }}"></option>
                                         @endforeach
-                                    </select>
-                                    @error('department_id') <p class="form-error">{{ $message }}</p> @enderror
+                                    </datalist>
+                                    @error('department_name') <p class="form-error">{{ $message }}</p> @enderror
                                 </div>
                                 
                                 <!-- Position/Designation -->
@@ -529,18 +541,34 @@
                             </div>
                             <div>
                                 <div class="section-title">Employment Dates</div>
-                                <div class="form-group">
-                                    <label class="form-label required-label">Joining Date</label>
-                                    <input type="date" name="joining_date" required class="form-input @error('joining_date') border-red-500 @enderror" value="{{ old('joining_date', $employee->joining_date?->format('Y-m-d')) }}">
-                                    @error('joining_date') <p class="form-error">{{ $message }}</p> @enderror
-                                </div>
+                            <div class="form-group">
+                                <label class="form-label required-label">Joining Date</label>
+                                <input type="text" 
+                                    name="joining_date" 
+                                    id="joining_date"
+                                    required 
+                                    class="flatpickr-input form-input @error('joining_date') border-red-500 @enderror" 
+                                    value="{{ old('joining_date', $employee->joining_date?->format('d/m/Y')) }}"
+                                    placeholder="DD/MM/YYYY">
+                                @error('joining_date') <p class="form-error">{{ $message }}</p> @enderror
+                            </div>
                                 <div class="form-group">
                                     <label class="form-label">End Date</label>
-                                    <input type="date" name="end_date" class="form-input" value="{{ old('end_date', $employee->end_date?->format('Y-m-d')) }}">
+                                    <input type="text" 
+                                        name="end_date" 
+                                        id="end_date"
+                                        class="flatpickr-input form-input" 
+                                        value="{{ old('end_date', $employee->end_date?->format('d/m/Y')) }}"
+                                        placeholder="DD/MM/YYYY">
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Deployment Date</label>
-                                    <input type="date" name="deployment_date" class="form-input" value="{{ old('deployment_date', $employee->deployment_date?->format('Y-m-d')) }}">
+                                    <input type="text" 
+                                        name="deployment_date" 
+                                        id="deployment_date"
+                                        class="flatpickr-input form-input" 
+                                        value="{{ old('deployment_date', $employee->deployment_date?->format('d/m/Y')) }}"
+                                        placeholder="DD/MM/YYYY">
                                 </div>
                                 <div class="section-title mt-4">NASFUND Details</div>
                                 <div class="form-group">
@@ -1057,7 +1085,12 @@
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Passport Expiry</label>
-                                    <input type="date" name="passport_expiry" class="form-input" value="{{ old('passport_expiry', $employee->passport_expiry?->format('Y-m-d')) }}">
+                                    <input type="text" 
+                                        name="passport_expiry" 
+                                        id="passport_expiry"
+                                        class="flatpickr-input form-input" 
+                                        value="{{ old('passport_expiry', $employee->passport_expiry?->format('d/m/Y')) }}"
+                                        placeholder="DD/MM/YYYY">
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Work Permit Number</label>
@@ -1065,16 +1098,26 @@
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Work Permit Expiry</label>
-                                    <input type="date" name="work_permit_expiry" class="form-input" value="{{ old('work_permit_expiry', $employee->work_permit_expiry?->format('Y-m-d')) }}">
+                                    <input type="text" 
+                                        name="work_permit_expiry" 
+                                        id="work_permit_expiry"
+                                        class="flatpickr-input form-input" 
+                                        value="{{ old('work_permit_expiry', $employee->work_permit_expiry?->format('d/m/Y')) }}"
+                                        placeholder="DD/MM/YYYY">
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Visa Number</label>
                                     <input type="text" name="visa_number" class="form-input" value="{{ old('visa_number', $employee->visa_number) }}">
                                 </div>
-                                <div class="form-group">
-                                    <label class="form-label">Visa Expiry</label>
-                                    <input type="date" name="visa_expiry" class="form-input" value="{{ old('visa_expiry', $employee->visa_expiry?->format('Y-m-d')) }}">
-                                </div>
+                            <div class="form-group">
+                                <label class="form-label">Visa Expiry</label>
+                                <input type="text" 
+                                    name="visa_expiry" 
+                                    id="visa_expiry"
+                                    class="flatpickr-input form-input" 
+                                    value="{{ old('visa_expiry', $employee->visa_expiry?->format('d/m/Y')) }}"
+                                    placeholder="DD/MM/YYYY">
+                            </div>
                             </div>
                         </div>
                     </div>
@@ -1247,6 +1290,24 @@
                 toggleExpatriateDocs();
                 employeeTypeSelect.addEventListener('change', toggleExpatriateDocs);
             }
+        });
+
+                // ============ FLATPKR DATE PICKER ============
+        document.addEventListener('DOMContentLoaded', function() {
+            flatpickr(".flatpickr-input", {
+                dateFormat: "d/m/Y",
+                allowInput: true,
+                altInput: true,
+                altFormat: "d/m/Y",
+            });
+
+            flatpickr("#date_of_birth", {
+                dateFormat: "d/m/Y",
+                allowInput: true,
+                maxDate: new Date(),
+                altInput: true,
+                altFormat: "d/m/Y",
+            });
         });
     })();
 </script>

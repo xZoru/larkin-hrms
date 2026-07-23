@@ -3,10 +3,10 @@
 @section('header')
     <div class="flex items-center justify-between">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            Attendance Summary
+            Generate Hours | Timesheets
         </h2>
         <div class="text-sm text-gray-500">
-            Dashboard / Attendance Summary
+            Dashboard / Generate Hours | Timesheets
         </div>
     </div>
 @endsection
@@ -83,6 +83,20 @@
         outline: none;
         box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
     }
+    .filter-row .filter-group input {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1.5px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 14px;
+        background: white;
+        transition: border-color 0.2s;
+    }
+    .filter-row .filter-group input:focus {
+        border-color: #4f46e5;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    }
     .btn-primary {
         background: #4f46e5;
         color: white;
@@ -130,12 +144,29 @@
     .btn-save:hover {
         background: #16a34a;
     }
+    .btn-export {
+        background: #0ea5e9;
+        color: white;
+        padding: 10px 28px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .btn-export:hover {
+        background: #0284c7;
+    }
     
     /* ============================================
        TABLE WRAPPER
        ============================================ */
     .summary-table-wrap {
-        overflow: visible;
+        overflow-x: auto;
         border: 1px solid #e2e8f0;
         border-radius: 10px;
         background: white;
@@ -143,7 +174,7 @@
     }
     
     /* ============================================
-       TABLE - COMPACT LAYOUT
+       TABLE - FULL LAYOUT
        ============================================ */
     .summary-table {
         width: 100%;
@@ -151,21 +182,23 @@
         border-spacing: 0;
         font-size: 12px;
         table-layout: fixed;
+        min-width: 1400px;
     }
     .summary-table th {
         position: sticky;
         top: 0;
         z-index: 10;
-        background: #f8fafc;
+        background: #f1f5f9;
         color: #475569;
         font-size: 9px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
         font-weight: 700;
-        padding: 10px 4px;
+        padding: 8px 4px;
         border-bottom: 2px solid #e2e8f0;
         border-right: 1px solid #e2e8f0;
         text-align: center;
+        white-space: nowrap;
     }
     .summary-table th:last-child {
         border-right: none;
@@ -176,6 +209,7 @@
         padding: 4px 4px;
         vertical-align: middle;
         background: white;
+        text-align: center;
         transition: background 0.15s;
     }
     .summary-table td:last-child {
@@ -191,133 +225,85 @@
         border-bottom: none;
     }
     
-    /* Employee Cell - Sticky Left */
+    /* Employee Cells */
     .employee-cell {
-        width: 160px;
-        min-width: 160px;
-        max-width: 160px;
-        position: sticky;
-        left: 0;
+        padding: 6px 8px !important;
         background: white !important;
         border-right: 2px solid #e2e8f0 !important;
-        box-shadow: 4px 0 12px rgba(0, 0, 0, 0.04);
         z-index: 5;
-        padding: 8px 10px !important;
-    }
-    th.employee-cell {
-        z-index: 15 !important;
-        background: #f8fafc !important;
-        box-shadow: 4px 0 12px rgba(0, 0, 0, 0.04);
-        padding: 10px 10px !important;
-        width: 160px;
-        min-width: 160px;
-        max-width: 160px;
-    }
-    .employee-cell .employee-name {
-        font-weight: 700;
+        font-size: 11px;
+        font-weight: 600;
         color: #0f172a;
-        font-size: 12px;
-        line-height: 1.3;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
-    .employee-cell .employee-number {
-        color: #94a3b8;
-        font-size: 10px;
-        margin-top: 1px;
-        white-space: nowrap;
+    .employee-cell.name {
+        text-align: left;
+        font-weight: 400;
+        color: #334155;
     }
-    .employee-cell .status-badge {
-        display: inline-block;
-        margin-top: 3px;
-        padding: 1px 8px;
-        border-radius: 999px;
-        font-size: 8px;
+    th.employee-cell {
+        background: #f1f5f9 !important;
+        font-size: 9px;
         font-weight: 700;
-        letter-spacing: 0.3px;
+        color: #475569;
         text-transform: uppercase;
-    }
-    .status-badge.status-draft {
-        background: #fef3c7;
-        color: #92400e;
-    }
-    .status-badge.status-final {
-        background: #dcfce7;
-        color: #166534;
-    }
-    .status-badge.status-locked {
-        background: #fee2e2;
-        color: #991b1b;
+        z-index: 15 !important;
     }
     
-    /* Date Header Cells - Compact */
-    .date-header {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 1px;
-        line-height: 1.2;
-    }
-    .date-header .day-number {
-        font-size: 11px;
+    /* Summary Columns (REG, OT, Sun, Hol) */
+    .summary-col {
+        width: 75px;
+        min-width: 75px;
+        max-width: 75px;
         font-weight: 700;
+        font-size: 12px;
         color: #0f172a;
+        padding: 4px 4px !important;
+        background: #fafbfc !important;
     }
-    .date-header .day-name {
+    .summary-col.reg {
+        color: #2563eb;
+    }
+    .summary-col.ot {
+        color: #ea580c;
+    }
+    .summary-col.sun {
+        color: #7c3aed;
+    }
+    .summary-col.hol {
+        color: #dc2626;
+    }
+    th.summary-col {
+        background: #f1f5f9 !important;
         font-size: 8px;
-        color: #94a3b8;
-        text-transform: uppercase;
-        font-weight: 600;
-        letter-spacing: 0.3px;
-    }
-    .date-header .holiday-label {
-        display: inline-block;
-        margin-top: 1px;
-        padding: 1px 4px;
-        border-radius: 3px;
-        background: #fee2e2;
-        color: #991b1b;
-        font-size: 6px;
         font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-    }
-    th.weekend-header .day-number {
-        color: #94a3b8 !important;
-    }
-    th.weekend-header .day-name {
-        color: #cbd5e1 !important;
+        color: #475569;
     }
     
-    /* Day Cells - Hours + Dropdown stacked vertically */
+    /* Day Cells */
     .day-cell {
-        width: 70px;
-        min-width: 70px;
-        max-width: 70px;
-        padding: 3px 4px !important;
+        width: 55px;
+        min-width: 55px;
+        max-width: 55px;
+        padding: 2px 2px !important;
         vertical-align: middle;
         text-align: center;
     }
-    .day-cell.weekend-cell {
-        background: #fafbfc !important;
-    }
-    
-    /* Hours Input - Top */
     .day-cell .hours-input {
         width: 100%;
         padding: 4px 2px;
         border: 1.5px solid #e2e8f0;
         border-radius: 4px;
-        font-size: 12px;
-        font-weight: 600;
+        font-size: 11px;
+        font-weight: 500;
         text-align: center;
         background: white;
         transition: border-color 0.2s, box-shadow 0.2s;
         font-variant-numeric: tabular-nums;
         height: 28px;
         display: block;
-        margin-bottom: 2px;
     }
     .day-cell .hours-input:focus {
         border-color: #4f46e5;
@@ -334,76 +320,96 @@
     .day-cell .hours-input::placeholder {
         color: #cbd5e1;
         font-weight: 400;
-        font-size: 10px;
-    }
-    
-    /* Type Dropdown - Bottom with proper z-index */
-    .day-cell .type-select-wrap {
-        position: relative;
-        display: block;
-        width: 100%;
-    }
-    .day-cell .type-select {
-        width: 100%;
-        padding: 3px 16px 3px 4px;
-        border: 1.5px solid #e2e8f0;
-        border-radius: 4px;
         font-size: 9px;
-        font-weight: 500;
-        background: white;
-        transition: border-color 0.2s, box-shadow 0.2s;
-        height: 22px;
-        appearance: none;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Cpath fill='%2394a3b8' d='M4 6L1 3h6z'/%3E%3C/svg%3E");
-        background-repeat: no-repeat;
-        background-position: right 3px center;
-        cursor: pointer;
-        display: block;
-    }
-    .day-cell .type-select:focus {
-        border-color: #4f46e5;
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-        z-index: 999;
-        position: relative;
-    }
-    .day-cell .type-select:disabled {
-        background: #f1f5f9;
-        color: #94a3b8;
-        cursor: not-allowed;
-        opacity: 0.7;
-    }
-    .day-cell .type-select option {
-        font-size: 11px;
-        padding: 4px 8px;
     }
     
-    /* Total Columns - Compact */
-    .total-cell {
-        width: 42px;
-        min-width: 42px;
-        max-width: 42px;
-        text-align: center;
+    /* ============================================
+       SUNDAY STYLES - RED
+       ============================================ */
+    /* Sunday column - light red background */
+    .day-cell.weekend-cell {
+        background: #fef2f2 !important;
+        border-color: #fecaca !important;
+    }
+    .day-cell.weekend-cell .hours-input {
+        background: #fef2f2 !important;
+        border-color: #fecaca !important;
+    }
+    .day-cell.weekend-cell .hours-input:focus {
+        border-color: #dc2626 !important;
+        box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1) !important;
+        background: #fff5f5 !important;
+    }
+    
+    /* Sunday header - red text and background */
+    th.weekend-header {
+        background: #fef2f2 !important;
+        border-bottom: 2px solid #fecaca !important;
+    }
+    th.weekend-header .day-number {
+        color: #dc2626 !important;
+        font-weight: 700;
+    }
+    th.weekend-header .day-name {
+        color: #dc2626 !important;
+        font-weight: 600;
+    }
+    
+    /* Date Header */
+    .date-header {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+        line-height: 1.2;
+    }
+    .date-header .day-number {
+        font-size: 10px;
         font-weight: 700;
         color: #0f172a;
-        font-size: 12px;
-        font-variant-numeric: tabular-nums;
-        padding: 4px 3px !important;
-        background: #fafbfc !important;
     }
-    .total-cell.employee-total {
-        background: #eef2ff !important;
-        color: #4f46e5;
-        font-size: 13px;
-        border-left: 2px solid #e2e8f0;
+    .date-header .day-name {
+        font-size: 7px;
+        color: #94a3b8;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.3px;
     }
-    .summary-table th.total-header {
-        background: #f1f5f9;
-        font-size: 8px;
-        width: 40px;
-        min-width: 40px;
-        max-width: 40px;
-        padding: 8px 3px;
+    .date-header .holiday-label {
+        display: inline-block;
+        margin-top: 1px;
+        padding: 1px 4px;
+        border-radius: 3px;
+        background: #fee2e2;
+        color: #991b1b;
+        font-size: 5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    
+    /* Status Badge */
+    .status-badge {
+        display: inline-block;
+        margin-left: 4px;
+        padding: 1px 6px;
+        border-radius: 999px;
+        font-size: 7px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+    }
+    .status-badge.status-draft {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    .status-badge.status-final {
+        background: #dcfce7;
+        color: #166534;
+    }
+    .status-badge.status-locked {
+        background: #fee2e2;
+        color: #991b1b;
     }
     
     /* ============================================
@@ -445,6 +451,9 @@
         border-radius: 999px;
     }
     .table-actions .btn-save {
+        flex-shrink: 0;
+    }
+    .table-actions .btn-export {
         flex-shrink: 0;
     }
     
@@ -506,256 +515,43 @@
     /* ============================================
        RESPONSIVE
        ============================================ */
+    @media (max-width: 1400px) {
+        .day-cell { width: 48px; min-width: 48px; max-width: 48px; }
+        .day-cell .hours-input { font-size: 10px; height: 24px; padding: 2px 2px; }
+        .summary-col { width: 65px; min-width: 65px; max-width: 65px; font-size: 11px; }
+        .summary-table { min-width: 1200px; }
+    }
+    
     @media (max-width: 1200px) {
-        .summary-table {
-            font-size: 11px;
-        }
-        .employee-cell {
-            width: 130px;
-            min-width: 130px;
-            max-width: 130px;
-            padding: 6px 8px !important;
-        }
-        th.employee-cell {
-            width: 130px;
-            min-width: 130px;
-            max-width: 130px;
-        }
-        .day-cell {
-            width: 60px;
-            min-width: 60px;
-            max-width: 60px;
-            padding: 2px 3px !important;
-        }
-        .day-cell .hours-input {
-            font-size: 10px;
-            height: 24px;
-            padding: 2px 2px;
-        }
-        .day-cell .type-select {
-            font-size: 8px;
-            height: 20px;
-            padding: 2px 14px 2px 3px;
-        }
-        .total-cell {
-            width: 35px;
-            min-width: 35px;
-            max-width: 35px;
-            font-size: 10px;
-            padding: 3px 2px !important;
-        }
-        .total-cell.employee-total {
-            font-size: 11px;
-        }
-        .summary-table th.total-header {
-            width: 35px;
-            min-width: 35px;
-            max-width: 35px;
-            font-size: 7px;
-            padding: 6px 2px;
-        }
-        .date-header .day-number {
-            font-size: 10px;
-        }
-        .date-header .day-name {
-            font-size: 7px;
-        }
-        .employee-cell .employee-name {
-            font-size: 11px;
-        }
-        .employee-cell .employee-number {
-            font-size: 9px;
-        }
+        .day-cell { width: 42px; min-width: 42px; max-width: 42px; }
+        .day-cell .hours-input { font-size: 9px; height: 22px; padding: 2px 1px; }
+        .summary-col { width: 55px; min-width: 55px; max-width: 55px; font-size: 10px; }
+        .employee-cell { font-size: 10px; padding: 4px 6px !important; }
+        .summary-table { min-width: 1100px; }
     }
     
     @media (max-width: 768px) {
-        .summary-header {
-            padding: 16px 20px;
-        }
-        .summary-header .header-title {
-            font-size: 18px;
-        }
-        .summary-header .header-subtitle {
-            font-size: 13px;
-        }
-        .summary-card {
-            padding: 16px;
-            border-radius: 10px;
-        }
-        .filter-row .filter-group {
-            min-width: 100%;
-            flex: 1 1 100%;
-        }
-        .filter-row .btn-primary {
-            width: 100%;
-            justify-content: center;
-        }
-        .table-actions {
-            flex-direction: column;
-            align-items: stretch;
-        }
-        .table-actions-left {
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-        .table-actions .btn-save {
-            width: 100%;
-            justify-content: center;
-        }
-        .summary-table-wrap {
-            overflow-x: auto;
-            margin: 0 -16px;
-            border-radius: 0;
-            border-left: none;
-            border-right: none;
-        }
-        .summary-table {
-            min-width: 900px;
-            font-size: 10px;
-        }
-        .employee-cell {
-            width: 110px;
-            min-width: 110px;
-            max-width: 110px;
-            padding: 4px 6px !important;
-        }
-        th.employee-cell {
-            width: 110px;
-            min-width: 110px;
-            max-width: 110px;
-        }
-        .employee-cell .employee-name {
-            font-size: 10px;
-        }
-        .employee-cell .employee-number {
-            font-size: 8px;
-        }
-        .employee-cell .status-badge {
-            font-size: 7px;
-            padding: 1px 5px;
-        }
-        .day-cell {
-            width: 55px;
-            min-width: 55px;
-            max-width: 55px;
-            padding: 2px 2px !important;
-        }
-        .day-cell .hours-input {
-            font-size: 9px;
-            height: 22px;
-            padding: 2px 1px;
-        }
-        .day-cell .type-select {
-            font-size: 7px;
-            height: 18px;
-            padding: 1px 12px 1px 2px;
-        }
-        .total-cell {
-            width: 30px;
-            min-width: 30px;
-            max-width: 30px;
-            font-size: 9px;
-            padding: 2px 2px !important;
-        }
-        .total-cell.employee-total {
-            font-size: 10px;
-        }
-        .summary-table th.total-header {
-            width: 30px;
-            min-width: 30px;
-            max-width: 30px;
-            font-size: 6px;
-            padding: 4px 2px;
-        }
-        .date-header .day-number {
-            font-size: 9px;
-        }
-        .date-header .day-name {
-            font-size: 6px;
-        }
-        .date-header .holiday-label {
-            font-size: 5px;
-            padding: 1px 3px;
-        }
-        .table-actions-left .fortnight-label {
-            font-size: 14px;
-        }
-        .table-actions-left .fortnight-range {
-            font-size: 12px;
-        }
-        .info-box {
-            font-size: 11px;
-            padding: 10px 14px;
-        }
-    }
-    
-    @media (max-width: 480px) {
-        .summary-table {
-            min-width: 700px;
-            font-size: 9px;
-        }
-        .employee-cell {
-            width: 90px;
-            min-width: 90px;
-            max-width: 90px;
-            padding: 3px 4px !important;
-        }
-        th.employee-cell {
-            width: 90px;
-            min-width: 90px;
-            max-width: 90px;
-        }
-        .employee-cell .employee-name {
-            font-size: 9px;
-        }
-        .employee-cell .employee-number {
-            font-size: 7px;
-        }
-        .employee-cell .status-badge {
-            font-size: 6px;
-            padding: 1px 4px;
-        }
-        .day-cell {
-            width: 45px;
-            min-width: 45px;
-            max-width: 45px;
-            padding: 1px 2px !important;
-        }
-        .day-cell .hours-input {
-            font-size: 8px;
-            height: 18px;
-            padding: 1px 1px;
-            border-width: 1px;
-        }
-        .day-cell .type-select {
-            font-size: 6px;
-            height: 16px;
-            padding: 1px 10px 1px 2px;
-            border-width: 1px;
-        }
-        .total-cell {
-            width: 25px;
-            min-width: 25px;
-            max-width: 25px;
-            font-size: 8px;
-            padding: 2px 1px !important;
-        }
-        .total-cell.employee-total {
-            font-size: 9px;
-        }
-        .summary-table th.total-header {
-            width: 25px;
-            min-width: 25px;
-            max-width: 25px;
-            font-size: 5px;
-            padding: 3px 1px;
-        }
-        .date-header .day-number {
-            font-size: 8px;
-        }
-        .date-header .day-name {
-            font-size: 5px;
-        }
+        .summary-header { padding: 16px 20px; }
+        .summary-header .header-title { font-size: 18px; }
+        .summary-header .header-subtitle { font-size: 13px; }
+        .summary-card { padding: 16px; border-radius: 10px; }
+        .filter-row .filter-group { min-width: 100%; flex: 1 1 100%; }
+        .filter-row .btn-primary { width: 100%; justify-content: center; }
+        .table-actions { flex-direction: column; align-items: stretch; }
+        .table-actions-left { justify-content: center; flex-wrap: wrap; }
+        .table-actions .btn-save { width: 100%; justify-content: center; }
+        .table-actions .btn-export { width: 100%; justify-content: center; }
+        .summary-table-wrap { margin: 0 -16px; border-radius: 0; border-left: none; border-right: none; }
+        .summary-table { min-width: 900px; font-size: 10px; }
+        .day-cell { width: 35px; min-width: 35px; max-width: 35px; }
+        .day-cell .hours-input { font-size: 8px; height: 18px; padding: 1px 1px; border-width: 1px; }
+        .summary-col { width: 45px; min-width: 45px; max-width: 45px; font-size: 9px; }
+        .employee-cell { font-size: 9px; padding: 3px 4px !important; }
+        .date-header .day-number { font-size: 8px; }
+        .date-header .day-name { font-size: 6px; }
+        .table-actions-left .fortnight-label { font-size: 14px; }
+        .table-actions-left .fortnight-range { font-size: 12px; }
+        .info-box { font-size: 11px; padding: 10px 14px; }
     }
 </style>
 
@@ -766,10 +562,10 @@
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <div class="header-title">
-                        <i class="fas fa-table text-indigo-300 mr-2"></i> Attendance Summary
+                        <i class="fas fa-table text-indigo-300 mr-2"></i> Generate Hours | Timesheets
                     </div>
                     <div class="header-subtitle">
-                        View and edit attendance hours & types for all employees in a compact grid
+                        View and edit attendance hours for all employees
                     </div>
                 </div>
                 <a href="{{ route('attendance.index') }}" class="btn-secondary" style="background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.1);">
@@ -805,6 +601,12 @@
                         @endforeach
                     </select>
                 </div>
+                <div class="filter-group">
+                    <label for="search"><i class="fas fa-search mr-1"></i> Search</label>
+                    <input type="text" name="search" id="search" 
+                           placeholder="Search employees..." 
+                           value="{{ request('search') }}">
+                </div>
                 <input type="hidden" name="generated" value="1">
                 <button type="submit" class="btn-primary">
                     <i class="fas fa-sync-alt mr-1"></i> Generate
@@ -833,29 +635,37 @@
                                 <i class="fas fa-users mr-1"></i> {{ $employees->count() }} employee(s)
                             </span>
                         </div>
-                        <button type="submit" class="btn-save">
-                            <i class="fas fa-save"></i> Save All
-                        </button>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                            <button type="button" class="btn-export" onclick="exportTable()">
+                                <i class="fas fa-file-excel"></i> Export
+                            </button>
+                            <button type="submit" class="btn-save">
+                                <i class="fas fa-save"></i> Save Changes
+                            </button>
+                        </div>
                     </div>
 
                     @if($employees->count() > 0)
                         <!-- TABLE -->
                         <div class="summary-table-wrap">
-                            <table class="summary-table">
+                            <table class="summary-table" id="attendanceTable">
                                 <thead>
                                     <tr>
-                                        <th class="employee-cell">
-                                            <span>Employee</span>
-                                        </th>
+                                        <th class="employee-cell" style="width:80px;">EMP. NO.</th>
+                                        <th class="employee-cell name" style="width:140px; text-align:left;">EMPLOYEE NAME</th>
+                                        <th class="summary-col reg">REG</th>
+                                        <th class="summary-col ot">OT Hrs.(1.5)</th>
+                                        <th class="summary-col sun">Sun OT.(2.0)</th>
+                                        <th class="summary-col hol">HOL</th>
                                         @for($i = 0; $i < 14; $i++)
                                             @php
                                                 $date = $period['start']->copy()->addDays($i);
                                                 $dateKey = $date->format('Y-m-d');
                                                 $isWeekend = $date->isWeekend();
                                             @endphp
-                                            <th class="{{ $isWeekend ? 'weekend-header' : '' }}">
+                                            <th class="{{ $isWeekend ? 'weekend-header' : '' }}" style="width:55px; min-width:55px; max-width:55px;">
                                                 <div class="date-header">
-                                                    <span class="day-number">{{ $date->format('d M') }}</span>
+                                                    <span class="day-number">{{ $date->format('d') }}</span>
                                                     <span class="day-name">{{ $date->format('D') }}</span>
                                                     @if(isset($holidayDates[$dateKey]))
                                                         <span class="holiday-label">🎉</span>
@@ -863,11 +673,6 @@
                                                 </div>
                                             </th>
                                         @endfor
-                                        <th class="total-header">Total</th>
-                                        <th class="total-header">Reg</th>
-                                        <th class="total-header">OT</th>
-                                        <th class="total-header">Sun</th>
-                                        <th class="total-header">Hol</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -882,18 +687,27 @@
                                                 'Final' => 'status-final',
                                                 'Locked' => 'status-locked',
                                             ][$status] ?? 'status-draft';
-                                            $rowTotal = 0;
                                         @endphp
                                         <tr>
-                                            <!-- Employee Cell -->
+                                            <!-- Employee Number -->
                                             <td class="employee-cell">
-                                                <div class="employee-name" title="{{ $employee->full_name }}">{{ $employee->full_name }}</div>
-                                                <div class="employee-number">#{{ $employee->employee_number }}</div>
+                                                {{ $employee->employee_number }}
                                                 <span class="status-badge {{ $statusClass }}">
                                                     @if($status === 'Locked') 🔒 @endif
                                                     {{ $status }}
                                                 </span>
                                             </td>
+                                            
+                                            <!-- Employee Name -->
+                                            <td class="employee-cell name" title="{{ $employee->full_name }}">
+                                                {{ $employee->full_name }}
+                                            </td>
+
+                                            <!-- Summary Columns (REG, OT, Sun, Hol) -->
+                                            <td class="summary-col reg">{{ number_format($summary->regular_hours ?? 0, 2) }}</td>
+                                            <td class="summary-col ot">{{ number_format($summary->overtime_hours ?? 0, 2) }}</td>
+                                            <td class="summary-col sun">{{ number_format($summary->sunday_hours ?? 0, 2) }}</td>
+                                            <td class="summary-col hol">{{ number_format($summary->holiday_hours ?? 0, 2) }}</td>
 
                                             <!-- Day Cells -->
                                             @for($i = 0; $i < 14; $i++)
@@ -901,12 +715,8 @@
                                                     $date = $period['start']->copy()->addDays($i);
                                                     $dateKey = $date->format('Y-m-d');
                                                     $log = $employeeLogs->get($dateKey);
-                                                    $type = $log ? $log->attendance_type : 'Work';
                                                     $hours = $log ? $log->hours_worked : '';
                                                     $isWeekend = $date->isWeekend();
-                                                    if (!in_array($type, ['Annual Leave', 'Leave Without Pay', 'Absent'], true)) {
-                                                        $rowTotal += (float) ($log->hours_worked ?? 0);
-                                                    }
                                                 @endphp
                                                 <td class="day-cell {{ $isWeekend ? 'weekend-cell' : '' }}">
                                                     <input type="number"
@@ -916,31 +726,14 @@
                                                         step="any"
                                                         min="0"
                                                         max="24"
-                                                        placeholder="0"
+                                                        placeholder=""
                                                         title="Enter hours for {{ $date->format('M d, Y') }}"
                                                         {{ $isLocked ? 'disabled' : '' }}>
-                                                    
-                                                    <div class="type-select-wrap">
-                                                        <select name="attendance[{{ $employee->id }}][{{ $dateKey }}][type]" 
-                                                                class="type-select" 
-                                                                {{ $isLocked ? 'disabled' : '' }}
-                                                                title="Select attendance type for {{ $date->format('M d, Y') }}">
-                                                            <option value="Work" {{ $type == 'Work' ? 'selected' : '' }}>Work</option>
-                                                            <option value="Sick Leave" {{ $type == 'Sick Leave' ? 'selected' : '' }}>Sick</option>
-                                                            <option value="Annual Leave" {{ $type == 'Annual Leave' ? 'selected' : '' }}>AL</option>
-                                                            <option value="Leave Without Pay" {{ $type == 'Leave Without Pay' ? 'selected' : '' }}>LWP</option>
-                                                            <option value="Absent" {{ $type == 'Absent' ? 'selected' : '' }}>Absent</option>
-                                                        </select>
-                                                    </div>
+                                                    <input type="hidden" 
+                                                        name="attendance[{{ $employee->id }}][{{ $dateKey }}][type]" 
+                                                        value="{{ $log ? $log->attendance_type : 'Work' }}">
                                                 </td>
                                             @endfor
-
-                                            <!-- Totals -->
-                                            <td class="total-cell employee-total">{{ number_format($rowTotal, 1) }}</td>
-                                            <td class="total-cell">{{ number_format($summary->regular_hours ?? 0, 1) }}</td>
-                                            <td class="total-cell">{{ number_format($summary->overtime_hours ?? 0, 1) }}</td>
-                                            <td class="total-cell">{{ number_format($summary->sunday_hours ?? 0, 1) }}</td>
-                                            <td class="total-cell">{{ number_format($summary->holiday_hours ?? 0, 1) }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -950,7 +743,7 @@
                         <!-- Info Box -->
                         <div class="info-box">
                             <i class="fas fa-info-circle"></i>
-                            <span>Edit hours and attendance type directly in the grid. Locked timesheets are read-only.</span>
+                            <span>Edit hours directly in the grid. Locked timesheets are read-only.</span>
                         </div>
                     @else
                         <!-- Empty State -->
@@ -974,4 +767,59 @@
         @endif
     </div>
 </div>
+
+<script>
+    function exportTable() {
+        var table = document.getElementById('attendanceTable');
+        var rows = table.querySelectorAll('tr');
+        var csv = [];
+        
+        // Get headers
+        var headers = [];
+        var headerRow = rows[0];
+        var headerCells = headerRow.querySelectorAll('th');
+        headerCells.forEach(function(cell) {
+            var text = cell.textContent.trim();
+            // Clean up header text
+            text = text.replace(/[🎉]/g, '').trim();
+            headers.push(text);
+        });
+        csv.push(headers.join(','));
+        
+        // Get data rows
+        for (var i = 1; i < rows.length; i++) {
+            var row = rows[i];
+            var cells = row.querySelectorAll('td');
+            var rowData = [];
+            cells.forEach(function(cell) {
+                var input = cell.querySelector('input.hours-input');
+                if (input) {
+                    rowData.push(input.value || '0');
+                } else {
+                    var text = cell.textContent.trim();
+                    rowData.push(text);
+                }
+            });
+            csv.push(rowData.join(','));
+        }
+        
+        // Download
+        var csvContent = csv.join('\n');
+        var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        var link = document.createElement('a');
+        var url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'attendance_summary_{{ $fortnight }}.csv');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // Auto-submit on fortnight change
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('fortnight')?.addEventListener('change', function() {
+            this.closest('form').submit();
+        });
+    });
+</script>
 @endsection

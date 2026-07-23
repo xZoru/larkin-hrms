@@ -19,7 +19,7 @@ class StoreEmployeeRequest extends FormRequest
             'middle_name' => 'nullable|string|max:255',
             'extension_name' => 'nullable|string|max:255',
             'company_id' => 'required|exists:companies,id',
-            'department_id' => 'nullable|exists:departments,id',
+            'department_name' => 'required|string|max:255',
             'employee_number' => 'nullable|unique:employees,employee_number',
             'gender' => 'required|in:Male,Female,Other',
             'marital_status' => 'nullable|in:Single,Married,Divorced,Widowed',

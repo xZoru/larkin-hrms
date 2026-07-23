@@ -711,13 +711,16 @@ function renderTable() {
         html += '<tr><td colspan="7" class="px-3 py-4 text-center text-gray-500">No entries found</td></tr>';
     } else {
         allData.forEach(function(item, index) {
+            // ✅ Check if this is a manual entry (either from database or new)
             var isManual = item.is_manual || false;
             var isSavedManual = item.is_manual_entry || false;
-            var rowClass = (isManual || isSavedManual) ? 'bg-yellow-50' : '';
+            var isManualRow = isManual || isSavedManual;
+            
+            var rowClass = isManualRow ? 'bg-yellow-50' : '';
             var dataIndex = index;
             
             html += '<tr class="' + rowClass + '" data-index="' + dataIndex + '">';
-            html += '<td class="px-3 py-2">' + (index + 1) + (isManual || isSavedManual ? ' <span class="px-1.5 py-0.5 bg-yellow-200 text-yellow-800 rounded text-xs font-medium">Manual</span>' : '') + '</td>';
+            html += '<td class="px-3 py-2">' + (index + 1) + (isManualRow ? ' <span class="px-1.5 py-0.5 bg-yellow-200 text-yellow-800 rounded text-xs font-medium">Manual</span>' : '') + '</td>';
             html += '<td class="px-3 py-2">' + (item.bsb || '') + '</td>';
             html += '<td class="px-3 py-2">' + (item.account_number || '') + '</td>';
             
@@ -734,13 +737,17 @@ function renderTable() {
             html += '<td class="px-3 py-2 text-center">';
             
             if (isManual) {
+                // New manual entry (not saved yet)
                 html += '<button type="button" class="btn btn-danger btn-sm" style="padding: 2px 8px; font-size: 12px; border: none; border-radius: 4px; background: #ef4444; color: white; cursor: pointer;" onclick="removeManualRow(' + index + ')">';
                 html += '<i class="fas fa-times"></i>';
                 html += '</button>';
             } else if (isSavedManual) {
+                // Saved manual entry from database - can delete
                 html += '<button type="button" class="btn btn-danger btn-sm" style="padding: 2px 8px; font-size: 12px; border: none; border-radius: 4px; background: #ef4444; color: white; cursor: pointer;" onclick="deleteSavedManual(' + item.id + ')">';
                 html += '<i class="fas fa-trash"></i>';
                 html += '</button>';
+            } else {
+                html += '<span class="text-gray-400 text-xs">-</span>';
             }
             
             html += '</td>';
@@ -752,7 +759,6 @@ function renderTable() {
     updateTotals();
     document.getElementById('previewContent').style.display = 'block';
 }
-
 function updateAmount(index, value) {
     var amount = parseFloat(value);
     if (isNaN(amount) || amount < 0) {

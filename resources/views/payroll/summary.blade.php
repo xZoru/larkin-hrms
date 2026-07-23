@@ -655,13 +655,20 @@
                             <tbody>
                                 @foreach($payrollItems as $item)
                                 <tr data-id="{{ $item->id }}" data-employee-type="{{ $item->employee->employee_type ?? 'National' }}">
-                                    <td class="employee-cell" style="width:200px; min-width:200px; max-width:200px;">
-                                        <div class="employee-number" style="font-weight:600; color:#0f172a; font-size:11px;">
-                                            {{ $item->employee->employee_number ?? '' }}
-                                        </div>
-                                        <div class="employee-name" style="font-size:12px; margin-top:1px;">
-                                            {{ $item->employee->full_name ?? 'N/A' }}
-                                        </div>
+                                    <input type="hidden" class="basic-pay-original" value="{{ $item->basic_pay }}">
+                                    <td class="employee-cell">
+                                        @if($item->employee)
+                                            <div class="employee-number">{{ $item->employee->employee_number ?? '' }}</div>
+                                            <div class="employee-name">{{ $item->employee->full_name ?? 'N/A' }}</div>
+                                        @else
+                                            @php $details = $item->details; @endphp
+                                            <div class="employee-number" style="color:#ef4444; font-size:10px;">
+                                                {{ $details['account_number'] ?? 'MANUAL' }}
+                                            </div>
+                                            <div class="employee-name" style="color:#6b7280;">
+                                                {{ $details['account_name'] ?? 'Manual Entry' }}
+                                            </div>
+                                        @endif
                                     </td>
                                     <!-- FN RATE column - uses basic_pay (Original Basic Pay) -->
                                     <td class="num-cell-xs">
@@ -687,7 +694,8 @@
                                             name="items[{{ $item->id }}][regular_pay]"
                                             value="{{ number_format($item->regular_pay, 2, '.', '') }}"
                                             class="editable-input amount-positive"
-                                            data-original="{{ $item->regular_pay }}">
+                                            data-original="{{ $item->regular_pay }}"
+                                            disabled>
                                     </td>
                                     <td class="num-cell-sm">
                                         <input type="number" step="0.01" min="0" 
@@ -852,7 +860,10 @@
             if (grossPay >= bracket.min) {
                 if (bracket.max === null || grossPay <= bracket.max) {
                     // Tax = (Income × Rate%) - Offset (Fixed Tax)
-                    const tax = (grossPay * bracket.rate / 100) - bracket.fixed;
+                    const threshold = bracket.fixed || 769.00;
+                    const taxable = grossPay - threshold;
+                    if (taxable <= 0) return 0;
+                    const tax = taxable * (bracket.rate / 100);
                     return Math.max(0, Math.round(tax * 100) / 100);
                 }
             }
@@ -860,8 +871,11 @@
         
         // If no bracket found (income above all brackets), use the highest bracket
         const lastBracket = tables[tables.length - 1];
-        const tax = (grossPay * lastBracket.rate / 100) - lastBracket.fixed;
-        return Math.max(0, Math.round(tax * 100) / 100);
+        const threshold = lastBracket.fixed || 769.00;
+        const taxable = grossPay - threshold;
+        if (taxable <= 0) return 0;
+        const tax = taxable * (lastBracket.rate / 100);
+        return Math.round(tax * 100) / 100;
     }
 
     // Track edited fields with their original values
@@ -943,45 +957,34 @@
                             fieldName.includes('ncsl') ||
                             fieldName.includes('nasfund_ee');
         
-        // Get all earnings
-        const basicPay = parseFloat(row.querySelector('[name$="[regular_pay]"]')?.value) || 0;
+        // ✅ Get Basic Pay from hidden field (NEVER overwritten)
+        const basicPay = parseFloat(row.querySelector('.basic-pay-original')?.value) || 0;
+        
+        // Get other earnings
         const overtimePay = parseFloat(row.querySelector('[name$="[overtime_pay]"]')?.value) || 0;
         const sundayPay = parseFloat(row.querySelector('[name$="[sunday_pay]"]')?.value) || 0;
         const holidayPay = parseFloat(row.querySelector('[name$="[holiday_pay]"]')?.value) || 0;
         const leavePay = parseFloat(row.querySelector('[name$="[leave_pay]"]')?.value) || 0;
         const otherEarnings = parseFloat(row.querySelector('[name$="[other_earnings]"]')?.value) || 0;
         
-        // Calculate Tax on BASIC PAY only
-        let tax;
-        if (employeeType === 'Expatriate') {
-            // ✅ Expatriate: Tax on BASIC PAY only
-            tax = calculateTax(basicPay, employeeType);
-        } else {
-            // ✅ National: Tax on GROSS PAY (all earnings combined)
-            const gross = basicPay + overtimePay + sundayPay + holidayPay + leavePay + otherEarnings;
-            tax = calculateTax(gross, employeeType);
-        }
+        // Calculate Gross Total
+        const gross = basicPay + overtimePay + sundayPay + holidayPay + leavePay + otherEarnings;
         
-        // Determine REGULAR PAY based on employee type
+        // ✅ Calculate Tax on BASIC PAY only (BOTH National and Expatriate)
+        const tax = calculateTax(basicPay, employeeType);
+        
+        // Determine REGULAR PAY based on employee type (for display only)
         let regularPay;
         if (employeeType === 'Expatriate') {
+            // Expatriate: REGULAR = Basic Pay + Tax (gross-up)
             regularPay = basicPay + tax;
         } else {
+            // National: REGULAR = Basic Pay (unchanged)
             regularPay = basicPay;
         }
         
-        // Calculate Gross Total
-        const gross = regularPay + overtimePay + sundayPay + holidayPay + leavePay + otherEarnings;
-        
-        // ✅ ONLY update REGULAR, Gross, and Tax if NOT a deduction field
+        // ✅ ONLY update Gross, Tax, and Net (NOT regular_pay)
         if (!isDeduction) {
-            // Update REGULAR field
-            const regularInput = row.querySelector('[name$="[regular_pay]"]');
-            if (regularInput) {
-                regularInput.value = regularPay.toFixed(2);
-                markEdited(regularInput);
-            }
-            
             // Update Gross field
             const grossInput = row.querySelector('[name$="[gross_wage]"]');
             if (grossInput) {
@@ -996,6 +999,13 @@
                 markEdited(taxField);
             }
             
+            // Update REGULAR field (DISPLAY ONLY - not used for tax calculation)
+            const regularInput = row.querySelector('[name$="[regular_pay]"]');
+            if (regularInput) {
+                regularInput.value = regularPay.toFixed(2);
+                // Do NOT markEdited or save this field
+            }
+            
             // Calculate NASFUND (6%) - ONLY if employee has NASFUND
             const nasfundField = row.querySelector('[name$="[nasfund_ee]"]');
             const originalNasfund = parseFloat(nasfundField?.dataset?.original) || 0;
@@ -1007,18 +1017,24 @@
             }
         }
         
-        // ✅ ALWAYS recalculate Net Pay (regardless of what was edited)
-        // Get deductions (these may have been changed)
+        // ✅ ALWAYS recalculate Net Pay using CURRENT displayed values
         const ncsl = parseFloat(row.querySelector('[name$="[ncsl]"]')?.value) || 0;
         const loan = parseFloat(row.querySelector('[name$="[loan_deduction]"]')?.value) || 0;
         const otherDeductions = parseFloat(row.querySelector('[name$="[other_deductions]"]')?.value) || 0;
         
-        // Get NASFUND (may have been changed if it was edited directly)
+        // Get current Gross and Tax from the displayed inputs (NOT recalculated)
+        const grossInput = row.querySelector('[name$="[gross_wage]"]');
+        const currentGross = parseFloat(grossInput?.value) || 0;
+        
+        const taxInput = row.querySelector('[name$="[tax]"]');
+        const currentTax = parseFloat(taxInput?.value) || 0;
+        
+        // Get NASFUND from the displayed input
         const nasfundField = row.querySelector('[name$="[nasfund_ee]"]');
         const nasfund = parseFloat(nasfundField?.value) || 0;
         
-        // Calculate Net Pay
-        const net = gross - tax - nasfund - ncsl - loan - otherDeductions;
+        // Calculate Net Pay using current displayed values
+        const net = currentGross - currentTax - nasfund - ncsl - loan - otherDeductions;
         
         // Update Net Pay field
         const netField = row.querySelector('[name$="[net_pay]"]');

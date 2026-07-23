@@ -75,6 +75,7 @@ class PayrollItem extends Model
         'other_deductions' => 'decimal:2',
         'total_deductions' => 'decimal:2',
         'net_pay' => 'decimal:2',
+        'employee_id' => 'integer',  //  Added 
     ];
 
     public function payroll()

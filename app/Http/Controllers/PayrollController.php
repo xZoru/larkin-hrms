@@ -464,12 +464,18 @@ public function summary(Request $request)
             $payrollItems->each(function ($item) {
                 $employee = $item->employee;
                 
-                if ((float) $employee->monthly_salary > 0) {
-                    // Calculate from monthly salary (monthly / 2)
-                    $item->fn_rate = round((float) $employee->monthly_salary / 2, 2);
+                // ✅ Check if employee exists (manual entries have null employee_id)
+                if ($employee) {
+                    if ((float) $employee->monthly_salary > 0) {
+                        // Calculate from monthly salary (monthly / 2)
+                        $item->fn_rate = round((float) $employee->monthly_salary / 2, 2);
+                    } else {
+                        // Fallback to hourly_rate * 84
+                        $item->fn_rate = round((float) $employee->hourly_rate * 84, 2);
+                    }
                 } else {
-                    // Fallback to hourly_rate * 84
-                    $item->fn_rate = round((float) $employee->hourly_rate * 84, 2);
+                    // ✅ Manual entry - set fn_rate to 0 or net_pay
+                    $item->fn_rate = round((float) $item->net_pay, 2);
                 }
             });
             

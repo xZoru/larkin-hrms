@@ -147,7 +147,13 @@
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 required-label">Birth Date</label>
-                                    <input type="date" name="date_of_birth" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 @error('date_of_birth') border-red-500 @enderror" value="{{ old('date_of_birth') }}">
+                                    <input type="text" 
+                                        name="date_of_birth" 
+                                        id="date_of_birth"
+                                        required 
+                                        class="flatpickr-input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 @error('date_of_birth') border-red-500 @enderror" 
+                                        value="{{ old('date_of_birth') }}"
+                                        placeholder="DD/MM/YYYY">
                                     @error('date_of_birth') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
@@ -172,16 +178,32 @@
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 required-label">Joining Date</label>
-                                <input type="date" name="joining_date" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 @error('joining_date') border-red-500 @enderror" value="{{ old('joining_date') }}">
+                                <input type="text" 
+                                    name="joining_date" 
+                                    id="joining_date"
+                                    required 
+                                    class="flatpickr-input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 @error('joining_date') border-red-500 @enderror" 
+                                    value="{{ old('joining_date') }}"
+                                    placeholder="DD/MM/YYYY">
                                 @error('joining_date') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">End Date</label>
-                                <input type="date" name="end_date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" value="{{ old('end_date') }}">
+                                <input type="text" 
+                                    name="end_date" 
+                                    id="end_date"
+                                    class="flatpickr-input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" 
+                                    value="{{ old('end_date') }}"
+                                    placeholder="DD/MM/YYYY">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Deployment Date Home Country</label>
-                                <input type="date" name="deployment_date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" value="{{ old('deployment_date') }}">
+                                <input type="text" 
+                                    name="deployment_date" 
+                                    id="deployment_date"
+                                    class="flatpickr-input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" 
+                                    value="{{ old('deployment_date') }}"
+                                    placeholder="DD/MM/YYYY">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Workshift</label>
@@ -224,13 +246,19 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 required-label">Department</label>
-                                <select name="department_id" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 @error('department_id') border-red-500 @enderror">
-                                    <option value="">Select Department</option>
+                                <input type="text" 
+                                    name="department_name" 
+                                    list="department_suggestions" 
+                                    required
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 @error('department_name') border-red-500 @enderror"
+                                    value="{{ old('department_name') }}"
+                                    placeholder="Type or select a department">
+                                <datalist id="department_suggestions">
                                     @foreach($departments as $department)
-                                        <option value="{{ $department->id }}" {{ old('department_id') == $department->id ? 'selected' : '' }}>{{ $department->name }}</option>
+                                        <option value="{{ $department->name }}"></option>
                                     @endforeach
-                                </select>
-                                @error('department_id') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                                </datalist>
+                                @error('department_name') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 required-label">Employee Label</label>
@@ -633,6 +661,35 @@
                 });
             }
         });
+
+                // ============ FLATPKR DATE PICKER ============
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize all date pickers
+            flatpickr(".flatpickr-input", {
+                dateFormat: "d/m/Y",
+                allowInput: true,
+                weekNumbers: true,
+                altInput: true,
+                altFormat: "d/m/Y",
+            });
+
+            // You can also add specific configs for different fields if needed
+            flatpickr("#date_of_birth", {
+                dateFormat: "d/m/Y",
+                allowInput: true,
+                maxDate: new Date(), // Can't select future dates
+                altInput: true,
+                altFormat: "d/m/Y",
+            });
+
+            flatpickr("#joining_date", {
+                dateFormat: "d/m/Y",
+                allowInput: true,
+                altInput: true,
+                altFormat: "d/m/Y",
+            });
+        });
+        
     })();
 </script>
 @endsection

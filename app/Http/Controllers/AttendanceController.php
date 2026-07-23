@@ -671,31 +671,41 @@ class AttendanceController extends Controller
     private function generateExpatriateSchedule(Employee $employee, string $fortnight, int $scheduleHours, array $publicHolidays, string $currentStatus): void
     {
         $period = $this->getFortnightPeriod($fortnight);
+        $records = [];
 
         for ($i = 0; $i < 14; $i++) {
             $date = $period['start']->copy()->addDays($i);
+            $dateString = $date->format('Y-m-d');
+            
             $isSaturday = $date->isSaturday();
             $isSunday = $date->isSunday();
-
             $hours = $isSunday ? 0 : ($scheduleHours === 144 ? 12 : ($isSaturday ? 2 : 8));
 
-            $data = [
-                'hours_worked' => $hours,
-                'attendance_type' => 'Work',
-                'notes' => 'Generated expatriate schedule',
-                'is_sunday' => $isSunday,
-                'is_holiday' => in_array($date->format('Y-m-d'), $publicHolidays, true),
+            $record = [
+                'employee_id'      => $employee->id,
+                'date'             => $dateString,
+                'hours_worked'     => $hours,
+                'attendance_type'  => 'Work',
+                'notes'            => 'Generated expatriate schedule',
+                'is_sunday'        => $isSunday ? 1 : 0,
+                'is_holiday'       => in_array($dateString, $publicHolidays, true) ? 1 : 0,
                 'fortnight_number' => $fortnight,
+                'updated_at'       => now(),
+                'created_at'       => now(),
             ];
 
             if ($currentStatus === 'Draft') {
-                $data['timesheet_status'] = 'Draft';
+                $record['timesheet_status'] = 'Draft';
             }
 
-            AttendanceLog::updateOrCreate(
-                ['employee_id' => $employee->id, 'date' => $date->format('Y-m-d')],
-                $data
-            );
+            $records[] = $record;
         }
+
+        // Single atomic database operation based on the unique index [employee_id, date]
+        AttendanceLog::upsert(
+            $records,
+            ['employee_id', 'date'], // Columns that hold the unique constraint
+            ['hours_worked', 'attendance_type', 'notes', 'is_sunday', 'is_holiday', 'fortnight_number', 'updated_at'] // Columns to update on duplicate
+        );
     }
 }

@@ -124,7 +124,35 @@ class EmployeeController extends Controller
         $data['joining_date'] = $request->joining_date;
         $data['date_of_birth'] = $request->date_of_birth;
         $data['company_id'] = $request->company_id;
-        $data['department_id'] = $request->department_id;
+        
+        $departmentName = trim($request->department_name);
+        if (!empty($departmentName)) {
+            $department = Department::firstOrCreate(
+                [
+                    'name' => $departmentName,
+                    'company_id' => $request->company_id,
+                ],
+                [
+                    'code' => strtoupper(substr(preg_replace('/[^a-zA-Z0-9]/', '', $departmentName), 0, 3)) . '-' . str_pad(rand(1, 999), 3, '0', STR_PAD_LEFT),
+                    'is_active' => true,
+                ]
+            );
+            // Handle department - find existing or create new
+            $departmentName = trim($request->department_name);
+            if (!empty($departmentName)) {
+                $department = Department::firstOrCreate(
+                    [
+                        'name' => $departmentName,
+                        'company_id' => $request->company_id,
+                    ],
+                    [
+                        'code' => strtoupper(substr(preg_replace('/[^a-zA-Z0-9]/', '', $departmentName), 0, 3)) . '-' . str_pad(rand(1, 999), 3, '0', STR_PAD_LEFT),
+                        'is_active' => true,
+                    ]
+                );
+                $data['department_id'] = $department->id;
+            }
+        }
 
          $fortnightHours = $request->fortnight_hours ?? 84;
         if ($request->fortnight_hours === 'custom') {

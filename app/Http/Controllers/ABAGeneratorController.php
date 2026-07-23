@@ -439,39 +439,41 @@ class ABAGeneratorController extends Controller
     /**
      * Delete a manual entry from payroll
      */
-    public function deleteManualEntry($payrollItemId)
-    {
-        try {
-            $payrollItem = PayrollItem::findOrFail($payrollItemId);
-            
-            $details = $payrollItem->details;
-            if (!is_array($details) || !isset($details['type']) || $details['type'] !== 'manual_entry') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This is not a manual entry.'
-                ], 400);
-            }
-            
-            $payrollId = $payrollItem->payroll_id;
-            $payrollItem->delete();
-            
-            $payroll = Payroll::find($payrollId);
-            if ($payroll) {
-                $payroll->calculateTotals();
-            }
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'Manual entry deleted successfully.'
-            ]);
-            
-        } catch (\Exception $e) {
+public function deleteManualEntry($payrollItemId)
+{
+    try {
+        $payrollItem = PayrollItem::findOrFail($payrollItemId);
+        
+        $details = $payrollItem->details;
+        if (!is_array($details) || !isset($details['type']) || $details['type'] !== 'manual_entry') {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
+                'message' => 'This is not a manual entry.'
+            ], 400);
         }
+        
+        $payrollId = $payrollItem->payroll_id;
+        
+        // ✅ Delete the manual entry
+        $payrollItem->delete();
+        
+        $payroll = Payroll::find($payrollId);
+        if ($payroll) {
+            $payroll->calculateTotals();
+        }
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Manual entry deleted successfully.'
+        ]);
+        
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * Preview payroll data in table format
@@ -485,58 +487,65 @@ public function previewPayroll($payrollId, Request $request)
                 ->orderBy('priority', 'asc');
         }])->findOrFail($payrollId);
         
-        // ✅ GET DEBIT DESCRIPTION FROM REQUEST
         $debitDescription = $request->get('debit_description', '');
         
-        $payrollItems = $payroll->items()
+        // ✅ Get ALL payroll items (including those with null employee_id)
+        $allItems = $payroll->items()
             ->where('net_pay', '>', 0)
-            ->get()
-            ->filter(function($item) {
-                return $item->employee && 
-                    $item->employee->bankAccounts && 
-                    $item->employee->bankAccounts->isNotEmpty();
-            });
+            ->get();
 
         $data = [];
-        foreach ($payrollItems as $item) {
-            $employee = $item->employee;
-            $bankAccount = $employee->bankAccounts()->where('is_active', true)->first();
-            
-            $bsb = $bankAccount->bsb_code ?? '';
-            $bsb = preg_replace('/[^0-9]/', '', $bsb);
-            if (strlen($bsb) >= 6) {
-                $bsb = substr($bsb, 0, 3) . '-' . substr($bsb, 3, 3);
-            }
-            
+        
+        foreach ($allItems as $item) {
+            // ✅ Check if this is a manual entry
             $details = $item->details;
             $isManualEntry = is_array($details) && isset($details['type']) && $details['type'] === 'manual_entry';
             
-            // ✅ USE DEBIT DESCRIPTION FROM REQUEST
-            $description = $debitDescription;
-            if (!$description) {
-                // Fallback to existing logic
-                if ($isManualEntry && isset($details['description'])) {
-                    $description = $details['description'];
-                } elseif ($payroll->fortnight_number) {
-                    $description = 'FN' . $payroll->fortnight_number;
+            if ($isManualEntry) {
+                // ✅ This is a manual entry - use details from JSON
+                $data[] = [
+                    'id' => $item->id,
+                    'bsb' => $details['bsb'] ?? '',
+                    'account_number' => $details['account_number'] ?? '',
+                    'amount' => $item->net_pay,
+                    'account_name' => $details['account_name'] ?? 'MANUAL',
+                    'description' => $details['description'] ?? 'MANUAL',
+                    'is_manual_entry' => true,
+                    'is_saved_manual' => true,
+                ];
+            } elseif ($item->employee) {
+                // ✅ Regular employee payroll item
+                $bankAccount = $item->employee->bankAccounts()->where('is_active', true)->first();
+                
+                if (!$bankAccount) {
+                    continue;
                 }
+                
+                $bsb = $bankAccount->bsb_code ?? '';
+                $bsb = preg_replace('/[^0-9]/', '', $bsb);
+                if (strlen($bsb) >= 6) {
+                    $bsb = substr($bsb, 0, 3) . '-' . substr($bsb, 3, 3);
+                }
+                
+                $data[] = [
+                    'id' => $item->id,
+                    'bsb' => $bsb,
+                    'account_number' => $bankAccount->account_number ?? '',
+                    'amount' => $item->net_pay,
+                    'account_name' => strtoupper($bankAccount->account_name ?? $item->employee->full_name),
+                    'description' => strtoupper($debitDescription ?: ($payroll->fortnight_number ? 'FN' . $payroll->fortnight_number : '')),
+                    'is_manual_entry' => false,
+                    'is_saved_manual' => false,
+                ];
             }
-            
-            $data[] = [
-                'id' => $item->id,
-                'bsb' => $bsb,
-                'account_number' => $bankAccount->account_number ?? '',
-                'amount' => $item->net_pay,
-                'account_name' => strtoupper($bankAccount->account_name ?? $employee->full_name),
-                'description' => strtoupper($description),
-                'is_manual_entry' => $isManualEntry,
-            ];
         }
+
+        $total = array_sum(array_column($data, 'amount'));
 
         return response()->json([
             'success' => true,
             'data' => $data,
-            'total' => $payroll->total_net ?? 0,
+            'total' => $total,
             'count' => count($data),
         ]);
         
@@ -569,55 +578,39 @@ public function saveAllEntries(Request $request)
         $manualCount = 0;
 
         foreach ($entries as $entry) {
-            if ($entry['type'] === 'payroll_item') {
+            if ($entry['type'] === 'payroll_item' && isset($entry['payroll_item_id'])) {
                 // ✅ Update existing payroll item
                 $payrollItem = PayrollItem::find($entry['payroll_item_id']);
                 if ($payrollItem) {
-                    // Calculate the difference to adjust gross/net
                     $oldAmount = $payrollItem->net_pay;
                     $newAmount = $entry['amount'];
                     $difference = $newAmount - $oldAmount;
                     
-                    // Update the payroll item
                     $payrollItem->net_pay = $newAmount;
                     $payrollItem->gross_wage = $payrollItem->gross_wage + $difference;
                     $payrollItem->save();
-                    
                     $updatedCount++;
                 }
+        } else {
+            // ✅ Create manual entry WITHOUT creating employee
+            $bsb = str_replace('-', '', $entry['bsb']);
+            
+            // Check if manual entry already exists
+            $existingManual = PayrollItem::where('payroll_id', $payroll->id)
+                ->whereNull('employee_id')
+                ->where('details->type', 'manual_entry')
+                ->where('details->account_number', $entry['account_number'])
+                ->where('details->bsb', $bsb)
+                ->first();
+            
+            if ($existingManual) {
+                $existingManual->net_pay = $entry['amount'];
+                $existingManual->gross_wage = $entry['amount'];
+                $existingManual->save();
             } else {
-                // ✅ Create new manual entry
-                $employee = Employee::where('company_id', $payroll->company_id)
-                    ->where('full_name', 'LIKE', '%' . $entry['account_name'] . '%')
-                    ->first();
-
-                if (!$employee) {
-                    $employee = Employee::create([
-                        'company_id' => $payroll->company_id,
-                        'first_name' => $entry['account_name'],
-                        'last_name' => 'MANUAL',
-                        'full_name' => $entry['account_name'],
-                        'employee_type' => 'National',
-                        'status' => 'Active',
-                        'employee_number' => 'MANUAL-' . time() . rand(100, 999),
-                        'position' => 'Manual Payment',
-                    ]);
-
-                    $bankAccount = new \App\Models\BankAccount();
-                    $bankAccount->employee_id = $employee->id;
-                    $bankAccount->account_name = $entry['account_name'];
-                    $bankAccount->account_number = $entry['account_number'];
-                    $bankAccount->bsb_code = str_replace('-', '', $entry['bsb']);
-                    $bankAccount->bank_name = 'Manual Entry';
-                    $bankAccount->is_active = true;
-                    $bankAccount->is_preferred = true;
-                    $bankAccount->priority = 1;
-                    $bankAccount->save();
-                }
-
                 PayrollItem::create([
                     'payroll_id' => $payroll->id,
-                    'employee_id' => $employee->id,
+                    'employee_id' => null,  // ✅ This will now work
                     'gross_wage' => $entry['amount'],
                     'net_pay' => $entry['amount'],
                     'regular_hours' => 0,
@@ -627,6 +620,7 @@ public function saveAllEntries(Request $request)
                     'hours_worked' => 0,
                     'hourly_rate' => 0,
                     'overtime_rate' => 0,
+                    'basic_pay' => 0,
                     'regular_pay' => 0,
                     'overtime_pay' => 0,
                     'sunday_pay' => 0,
@@ -639,16 +633,21 @@ public function saveAllEntries(Request $request)
                     'other_deductions' => 0,
                     'total_deductions' => 0,
                     'payment_method' => 'Bank Transfer',
-                    'details' => json_encode([
+                    'details' => [
                         'type' => 'manual_entry',
                         'description' => $entry['description'] ?? 'Manual Payment',
-                    ])
+                        'account_name' => $entry['account_name'],
+                        'account_number' => $entry['account_number'],
+                        'bsb' => $bsb,
+                        'is_manual_entry' => true,
+                        'employee_id' => null
+                    ]
                 ]);
                 $manualCount++;
             }
         }
+        }
 
-        // Recalculate payroll totals
         $payroll->calculateTotals();
 
         return response()->json([
