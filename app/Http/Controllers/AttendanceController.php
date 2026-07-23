@@ -9,7 +9,7 @@ use App\Models\Holiday;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
-
+use Illuminate\Support\Facades\DB;
 class AttendanceController extends Controller
 {
     // ============ MAIN ATTENDANCE PAGE ============
@@ -170,8 +170,11 @@ class AttendanceController extends Controller
                 ])->with('error', 'The selected expatriate schedule is not available for this employee.');
             }
 
-            $this->generateExpatriateSchedule($employee, $fortnight, $scheduleHours, $publicHolidays, $currentStatus);
-            $this->updateSummary($employeeId, $fortnight);
+            // Wrap generation and summary updating in a database transaction
+            DB::transaction(function () use ($employee, $fortnight, $scheduleHours, $publicHolidays, $currentStatus) {
+                $this->generateExpatriateSchedule($employee, $fortnight, $scheduleHours, $publicHolidays, $currentStatus);
+                $this->updateSummary($employee->id, $fortnight);
+            });
 
             return redirect()->route('attendance.index', [
                 'fortnight' => $fortnight,
