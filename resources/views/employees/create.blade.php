@@ -670,7 +670,7 @@
                 allowInput: true,
                 weekNumbers: true,
                 altInput: true,
-                altFormat: "d/m/Y",
+                altFormat: "Y/m/d",
             });
 
             // You can also add specific configs for different fields if needed
@@ -686,7 +686,7 @@
                 dateFormat: "d/m/Y",
                 allowInput: true,
                 altInput: true,
-                altFormat: "d/m/Y",
+                altFormat: "Y/m/d",
             });
         });
         
