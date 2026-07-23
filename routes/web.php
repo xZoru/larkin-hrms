@@ -10,7 +10,6 @@ use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\LoanRequestController;
 use App\Http\Controllers\ABAGeneratorController;
 use App\Http\Controllers\DepartmentController;
-use App\Http\Controllers\PositionController;
 use App\Http\Controllers\TaxTableController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\CompanyBankDetailsController;
@@ -85,6 +84,8 @@ Route::post('/company/switch/{company}', [CompanyController::class, 'switch'])
 // ============ ATTENDANCE ROUTES ============
 Route::middleware(['auth'])->group(function () {
     Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance.index');
+    Route::get('/attendance/summary', [AttendanceController::class, 'summary'])->name('attendance.summary');
+    Route::post('/attendance/summary/bulk-update', [AttendanceController::class, 'summaryBulkUpdate'])->name('attendance.summary.bulk-update');
     Route::post('/attendance/bulk-update', [AttendanceController::class, 'bulkUpdate'])->name('attendance.bulk.update');
     Route::delete('/attendance/{log}', [AttendanceController::class, 'destroy'])->name('attendance.destroy');
     Route::get('/employees/{employee}/attendance', [AttendanceController::class, 'show'])->name('employees.attendance');
@@ -96,10 +97,14 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/payroll/create', [PayrollController::class, 'create'])->name('payroll.create');
     Route::post('/payroll', [PayrollController::class, 'store'])->name('payroll.store');
     Route::get('/payroll/summary', [PayrollController::class, 'summary'])->name('payroll.summary');
-    Route::get('/payroll/{payroll}', [PayrollController::class, 'show'])->name('payroll.show');
+    Route::patch('/payroll-items/{payrollItem}/allowance', [PayrollController::class, 'updateAllowance'])->name('payroll-items.allowance.update');
     Route::post('/payroll/{payroll}/approve', [PayrollController::class, 'approve'])->name('payroll.approve');
     Route::get('/payroll/{payroll}/export-aba', [PayrollController::class, 'exportABA'])->name('payroll.export-aba');
     Route::delete('/payroll/{payroll}', [PayrollController::class, 'destroy'])->name('payroll.destroy');
+    Route::post('/payroll/summary/bulk-update', [PayrollController::class, 'summaryBulkUpdate'])
+    ->name('payroll.summary.bulk-update');
+    Route::post('/payroll/calculate-tax', [PayrollController::class, 'calculateTax'])
+    ->name('payroll.calculate-tax');
 });
 
 // ============ LOAN REQUESTS ROUTES ============
@@ -140,14 +145,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/departments', [DepartmentController::class, 'index'])->name('departments.index');
     Route::post('/departments', [DepartmentController::class, 'store'])->name('departments.store');
     Route::delete('/departments/{department}', [DepartmentController::class, 'destroy'])->name('departments.destroy');
-});
-
-// ============ POSITIONS ROUTES ============
-Route::middleware(['auth'])->prefix('positions')->name('positions.')->group(function () {
-    Route::get('/', [PositionController::class, 'index'])->name('index');
-    Route::post('/', [PositionController::class, 'store'])->name('store');
-    Route::delete('/{position}', [PositionController::class, 'destroy'])->name('destroy');
-    Route::post('/{position}/toggle', [PositionController::class, 'toggle'])->name('toggle');
 });
 
 Route::middleware(['auth'])->prefix('tax-tables')->name('tax-tables.')->group(function () {

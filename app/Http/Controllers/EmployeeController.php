@@ -6,7 +6,6 @@ use App\Models\Employee;
 use App\Models\Company;
 use App\Models\Department;
 use App\Models\BankAccount;
-use App\Models\Position;
 use App\Http\Requests\StoreEmployeeRequest;
 use App\Http\Requests\UpdateEmployeeRequest;
 use Illuminate\Http\Request;
@@ -22,6 +21,19 @@ class EmployeeController extends Controller
         return auth()->user()->getCurrentCompanyId();
     }
 
+    private function getPositionSuggestions($companyId = null)
+    {
+        return Employee::query()
+            ->when($companyId, function ($query) use ($companyId) {
+                $query->where('company_id', $companyId);
+            })
+            ->whereNotNull('position')
+            ->where('position', '!=', '')
+            ->distinct()
+            ->orderBy('position')
+            ->pluck('position');
+    }
+
     // Display a listing of employees
     public function index(Request $request)
     {
@@ -29,12 +41,9 @@ class EmployeeController extends Controller
         $companyId = $this->getCompanyId();
         $allowedTypes = $user->getAllowedEmployeeTypes();
 
-        $query = Employee::with(['company', 'department', 'position']);
+        $query = Employee::with(['company', 'department']);
 
-        // Super Admin sees ALL employees (no company filter)
-        if (!$user->isSuperAdmin()) {
-            $query->where('company_id', $companyId);
-        }
+        $query->where('company_id', $companyId);
 
         $query->whereIn('employee_type', $allowedTypes)
             ->when($request->search, function($query) use ($request) {
@@ -43,8 +52,8 @@ class EmployeeController extends Controller
                       ->orWhere('employee_number', 'like', '%' . $request->search . '%');
                 });
             })
-            ->when($request->position_id, function($query) use ($request) {
-                return $query->where('position_id', $request->position_id);
+            ->when($request->position, function($query) use ($request) {
+                return $query->where('position', $request->position);
             })
             ->when($request->department, function($query) use ($request) {
                 return $query->where('department_id', $request->department);
@@ -58,11 +67,7 @@ class EmployeeController extends Controller
 
         $employees = $query->paginate(20);
 
-        // Get positions for the filter dropdown
-        $positions = Position::where('company_id', $companyId)
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get();
+        $positions = $this->getPositionSuggestions($companyId);
 
         return view('employees.index', compact('employees', 'positions'));
     }
@@ -83,11 +88,7 @@ class EmployeeController extends Controller
         // FIX: Pull ALL departments because they are now universal system-wide!
         $departments = Department::all(); 
         
-        $positions = Position::where('company_id', $companyId)
-            ->where('is_active', true)
-            ->with('department')
-            ->orderBy('name')
-            ->get();
+        $positions = $this->getPositionSuggestions($user->isSuperAdmin() ? null : $companyId);
 
         return view('employees.create', compact('companies', 'departments', 'positions'));
     }
@@ -113,7 +114,9 @@ class EmployeeController extends Controller
         }
 
         $data['full_name'] = $fullName;
-        $data['position_id'] = $request->position_id;
+        $data['position'] = trim($request->position);
+        $data['position_id'] = null;
+        $data['allowance'] = $request->allowance ?? 0;
         $data['status'] = $request->status ?? 'Active';
         $data['employee_type'] = $request->employee_type ?? 'National';
         $data['marital_status'] = $request->marital_status;
@@ -168,18 +171,6 @@ class EmployeeController extends Controller
 
         if ($request->hasFile('photo')) {
             $data['photo_path'] = $request->file('photo')->store('employees/photos', 'public');
-        }
-
-        
-        if (!empty($data['position_id'])) {
-            // 1. Look inside the positions table for the row with ID 1 (e.g., Painter)
-            $positionModel = \App\Models\Position::find($data['position_id']);
-            
-            // 2. If it finds it, copy the word "Painter" into the old text column slot!
-            $data['position'] = $positionModel ? $positionModel->name : 'Unassigned';
-        } else {
-            // 3. Fallback text if no ID was selected at all
-            $data['position'] = 'Unassigned';
         }
 
         $employee = Employee::create($data);
@@ -269,11 +260,7 @@ class EmployeeController extends Controller
         
         $departments = Department::where('company_id', $employee->company_id)->get();
         
-        $positions = Position::where('company_id', $employee->company_id)
-            ->where('is_active', true)
-            ->with('department')
-            ->orderBy('name')
-            ->get();
+        $positions = $this->getPositionSuggestions($employee->company_id);
                 
         $employee->load(['bankAccounts', 'documents', 'loans' => function($query) {
             $query->orderBy('created_at', 'desc');
@@ -311,7 +298,9 @@ class EmployeeController extends Controller
         }
 
         $data['full_name'] = $fullName;
-        $data['position_id'] = $request->position_id;
+        $data['position'] = trim($request->position);
+        $data['position_id'] = null;
+        $data['allowance'] = $request->allowance ?? 0;
 
         $oldRate = $employee->hourly_rate;
         $newRate = $request->hourly_rate;

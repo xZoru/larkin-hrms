@@ -479,21 +479,19 @@
                                     @error('department_id') <p class="form-error">{{ $message }}</p> @enderror
                                 </div>
                                 
-                                <!-- Position/Designation - FIXED -->
+                                <!-- Position/Designation -->
                                 <div class="form-group">
                                     <label class="form-label required-label">Position/Designation</label>
-                                    <select name="position_id" required class="form-select @error('position_id') border-red-500 @enderror">
-                                        <option value="">Select Position/Designation</option>
+                                    <input type="text" name="position" list="position_suggestions" required
+                                        class="form-input @error('position') border-red-500 @enderror"
+                                        value="{{ old('position', $employee->position_name) }}"
+                                        placeholder="Type a position/designation">
+                                    <datalist id="position_suggestions">
                                         @foreach($positions as $position)
-                                            <option value="{{ $position->id }}" {{ old('position_id', $employee->position_id) == $position->id ? 'selected' : '' }}>
-                                                {{ $position->name }}
-                                                @if($position->department)
-                                                    ({{ $position->department->name }})
-                                                @endif
-                                            </option>
+                                            <option value="{{ $position }}"></option>
                                         @endforeach
-                                    </select>
-                                    @error('position_id') <p class="form-error">{{ $message }}</p> @enderror
+                                    </datalist>
+                                    @error('position') <p class="form-error">{{ $message }}</p> @enderror
                                 </div>
 
                                 <div class="form-group">
@@ -622,6 +620,19 @@
                                     placeholder="0.00"
                                     oninput="calculateMonthlySalary()">
                                 <p class="mt-1 text-xs text-gray-500">Enter hourly rate to auto-calculate monthly salary</p>
+                            </div>
+
+                            <!-- Allowance -->
+                            <div class="form-group">
+                                <label class="form-label">Allowance (K)</label>
+                                <input type="number"
+                                    step="0.01"
+                                    min="0"
+                                    name="allowance"
+                                    class="form-input @error('allowance') border-red-500 @enderror"
+                                    value="{{ old('allowance', $employee->allowance ?? 0) }}"
+                                    placeholder="0.00">
+                                @error('allowance') <p class="form-error">{{ $message }}</p> @enderror
                             </div>
 
                                 <!-- Payment Method -->

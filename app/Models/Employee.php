@@ -53,6 +53,7 @@ class Employee extends Model
         'monthly_salary',
         'fortnight_hours',
         'base_salary',
+        'allowance',
         'payment_method',
         
         // SOW: Status
@@ -74,6 +75,7 @@ class Employee extends Model
         'nasfund_allocation_percentage' => 'decimal:2',
         'hourly_rate' => 'decimal:2',
         'base_salary' => 'decimal:2',
+        'allowance' => 'decimal:2',
     ];
 
     public function position()
@@ -83,7 +85,7 @@ class Employee extends Model
 
     public function getPositionNameAttribute()
     {
-        return $this->position ? $this->position->name : null;
+        return $this->attributes['position'] ?? $this->position()->value('name');
     }
 
     // SOW: Age (auto-calculated)

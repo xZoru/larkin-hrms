@@ -69,14 +69,14 @@
                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" 
                                value="{{ old('tax_rate', $taxTable->tax_rate) }}">
                     </div>
-
-                    <!-- Fixed Tax -->
+                    
+                    <!-- Tax-Free Threshold -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Fixed Tax (K)</label>
+                        <label class="block text-sm font-medium text-gray-700 required-label">Tax-Free Threshold (K)</label>
                         <input type="number" step="0.01" name="fixed_tax" 
-                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" 
-                               value="{{ old('fixed_tax', $taxTable->fixed_tax) }}">
-                        <p class="mt-1 text-xs text-gray-500">Formula: Tax = (Income × Rate%) - Fixed Tax</p>
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" 
+                            value="{{ old('fixed_tax', $taxTable->fixed_tax) }}">
+                        <p class="mt-1 text-xs text-gray-500">Amount subtracted from income BEFORE applying tax rate. Example: 769.00 (fortnightly tax-free threshold)</p>
                     </div>
 
                     <!-- Effective Date -->

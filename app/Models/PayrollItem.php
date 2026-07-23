@@ -25,7 +25,8 @@ class PayrollItem extends Model
         'overtime_rate',
         
         // Pay components
-        'regular_pay',     //  Basic Pay
+        'basic_pay',
+        'regular_pay',     //  Basic Pay + Tax (gross-up for expats)
         'overtime_pay',
         'sunday_pay',
         'holiday_pay',
@@ -60,6 +61,7 @@ class PayrollItem extends Model
         'hours_worked' => 'decimal:2',
         'hourly_rate' => 'decimal:2',
         'overtime_rate' => 'decimal:2',
+        'basic_pay' => 'decimal:2', 
         'regular_pay' => 'decimal:2',
         'overtime_pay' => 'decimal:2',
         'sunday_pay' => 'decimal:2',

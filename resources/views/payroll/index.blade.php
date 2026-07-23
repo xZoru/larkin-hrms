@@ -347,11 +347,8 @@
                             </td>
                             <td>
                                 <div class="action-buttons">
-                                    <a href="{{ route('payroll.show', $payroll) }}" class="btn-action view" title="View Payroll">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                    <a href="{{ route('payroll.summary', ['fortnight' => $payroll->fortnight_number]) }}" class="btn-action summary" title="View Summary">
-                                        <i class="fas fa-chart-bar"></i>
+                                    <a href="{{ route('payroll.summary', ['fortnight' => $payroll->fortnight_number]) }}" class="btn-action summary" title="View Payroll Summary">
+                                        <i class="fas fa-chart-bar"></i> Summary
                                     </a>
                                     <form method="POST" action="{{ route('payroll.destroy', $payroll) }}" class="inline">
                                         @csrf

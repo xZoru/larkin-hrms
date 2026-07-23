@@ -22,7 +22,7 @@
                         <span class="badge bg-success">{{ $employee->status }}</span>
                     </div>
                     <div class="text-muted" style="font-size: 13px;">
-                        {{ $employee->employee_number }} | {{ $employee->position->name ?? 'N/A' }} | {{ $employee->company->name ?? 'N/A' }} | {{ $employee->employee_type }} • Age: {{ $employee->age ?? 'N/A' }}
+                        {{ $employee->employee_number }} | {{ $employee->position_name ?? 'N/A' }} | {{ $employee->company->name ?? 'N/A' }} | {{ $employee->employee_type }} • Age: {{ $employee->age ?? 'N/A' }}
                     </div>
                 </div>
                 <div class="ms-auto">
@@ -169,7 +169,7 @@
                 </div>
                 <div class="col-md-3">
                     <label class="text-muted small text-uppercase" style="font-size: 10px;">Position</label>
-                    <p class="fw-semibold mb-0">{{ $employee->position->name ?? 'N/A' }}</p>
+                    <p class="fw-semibold mb-0">{{ $employee->position_name ?? 'N/A' }}</p>
                 </div>
                 <div class="col-md-3">
                     <label class="text-muted small text-uppercase" style="font-size: 10px;">Fortnight Hours</label>
@@ -293,6 +293,10 @@
                 <div class="col-md-3">
                     <label class="text-muted small text-uppercase" style="font-size: 10px;">Base Salary</label>
                     <p class="fw-semibold mb-0">K {{ number_format($employee->base_salary ?? 0, 2) }}</p>
+                </div>
+                <div class="col-md-3">
+                    <label class="text-muted small text-uppercase" style="font-size: 10px;">Allowance</label>
+                    <p class="fw-semibold mb-0">K {{ number_format($employee->allowance ?? 0, 2) }}</p>
                 </div>
                 <div class="col-md-3">
                     <label class="text-muted small text-uppercase" style="font-size: 10px;">Payment Method</label>

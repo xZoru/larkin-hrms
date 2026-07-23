@@ -200,18 +200,16 @@
                             <!-- Position/Designation -->
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 required-label">Position/Designation</label>
-                                <select name="position_id" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 @error('position_id') border-red-500 @enderror">
-                                    <option value="">Select Position/Designation</option>
+                                <input type="text" name="position" list="position_suggestions" required
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 @error('position') border-red-500 @enderror"
+                                    value="{{ old('position') }}"
+                                    placeholder="Type a position/designation">
+                                <datalist id="position_suggestions">
                                     @foreach($positions as $position)
-                                        <option value="{{ $position->id }}" {{ old('position_id') == $position->id ? 'selected' : '' }}>
-                                            {{ $position->name }}
-                                            @if($position->department)
-                                                ({{ $position->department->name }})
-                                            @endif
-                                        </option>
+                                        <option value="{{ $position }}"></option>
                                     @endforeach
-                                </select>
-                                @error('position_id') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                                </datalist>
+                                @error('position') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 required-label">Employee Status</label>
@@ -277,6 +275,19 @@
                                     placeholder="0.00"
                                     oninput="calculateMonthlySalary()">
                                 <p class="mt-1 text-xs text-gray-500">Enter hourly rate to auto-calculate monthly salary</p>
+                            </div>
+
+                            <!-- Allowance -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Allowance (K)</label>
+                                <input type="number"
+                                    step="0.01"
+                                    min="0"
+                                    name="allowance"
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 @error('allowance') border-red-500 @enderror"
+                                    value="{{ old('allowance') }}"
+                                    placeholder="0.00">
+                                @error('allowance') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                             </div>
                             
                             <!-- Fortnight Hours -->

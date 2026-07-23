@@ -594,7 +594,7 @@
                                                     name="attendance[{{ $dateKey }}][hours]" 
                                                     value="{{ $hours }}"
                                                     class="hours-input"
-                                                    step="0.5"
+                                                    step="any"
                                                     min="0"
                                                     max="24"
                                                     {{ $rowDisabled ? 'disabled' : '' }}>
@@ -670,7 +670,7 @@
                                                        name="attendance[{{ $dateKey }}][hours]" 
                                                        value="{{ $hours }}"
                                                        class="hours-input"
-                                                       step="0.5"
+                                                       step="any"
                                                        min="0"
                                                        max="24"
                                                        {{ $rowDisabled ? 'disabled' : '' }}>

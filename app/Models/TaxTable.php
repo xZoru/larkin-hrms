@@ -46,6 +46,17 @@ class TaxTable extends Model
             return null;
         }
 
-        return ($amount * $this->tax_rate / 100) + $this->fixed_tax;
+        // If amount is below or equal to threshold, no tax
+        if ($amount <= $this->fixed_tax) {
+            return 0;
+        }
+
+        // Taxable amount = Amount - Tax-free threshold
+        $taxableAmount = $amount - $this->fixed_tax;
+
+        // Calculate tax: Taxable × Rate%
+        $tax = $taxableAmount * ($this->tax_rate / 100);
+
+        return max(0, round($tax, 2));
     }
 }

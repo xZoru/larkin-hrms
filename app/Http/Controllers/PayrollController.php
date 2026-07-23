@@ -137,7 +137,7 @@ class PayrollController extends Controller
             'total_employees' => $employees->count(),
         ]);
 
-        return redirect()->route('payroll.show', $payroll)
+        return redirect()->route('payroll.summary', ['fortnight' => $payroll->fortnight_number])
             ->with('success', 'Payroll created successfully for ' . $employees->count() . ' employees.');
     }
 
@@ -174,13 +174,35 @@ class PayrollController extends Controller
         }
 
         $overtimeRate = $hourlyRate * 1.5;
-        $regularPay = round($regularHours * $calculationHourlyRate, 2);
+        
+        // Calculate FN RATE / BASIC PAY (unchanged, always the actual basic pay)
+        $basicPay = round($regularHours * $calculationHourlyRate, 2);
         $overtimePay = round($overtimeHours * $calculationHourlyRate * 1.5, 2);
         $sundayPay = round($sundayHours * $calculationHourlyRate * 2, 2);
         $holidayPay = round($holidayHours * $calculationHourlyRate * 2, 2);
         $allowance = $employee->allowance ?? 0;
         
-        $grossPayBeforeTax = $regularPay + $overtimePay + $sundayPay + $holidayPay + $allowance;
+        $grossPayBeforeTax = $basicPay + $overtimePay + $sundayPay + $holidayPay + $allowance;
+        // Calculate tax on BASIC PAY only
+        $tax = 0;
+        $regularPay = $basicPay;  // Default: REGULAR = Basic Pay (for National)
+        
+        if ($employee->employee_type === 'Expatriate') {
+            // ✅ Tax on BASIC PAY only
+            $tax = $this->calculateExpatriateTax($employee, $basicPay);
+            // ✅ REGULAR = Basic Pay + Tax (grossed up for display only)
+            $regularPay = $basicPay + $tax;
+        } else {
+            // ✅ National: Tax on GROSS PAY (all earnings combined)
+            $tax = $this->calculateNationalTax($employee, $grossPayBeforeTax);
+            // ✅ REGULAR stays as Basic Pay (unchanged)
+            $regularPay = $basicPay;
+        }
+        
+        // FN RATE and BASIC PAY remain as $basicPay (unchanged)
+        // REGULAR is now $regularPay (which may be grossed up for expats)
+        
+
 
         $nasfundEE = 0;
         $nasfundER = 0;
@@ -192,17 +214,8 @@ class PayrollController extends Controller
         $loanDeduction = $this->calculateLoanDeduction($employee);
         $otherDeductions = 0;
 
-        $tax = 0;
-        $grossPay = $grossPayBeforeTax;
-
-        if ($employee->employee_type === 'Expatriate') {
-            $provisionalNet = $grossPayBeforeTax - $nasfundEE - $loanDeduction - $otherDeductions;
-            $tax = $this->calculateTaxOnNet($employee, $provisionalNet);
-            $grossPay = $grossPayBeforeTax + $tax;
-        } else {
-            $tax = $this->calculateTax($employee, $grossPayBeforeTax);
-            $grossPay = $grossPayBeforeTax;
-        }
+        // Gross Pay uses the REGULAR pay (which may be grossed up for expats)
+        $grossPay = $regularPay + $overtimePay + $sundayPay + $holidayPay + $allowance;
 
         $totalDeductions = $tax + $nasfundEE + $loanDeduction + $otherDeductions;
         $netPay = $grossPay - $totalDeductions;
@@ -215,7 +228,8 @@ class PayrollController extends Controller
             'hours_worked' => $totalHours,
             'hourly_rate' => $hourlyRate,
             'overtime_rate' => $overtimeRate,
-            'regular_pay' => $regularPay,
+            'basic_pay' => $basicPay,
+            'regular_pay' => $regularPay,  // ✅ REGULAR: For Expat = Basic + Tax, For National = Basic
             'overtime_pay' => $overtimePay,
             'sunday_pay' => $sundayPay,
             'holiday_pay' => $holidayPay,
@@ -237,13 +251,8 @@ class PayrollController extends Controller
         ];
     }
 
-    /**
-     * Calculate tax for ALL employees using Resident/National rates
-     * ✅ FIXED: Always uses National tax tables regardless of employee type
-     */
-    private function calculateTax($employee, $grossPay)
+    private function calculateNationalTax($employee, $grossPay)
     {
-        // 🌟 FIX: Remove company_id filter since tax tables are now universal (null)
         $taxTable = TaxTable::where('employee_type', 'National')
             ->where('is_active', true)
             ->where('min_amount', '<=', $grossPay)
@@ -251,15 +260,81 @@ class PayrollController extends Controller
                 $query->where('max_amount', '>=', $grossPay)
                     ->orWhereNull('max_amount');
             })
+            ->orderBy('min_amount', 'desc')
             ->first();
 
         if (!$taxTable) {
             return 0;
         }
 
-        // IRC Formula: (Gross × Rate%) - Offset
-        $tax = ($grossPay * $taxTable->tax_rate / 100) - $taxTable->fixed_tax;
+        $threshold = $taxTable->fixed_tax ?? 769.00;
+        $taxableAmount = $grossPay - $threshold;
+        
+        if ($taxableAmount <= 0) {
+            return 0;
+        }
+        
+        $tax = $taxableAmount * ($taxTable->tax_rate / 100);
+        
         return max(0, round($tax, 2));
+    }
+
+        private function calculateExpatriateTax($employee, $basicPay)
+    {
+        $taxTable = TaxTable::where('employee_type', 'National')
+            ->where('is_active', true)
+            ->where('min_amount', '<=', $basicPay)
+            ->where(function($query) use ($basicPay) {
+                $query->where('max_amount', '>=', $basicPay)
+                    ->orWhereNull('max_amount');
+            })
+            ->orderBy('min_amount', 'desc')
+            ->first();
+
+        if (!$taxTable) {
+            return 0;
+        }
+
+        $threshold = $taxTable->fixed_tax ?? 769.00;
+        $taxableAmount = $basicPay - $threshold;
+        
+        if ($taxableAmount <= 0) {
+            return 0;
+        }
+        
+        $tax = $taxableAmount * ($taxTable->tax_rate / 100);
+        
+        return max(0, round($tax, 2));
+    }
+
+    /**
+     * Calculate tax for a given gross pay
+     */
+    public function calculateTax(Request $request)
+    {
+        $request->validate([
+            'gross_pay' => 'required|numeric|min:0',
+            'employee_type' => 'required|string',
+            'employee_id' => 'nullable|exists:employees,id',
+        ]);
+
+        $grossPay = (float) $request->gross_pay;
+        $employeeType = $request->employee_type;
+        
+        // Use your existing tax calculation methods
+        if ($employeeType === 'Expatriate') {
+            $tax = $this->calculateTaxOnNet($grossPay);
+        } else {
+            $tax = $this->calculateTax($grossPay);
+        }
+        
+        $nasfund = $grossPay * 0.06;
+        
+        return response()->json([
+            'success' => true,
+            'tax' => round($tax, 2),
+            'nasfund' => round($nasfund, 2),
+        ]);
     }
 
     /**
@@ -268,7 +343,6 @@ class PayrollController extends Controller
      */
     private function calculateTaxOnNet($employee, $netPay)
     {
-        //  FIX: Remove company_id filter since tax tables are now universal (null)
         $taxTable = TaxTable::where('employee_type', 'National')
             ->where('is_active', true)
             ->where('min_amount', '<=', $netPay)
@@ -282,7 +356,16 @@ class PayrollController extends Controller
             return 0;
         }
 
-        $tax = ($netPay * $taxTable->tax_rate / 100) - $taxTable->fixed_tax;
+        //FORMULA - same as National but applied to NET
+        $threshold = $taxTable->fixed_tax ?? 769.00;
+        $taxableAmount = $netPay - $threshold;
+        
+        if ($taxableAmount <= 0) {
+            return 0;
+        }
+        
+        $tax = $taxableAmount * ($taxTable->tax_rate / 100);
+        
         return max(0, round($tax, 2));
     }
 
@@ -326,102 +409,294 @@ class PayrollController extends Controller
     }
 
     // ============ PAYROLL SUMMARY ============
-    public function summary(Request $request)
+public function summary(Request $request)
+{
+    $user = auth()->user();
+    $companyId = $user->getCurrentCompanyId();
+    $allowedTypes = $user->getAllowedEmployeeTypes();
+    
+    $fortnights = Payroll::where('company_id', $companyId)
+        ->distinct()
+        ->pluck('fortnight_number')
+        ->toArray();
+    
+    $fortnightPeriods = [];
+    foreach ($fortnights as $fn) {
+        $fortnightPeriods[$fn] = $this->getFortnightPeriod($fn);
+    }
+    
+    $selectedFortnight = $request->fortnight;
+    
+    if (!$selectedFortnight && count($fortnights) > 0) {
+        $selectedFortnight = $fortnights[0];
+    }
+    
+    $payroll = null;
+    $payrollItems = collect();
+    $period = null;
+    $totalEmployees = 0;
+    $totalHours = 0;
+    $totalOvertimeHours = 0;
+    $totalSundayHours = 0;
+    $totalHolidayHours = 0;
+    $totalGross = 0;
+    $totalTax = 0;
+    $totalNasfund = 0;
+    $totalLoanDeductions = 0;
+    $totalNet = 0;
+    $totalOvertimePay = 0;
+    $totalSundayPay = 0;
+    $totalHolidayPay = 0;
+    $totalAllowance = 0;
+    $totalOtherDeductions = 0;
+    $totalBasic = 0;
+    $totalRegular = 0;
+    
+    if ($selectedFortnight) {
+        $payroll = Payroll::where('company_id', $companyId)
+            ->where('fortnight_number', $selectedFortnight)
+            ->first();
+        
+        if ($payroll) {
+            $payrollItems = $payroll->items()->with('employee')->get();
+            
+            // Add FN Rate to each item
+            $payrollItems->each(function ($item) {
+                $employee = $item->employee;
+                
+                if ((float) $employee->monthly_salary > 0) {
+                    // Calculate from monthly salary (monthly / 2)
+                    $item->fn_rate = round((float) $employee->monthly_salary / 2, 2);
+                } else {
+                    // Fallback to hourly_rate * 84
+                    $item->fn_rate = round((float) $employee->hourly_rate * 84, 2);
+                }
+            });
+            
+            $period = [
+                'start' => $payroll->period_start,
+                'end' => $payroll->period_end,
+            ];
+            
+            $totalEmployees = $payroll->total_employees;
+            $totalGross = $payroll->total_gross;
+            $totalTax = $payroll->total_tax;
+            $totalNasfund = $payroll->total_nasfund_ee;
+            $totalLoanDeductions = $payroll->total_loan_deductions ?? 0;
+            $totalNet = $payroll->total_net;
+            $totalHours = $payrollItems->sum('hours_worked');
+            $totalOvertimeHours = $payrollItems->sum('overtime_hours');
+            $totalSundayHours = $payrollItems->sum('sunday_hours');
+            $totalHolidayHours = $payrollItems->sum('holiday_hours');
+            $totalOvertimePay = $payrollItems->sum('overtime_pay');
+            $totalSundayPay = $payrollItems->sum('sunday_pay');
+            $totalHolidayPay = $payrollItems->sum('holiday_pay');
+            $totalAllowance = $payrollItems->sum('allowance');
+            $totalOtherDeductions = $payrollItems->sum('other_deductions');
+            $totalBasic = $payrollItems->sum('regular_pay');
+            $totalRegular = $payrollItems->sum('regular_pay');
+        } else {
+            $period = $this->getFortnightPeriod($selectedFortnight);
+        }
+    }
+    
+    $employees = Employee::where('company_id', $companyId)
+        ->where('status', 'Active')
+        ->whereIn('employee_type', $allowedTypes)
+        ->get();
+
+    //  ADDED THIS - Get active tax tables from database
+    $taxTables = TaxTable::where('is_active', true)
+        ->orderBy('employee_type')
+        ->orderBy('min_amount')
+        ->get()
+        ->groupBy('employee_type')
+        ->map(function ($tables) {
+            return $tables->map(function ($table) {
+                return [
+                    'min' => (float) $table->min_amount,
+                    'max' => $table->max_amount ? (float) $table->max_amount : null,
+                    'rate' => (float) $table->tax_rate,
+                    'fixed' => (float) $table->fixed_tax,
+                ];
+            })->values()->toArray();
+        })
+        ->toArray();
+    
+    return view('payroll.summary', compact(
+        'payroll',
+        'payrollItems',
+        'period',
+        'selectedFortnight',
+        'fortnights',
+        'fortnightPeriods',
+        'totalEmployees',
+        'totalHours',
+        'totalOvertimeHours',
+        'totalSundayHours',
+        'totalHolidayHours',
+        'totalGross',
+        'totalTax',
+        'totalNasfund',
+        'totalLoanDeductions',
+        'totalNet',
+        'totalOvertimePay',
+        'totalSundayPay',
+        'totalHolidayPay',
+        'totalAllowance',
+        'totalOtherDeductions',
+        'totalBasic',
+        'totalRegular',
+        'employees',
+        'taxTables' //  ADDED THIS
+    ));
+}
+
+    /**
+     * Bulk update payroll items from the summary page
+     */
+    public function summaryBulkUpdate(Request $request)
     {
+        $request->validate([
+            'fortnight' => 'required|string',
+            'items' => 'required|array',
+            'items.*.regular_pay' => 'nullable|numeric|min:0',
+            'items.*.overtime_pay' => 'nullable|numeric|min:0',
+            'items.*.sunday_pay' => 'nullable|numeric|min:0',
+            'items.*.holiday_pay' => 'nullable|numeric|min:0',
+            'items.*.leave_pay' => 'nullable|numeric|min:0',
+            'items.*.other_earnings' => 'nullable|numeric|min:0',
+            'items.*.gross_wage' => 'nullable|numeric|min:0',
+            'items.*.tax' => 'nullable|numeric|min:0',
+            'items.*.nasfund_ee' => 'nullable|numeric|min:0',
+            'items.*.ncsl' => 'nullable|numeric|min:0',
+            'items.*.loan_deduction' => 'nullable|numeric|min:0',
+            'items.*.other_deductions' => 'nullable|numeric|min:0',
+            'items.*.net_pay' => 'nullable|numeric|min:0',
+        ]);
+
         $user = auth()->user();
         $companyId = $user->getCurrentCompanyId();
-        $allowedTypes = $user->getAllowedEmployeeTypes();
-        
-        $fortnights = Payroll::where('company_id', $companyId)
-            ->distinct()
-            ->pluck('fortnight_number')
-            ->toArray();
-        
-        $fortnightPeriods = [];
-        foreach ($fortnights as $fn) {
-            $fortnightPeriods[$fn] = $this->getFortnightPeriod($fn);
-        }
-        
-        $selectedFortnight = $request->fortnight;
-        
-        if (!$selectedFortnight && count($fortnights) > 0) {
-            $selectedFortnight = $fortnights[0];
-        }
-        
-        $payroll = null;
-        $payrollItems = collect();
-        $period = null;
-        $totalEmployees = 0;
-        $totalHours = 0;
-        $totalOvertimeHours = 0;
-        $totalSundayHours = 0;
-        $totalHolidayHours = 0;
-        $totalGross = 0;
-        $totalTax = 0;
-        $totalNasfund = 0;
-        $totalLoanDeductions = 0;
-        $totalNet = 0;
-        $totalOvertimePay = 0;
-        $totalSundayPay = 0;
-        $totalHolidayPay = 0;
-        
-        if ($selectedFortnight) {
-            $payroll = Payroll::where('company_id', $companyId)
-                ->where('fortnight_number', $selectedFortnight)
-                ->first();
+        $items = $request->items;
+        $updatedCount = 0;
+
+        foreach ($items as $itemId => $data) {
+            $payrollItem = PayrollItem::find($itemId);
             
-            if ($payroll) {
-                $payrollItems = $payroll->items()->with('employee')->get();
-                $period = [
-                    'start' => $payroll->period_start,
-                    'end' => $payroll->period_end,
-                ];
-                
-                $totalEmployees = $payroll->total_employees;
-                $totalGross = $payroll->total_gross;
-                $totalTax = $payroll->total_tax;
-                $totalNasfund = $payroll->total_nasfund_ee;
-                $totalLoanDeductions = $payroll->total_loan_deductions ?? 0;
-                $totalNet = $payroll->total_net;
-                $totalHours = $payrollItems->sum('hours_worked');
-                $totalOvertimeHours = $payrollItems->sum('overtime_hours');
-                $totalSundayHours = $payrollItems->sum('sunday_hours');
-                $totalHolidayHours = $payrollItems->sum('holiday_hours');
-                $totalOvertimePay = $payrollItems->sum('overtime_pay');
-                $totalSundayPay = $payrollItems->sum('sunday_pay');
-                $totalHolidayPay = $payrollItems->sum('holiday_pay');
-            } else {
-                $period = $this->getFortnightPeriod($selectedFortnight);
+            if (!$payrollItem) continue;
+            if ($payrollItem->payroll->company_id !== $companyId) continue;
+            if ($payrollItem->payroll->status === 'Locked') continue;
+
+            $updateData = [];
+            
+            // Map the fields - FIXED: other_earnings maps to allowance
+            $fieldMap = [
+                'regular_pay' => 'regular_pay',
+                'overtime_pay' => 'overtime_pay',
+                'sunday_pay' => 'sunday_pay',
+                'holiday_pay' => 'holiday_pay',
+                'leave_pay' => 'leave_pay',
+                'other_earnings' => 'allowance', // FIXED: maps to allowance
+                'gross_wage' => 'gross_wage',
+                'tax' => 'tax',
+                'nasfund_ee' => 'nasfund_ee',
+                'ncsl' => 'ncsl',
+                'loan_deduction' => 'loan_deduction',
+                'other_deductions' => 'other_deductions',
+                'net_pay' => 'net_pay',
+            ];
+            
+            foreach ($fieldMap as $requestField => $dbField) {
+                if (isset($data[$requestField])) {
+                    $updateData[$dbField] = round((float)$data[$requestField], 2);
+                }
+            }
+
+            if (!empty($updateData)) {
+                $payrollItem->update($updateData);
+                $updatedCount++;
             }
         }
-        
-        $employees = Employee::where('company_id', $companyId)
-            ->where('status', 'Active')
-            ->whereIn('employee_type', $allowedTypes)
-            ->get();
-        
-        return view('payroll.summary', compact(
-            'payroll',
-            'payrollItems',
-            'period',
-            'selectedFortnight',
-            'fortnights',
-            'fortnightPeriods',
-            'totalEmployees',
-            'totalHours',
-            'totalOvertimeHours',
-            'totalSundayHours',
-            'totalHolidayHours',
-            'totalGross',
-            'totalTax',
-            'totalNasfund',
-            'totalLoanDeductions',
-            'totalNet',
-            'totalOvertimePay',
-            'totalSundayPay',
-            'totalHolidayPay',
-            'employees'
-        ));
+
+        // Update payroll totals
+        if ($updatedCount > 0 && isset($payrollItem)) {
+            $this->syncPayrollTotals($payrollItem->payroll);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $updatedCount . ' payroll item(s) updated successfully.'
+        ]);
+    }
+
+    public function updateAllowance(Request $request, PayrollItem $payrollItem)
+    {
+        $request->validate([
+            'allowance' => 'required|numeric|min:0',
+        ]);
+
+        $payrollItem->load(['employee', 'payroll']);
+
+        if ($payrollItem->payroll->company_id !== auth()->user()->getCurrentCompanyId()) {
+            abort(403, 'You are not authorized to update this payroll item.');
+        }
+
+        $allowance = round((float) $request->allowance, 2);
+        $employee = $payrollItem->employee;
+        $grossPayBeforeTax =
+            (float) $payrollItem->regular_pay +
+            (float) $payrollItem->overtime_pay +
+            (float) $payrollItem->sunday_pay +
+            (float) $payrollItem->holiday_pay +
+            $allowance;
+
+        $nasfundEE = $employee->nasfund_number ? round($grossPayBeforeTax * 0.06, 2) : 0;
+        $nasfundER = $employee->nasfund_number ? round($grossPayBeforeTax * 0.084, 2) : 0;
+        $loanDeduction = (float) ($payrollItem->loan_deduction ?? 0);
+        $otherDeductions = (float) ($payrollItem->other_deductions ?? 0);
+
+        if ($employee->employee_type === 'Expatriate') {
+            $provisionalNet = $grossPayBeforeTax - $nasfundEE - $loanDeduction - $otherDeductions;
+            $tax = $this->calculateTaxOnNet($employee, $provisionalNet);
+            $grossPay = $grossPayBeforeTax + $tax;
+        } else {
+            $tax = $this->calculateNationalTax($employee, $grossPayBeforeTax);
+            $grossPay = $grossPayBeforeTax;
+        }
+
+        $totalDeductions = $tax + $nasfundEE + $loanDeduction + $otherDeductions;
+        $netPay = $grossPay - $totalDeductions;
+
+        $payrollItem->update([
+            'allowance' => $allowance,
+            'gross_wage' => round($grossPay, 2),
+            'tax' => round($tax, 2),
+            'nasfund_ee' => $nasfundEE,
+            'nasfund_er' => $nasfundER,
+            'total_deductions' => round($totalDeductions, 2),
+            'net_pay' => round($netPay, 2),
+        ]);
+
+        $this->syncPayrollTotals($payrollItem->payroll);
+
+        return redirect()->route('payroll.summary', ['fortnight' => $payrollItem->payroll->fortnight_number])
+            ->with('success', 'Allowance updated successfully.');
+    }
+
+    private function syncPayrollTotals(Payroll $payroll)
+    {
+        $items = $payroll->items()->get();
+
+        $payroll->update([
+            'total_gross' => $items->sum('gross_wage'),
+            'total_tax' => $items->sum('tax'),
+            'total_nasfund_ee' => $items->sum('nasfund_ee'),
+            'total_nasfund_er' => $items->sum('nasfund_er'),
+            'total_loan_deductions' => $items->sum('loan_deduction'),
+            'total_deductions' => $items->sum('total_deductions'),
+            'total_net' => $items->sum('net_pay'),
+            'total_employees' => $items->count(),
+        ]);
     }
 
     // ============ DELETE PAYROLL ============
@@ -442,8 +717,8 @@ class PayrollController extends Controller
         $payroll->approved_at = now();
         $payroll->save();
 
-        return redirect()->route('payroll.show', $payroll)
-            ->with('success', 'Payroll approved successfully.');
+        return redirect()->route('payroll.summary', ['fortnight' => $payroll->fortnight_number])
+        ->with('success', 'Payroll approved successfully.');
     }
 
     public function exportABA(Payroll $payroll)
@@ -465,7 +740,7 @@ class PayrollController extends Controller
             $batch = $service->generate($payroll, $company, $bankDetails);
             return $service->download($batch->id);
         } catch (\Exception $e) {
-            return redirect()->route('payroll.show', $payroll)
+            return redirect()->route('payroll.summary', ['fortnight' => $payroll->fortnight_number])
                 ->with('error', 'ABA generation failed: ' . $e->getMessage());
         }
     }

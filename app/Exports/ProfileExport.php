@@ -44,7 +44,7 @@ class ProfileExport implements FromCollection, WithHeadings, WithStyles, WithTit
         // Employment Details
         $rows->push(['Employment Details']);
         $rows->push(['Department', $employee->department->name ?? 'N/A']);
-        $rows->push(['Position', $employee->position->name ?? 'N/A']);
+        $rows->push(['Position', $employee->position_name ?? 'N/A']);
         $rows->push(['Joining Date', $employee->joining_date ? Carbon::parse($employee->joining_date)->format('d M Y') : 'N/A']);
         $rows->push(['Service Length', $this->profileData->service_length->formatted]);
         $rows->push(['End Date', $employee->end_date ? Carbon::parse($employee->end_date)->format('d M Y') : 'N/A']);

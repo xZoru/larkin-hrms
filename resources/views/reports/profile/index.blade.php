@@ -339,7 +339,7 @@
                     </div>
                     <div class="profile-item">
                         <span class="label">Position</span>
-                        <span class="value">{{ $profileData->employee->position->name ?? 'N/A' }}</span>
+                        <span class="value">{{ $profileData->employee->position_name ?? 'N/A' }}</span>
                     </div>
                     <div class="profile-item">
                         <span class="label">Joining Date</span>

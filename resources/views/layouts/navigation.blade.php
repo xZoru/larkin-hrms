@@ -20,7 +20,7 @@
 
         <!-- Management Dropdown -->
         <div class="nav-section">
-            <div class="sidebar-dropdown" x-data="{ open: {{ request()->routeIs('departments.*') || request()->routeIs('positions.*') || request()->routeIs('tax-tables.*') || request()->routeIs('holidays.*') || request()->routeIs('company-bank-details.*') ? 'true' : 'false' }} }">
+            <div class="sidebar-dropdown" x-data="{ open: {{ request()->routeIs('departments.*') || request()->routeIs('tax-tables.*') || request()->routeIs('holidays.*') || request()->routeIs('company-bank-details.*') ? 'true' : 'false' }} }">
                 <button @click="open = !open" class="sidebar-link" :class="{ 'active': open }">
                     <i class="fas fa-cogs"></i>
                     <span>Management</span>
@@ -30,10 +30,6 @@
                     <a href="{{ route('departments.index') }}" class="sidebar-link submenu-link {{ request()->routeIs('departments.*') ? 'active-sub' : '' }}">
                         <i class="fas fa-sitemap"></i>
                         <span>Departments</span>
-                    </a>
-                    <a href="{{ route('positions.index') }}" class="sidebar-link submenu-link {{ request()->routeIs('positions.*') ? 'active-sub' : '' }}">
-                        <i class="fas fa-briefcase"></i>
-                        <span>Positions / Designations</span>
                     </a>
                     @if(auth()->user()->isSuperAdmin())
                     <a href="{{ route('users.index') }}" class="sidebar-link submenu-link {{ request()->routeIs('users.*') ? 'active-sub' : '' }}">
@@ -65,12 +61,25 @@
             </a>
         </div>
 
-        <!-- Attendance - Visible to ALL users -->
+        <!-- Attendance Dropdown - Visible to ALL users -->
         <div class="nav-section">
-            <a href="{{ route('attendance.index') }}" class="sidebar-link {{ request()->routeIs('attendance.*') ? 'active' : '' }}">
-                <i class="fas fa-clipboard-check"></i>
-                <span>Attendance</span>
-            </a>
+            <div class="sidebar-dropdown" x-data="{ open: {{ request()->routeIs('attendance.*') ? 'true' : 'false' }} }">
+                <button @click="open = !open" class="sidebar-link" :class="{ 'active': open }">
+                    <i class="fas fa-clipboard-check"></i>
+                    <span>Attendance</span>
+                    <i class="fas fa-chevron-down dropdown-arrow" :class="{ 'rotated': open }"></i>
+                </button>
+                <div x-show="open" x-collapse class="sidebar-submenu">
+                    <a href="{{ route('attendance.index') }}" class="sidebar-link submenu-link {{ request()->routeIs('attendance.index') ? 'active-sub' : '' }}">
+                        <i class="fas fa-clipboard-list"></i>
+                        <span>Timesheet Entry</span>
+                    </a>
+                    <a href="{{ route('attendance.summary') }}" class="sidebar-link submenu-link {{ request()->routeIs('attendance.summary') ? 'active-sub' : '' }}">
+                        <i class="fas fa-table"></i>
+                        <span>Attendance Summary</span>
+                    </a>
+                </div>
+            </div>
         </div>
 
         <!-- Payroll Dropdown - Visible to ALL authenticated users -->

@@ -114,13 +114,16 @@ class AttendanceController extends Controller
         $fortnight = $request->fortnight;
         $action = $request->input('action', 'save');
         $attendanceData = $request->attendance;
-        $companyId = auth()->user()->company_id;
+        $companyId = auth()->user()->getCurrentCompanyId();
         $publicHolidays = $this->getPublicHolidays($companyId);
 
         // Check if employee is allowed
         $user = auth()->user();
-        $employee = Employee::find($employeeId);
-        if (!$user->canViewEmployee($employee)) {
+        $employee = Employee::where('id', $employeeId)
+            ->where('company_id', $companyId)
+            ->first();
+
+        if (!$employee || !$user->canViewEmployee($employee)) {
             return redirect()->route('attendance.index', [
                 'fortnight' => $fortnight,
                 'employee_id' => $employeeId
@@ -240,6 +243,146 @@ class AttendanceController extends Controller
             'fortnight' => $fortnight,
             'employee_id' => $employeeId
         ])->with('success', $messages[$action] ?? 'Timesheet saved successfully!');
+    }
+
+    public function summary(Request $request)
+    {
+        $user = auth()->user();
+        $companyId = $user->getCurrentCompanyId();
+        $allowedTypes = $user->getAllowedEmployeeTypes();
+        $fortnight = $request->fortnight ?? $this->getCurrentFortnight();
+        $period = $this->getFortnightPeriod($fortnight);
+        $generated = $request->boolean('generated');
+
+        $fortnights = [];
+        $fortnightPeriods = [];
+        for ($i = 1; $i <= 26; $i++) {
+            $fn = date('y') . str_pad($i, 2, '0', STR_PAD_LEFT);
+            $fortnights[] = $fn;
+            $fortnightPeriods[$fn] = $this->getFortnightPeriod($fn);
+        }
+
+        $employees = Employee::where('company_id', $companyId)
+            ->where('status', 'Active')
+            ->whereIn('employee_type', $allowedTypes)
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get();
+
+        $attendanceLogs = AttendanceLog::whereIn('employee_id', $employees->pluck('id'))
+            ->where('fortnight_number', $fortnight)
+            ->get()
+            ->groupBy('employee_id')
+            ->map(function ($logs) {
+                return $logs->keyBy(function ($log) {
+                    return $log->date->format('Y-m-d');
+                });
+            });
+
+        $summaries = AttendanceSummary::whereIn('employee_id', $employees->pluck('id'))
+            ->where('fortnight_number', $fortnight)
+            ->get()
+            ->keyBy('employee_id');
+
+        $timesheetStatuses = $attendanceLogs->map(function ($logs) {
+            return optional($logs->first())->timesheet_status ?? 'Draft';
+        });
+
+        $holidayDates = array_fill_keys($this->getPublicHolidays($companyId), true);
+
+        return view('attendance.summary', compact(
+            'employees',
+            'attendanceLogs',
+            'summaries',
+            'timesheetStatuses',
+            'fortnight',
+            'period',
+            'fortnights',
+            'fortnightPeriods',
+            'generated',
+            'holidayDates'
+        ));
+    }
+
+    public function summaryBulkUpdate(Request $request)
+    {
+        $request->validate([
+            'fortnight' => 'required|string',
+            'attendance' => 'nullable|array',
+        ]);
+
+        $user = auth()->user();
+        $companyId = $user->getCurrentCompanyId();
+        $allowedTypes = $user->getAllowedEmployeeTypes();
+        $fortnight = $request->fortnight;
+        $attendanceData = $request->attendance ?? [];
+        $publicHolidays = $this->getPublicHolidays($companyId);
+        $employeeIds = collect(array_keys($attendanceData))->map(fn ($id) => (int) $id);
+
+        $employees = Employee::where('company_id', $companyId)
+            ->whereIn('employee_type', $allowedTypes)
+            ->whereIn('id', $employeeIds)
+            ->get()
+            ->keyBy('id');
+
+        $updatedEmployeeIds = collect();
+        $skippedLocked = 0;
+
+        foreach ($attendanceData as $employeeId => $dailyRows) {
+            $employee = $employees->get((int) $employeeId);
+
+            if (!$employee || !$user->canViewEmployee($employee)) {
+                continue;
+            }
+
+            $existingStatus = AttendanceLog::where('employee_id', $employee->id)
+                ->where('fortnight_number', $fortnight)
+                ->value('timesheet_status') ?? 'Draft';
+
+            if ($existingStatus === 'Locked') {
+                $skippedLocked++;
+                continue;
+            }
+
+            foreach ($dailyRows as $dateKey => $data) {
+                $type = $data['type'] ?? 'Work';
+                $hours = $data['hours'] ?? 0;
+                if (in_array($type, ['Annual Leave', 'Leave Without Pay', 'Absent'], true)) {
+                    $hours = 0;
+                }
+
+                $date = Carbon::parse($dateKey);
+
+                AttendanceLog::updateOrCreate(
+                    [
+                        'employee_id' => $employee->id,
+                        'date' => $dateKey,
+                    ],
+                    [
+                        'hours_worked' => $hours ?: 0,
+                        'attendance_type' => $type,
+                        'is_sunday' => $date->isSunday(),
+                        'is_holiday' => in_array($dateKey, $publicHolidays, true),
+                        'fortnight_number' => $fortnight,
+                        'timesheet_status' => $existingStatus,
+                        'created_by' => auth()->id(),
+                    ]
+                );
+            }
+
+            $this->updateSummary($employee->id, $fortnight);
+            $updatedEmployeeIds->push($employee->id);
+        }
+
+        $message = 'Attendance summary saved for ' . $updatedEmployeeIds->unique()->count() . ' employees.';
+        if ($skippedLocked > 0) {
+            $message .= " {$skippedLocked} locked timesheet(s) were skipped.";
+        }
+
+        return redirect()->route('attendance.summary', [
+            'fortnight' => $fortnight,
+            'generated' => 1,
+        ])->with('success', $message);
     }
 
     // ============ SAVE ATTENDANCE LOG HELPER ============

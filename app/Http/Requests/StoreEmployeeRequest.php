@@ -40,11 +40,12 @@ class StoreEmployeeRequest extends FormRequest
             'nasfund_allocation_percentage' => 'nullable|numeric|min:0|max:100',
             'hourly_rate' => 'nullable|numeric|min:0',
             'monthly_salary' => 'nullable|numeric|min:0',
+            'allowance' => 'nullable|numeric|min:0',
             'fortnight_hours' => 'nullable|integer|min:1',
             'custom_fortnight_hours' => 'nullable|integer|min:1',
             'payment_method' => 'nullable|in:Bank Transfer,Cash',
             'status' => 'nullable|in:Active,Inactive,Terminated,Resigned',
-            'position_id' => 'required|exists:positions,id',
+            'position' => 'required|string|max:255',
             
             // Bank fields 
 
@@ -66,8 +67,7 @@ class StoreEmployeeRequest extends FormRequest
             'employee_type.required' => 'Employee type is required.',
             'date_of_birth.required' => 'Date of birth is required.',
             'joining_date.required' => 'Joining date is required.',
-            'position_id.required' => 'Please select a position.',  
-            'position_id.exists' => 'The selected position does not exist.',
+            'position.required' => 'Please enter a position.',
         ];
     }
 }

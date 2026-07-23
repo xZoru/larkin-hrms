@@ -214,7 +214,7 @@
             </div>
             <div class="grid-item">
                 <div class="label">Position</div>
-                <div class="value">{{ $employee->position->name ?? 'N/A' }}</div>
+                <div class="value">{{ $employee->position_name ?? 'N/A' }}</div>
             </div>
             <div class="grid-item">
                 <div class="label">Joining Date</div>

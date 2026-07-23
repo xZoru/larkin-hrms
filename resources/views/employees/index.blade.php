@@ -327,11 +327,11 @@
                     @endforeach
                 </select>
 
-                <select name="position_id" class="filter-select" style="min-width: 130px;">
+                <select name="position" class="filter-select" style="min-width: 130px;">
                     <option value="">All Positions</option>
                     @foreach($positions as $position)
-                        <option value="{{ $position->id }}" {{ request('position_id') == $position->id ? 'selected' : '' }}>
-                            {{ $position->name }}
+                        <option value="{{ $position }}" {{ request('position') == $position ? 'selected' : '' }}>
+                            {{ $position }}
                         </option>
                     @endforeach
                 </select>
@@ -404,10 +404,7 @@
                                 <div class="employee-details">Contact: {{ $employee->phone ?? 'N/A' }}</div>
                             </td>
                             <td style="font-size: 12px;">
-                                @php
-                                    $pos = App\Models\Position::find($employee->position_id);
-                                @endphp
-                                {{ $pos ? $pos->name : 'N/A' }}
+                                {{ $employee->position_name ?? 'N/A' }}
                             </td>
                             <td style="font-size: 12px;">
                                 <div>{{ $employee->workshift ?? 'Regular Dayshift' }}</div>
@@ -422,7 +419,9 @@
                             <td class="text-right" style="font-weight: 500; font-size: 12px;">
                                 {{ number_format($employee->hourly_rate ?? 0, 2) }}
                             </td>
-                            <td class="text-center" style="font-size: 12px; color: #6b7280;">-</td>
+                            <td class="text-right" style="font-weight: 500; font-size: 12px;">
+                                K {{ number_format($employee->allowance ?? 0, 2) }}
+                            </td>
                             <td class="text-center" style="font-size: 12px;">
                                 {{ $employee->payment_method == 'Bank Transfer' ? 'Bank' : 'Cash' }}
                             </td>
