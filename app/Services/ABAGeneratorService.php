@@ -13,12 +13,14 @@ class ABAGeneratorService
 {
     public function generate(Payroll $payroll, Company $company, array $bankDetails)
     {
-        $payrollItems = $payroll->items()
+        // ✅ Get regular payroll items with employees
+        $regularItems = $payroll->items()
             ->with(['employee.bankAccounts' => function($query) {
                 $query->where('is_active', true)
                     ->orderBy('is_preferred', 'desc')
                     ->orderBy('priority', 'asc');
             }])
+            ->whereNotNull('employee_id')
             ->where('net_pay', '>', 0)
             ->get()
             ->filter(function($item) {
@@ -26,6 +28,27 @@ class ABAGeneratorService
                     $item->employee->bankAccounts && 
                     $item->employee->bankAccounts->isNotEmpty();
             });
+
+        // ✅ Get manual entries (employee_id = null)
+        $manualItems = $payroll->items()
+            ->whereNull('employee_id')
+            ->where('details->type', 'manual_entry')
+            ->where('net_pay', '>', 0)
+            ->get()
+            ->map(function($item) {
+                // Create a virtual bank account from details
+                $details = $item->details;
+                $item->virtual_bank_account = (object) [
+                    'bsb_code' => $details['bsb'] ?? '',
+                    'account_number' => $details['account_number'] ?? '',
+                    'account_name' => $details['account_name'] ?? 'MANUAL ENTRY',
+                    'details' => $details,
+                ];
+                return $item;
+            });
+
+        // ✅ Merge both collections
+        $payrollItems = $regularItems->merge($manualItems);
 
         if ($payrollItems->isEmpty()) {
             throw new \Exception('No employees with valid bank details found for this payroll.');
@@ -41,8 +64,8 @@ class ABAGeneratorService
             'payroll_id' => $payroll->id,
             'batch_number' => $batchNumber,
             'bank_name' => $bankDetails['bank_name'] ?? $company->bank_name ?? 'BSP Bank',
-            'bank_code' => $bankDetails['bank_code'] ?? 'BSP',  // NEW
-            'apca_user_id' => $bankDetails['apca_user_id'] ?? '000001',  // NEW
+            'bank_code' => $bankDetails['bank_code'] ?? 'BSP',
+            'apca_user_id' => $bankDetails['apca_user_id'] ?? '000001',
             'bsb_number' => $bankDetails['bsb_number'] ?? $company->bsb_code ?? '088-950',
             'account_number' => $bankDetails['account_number'] ?? $company->bank_account_number ?? '7009276416',
             'account_name' => $bankDetails['account_name'] ?? $company->bank_account_name ?? $company->name,
@@ -81,15 +104,27 @@ class ABAGeneratorService
         
         // Header
         $header = $this->formatHeader($company, $bankDetails);
-        $lines[] = $this->padLine($header, $fileFormat);  // ✅ Changed from padTo120
+        $lines[] = $this->padLine($header, $fileFormat);
 
         // Detail Records
         $transactionCount = 0;
         $totalAmount = 0;
 
         foreach ($payrollItems as $item) {
-            $employee = $item->employee;
-            $bankAccount = $employee->bankAccounts()->where('is_active', true)->first();
+            // ✅ Check if this is a manual entry (has virtual_bank_account)
+            $isManual = isset($item->virtual_bank_account);
+            
+            if ($isManual) {
+                // ✅ Manual entry - use virtual bank account
+                $bankAccount = $item->virtual_bank_account;
+                $employee = null;
+                $amount = $item->net_pay;
+            } else {
+                // ✅ Regular employee
+                $employee = $item->employee;
+                $bankAccount = $employee->bankAccounts()->where('is_active', true)->first();
+                $amount = $item->net_pay;
+            }
             
             if (!$bankAccount) {
                 continue;
@@ -98,27 +133,28 @@ class ABAGeneratorService
             $detail = $this->formatDetailRecord(
                 $bankAccount,
                 $employee,
-                $item->net_pay,
+                $amount,
                 $bankDetails['payment_type'] ?? 'SALARY',
                 $bankDetails['debit_description'] ?? '',
                 $tracerReference,
-                $payroll
+                $payroll,
+                $isManual  //  Pass isManual flag
             );
             
-            $lines[] = $this->padLine($detail, $fileFormat);  // ✅ Changed from padTo120
+            $lines[] = $this->padLine($detail, $fileFormat);
             
             $transactionCount++;
-            $totalAmount += $item->net_pay;
+            $totalAmount += $amount;
         }
 
         // Contra Record
         $tracerRecord = $this->formatTracerRecord($company, $bankDetails, $totalAmount, $tracerReference, $payroll);
-        $lines[] = $this->padLine($tracerRecord, $fileFormat);  // ✅ Changed from padTo120
+        $lines[] = $this->padLine($tracerRecord, $fileFormat);
         $transactionCount++;
 
         // Trailer
         $trailer = $this->formatTrailerRecord($transactionCount, $totalAmount);
-        $lines[] = $this->padLine($trailer, $fileFormat);  // ✅ Changed from padTo120
+        $lines[] = $this->padLine($trailer, $fileFormat);
 
         return implode("\r\n", $lines);
     }
@@ -191,7 +227,7 @@ class ABAGeneratorService
         return $line;
     }
 
-    private function formatDetailRecord($bankAccount, $employee, $amount, $paymentType, $debitDescription, $tracerReference, $payroll)
+    private function formatDetailRecord($bankAccount, $employee, $amount, $paymentType, $debitDescription, $tracerReference, $payroll, $isManual = false)
     {
         $line = '';
         
@@ -224,8 +260,12 @@ class ABAGeneratorService
         $amountCents = round($amount * 100);
         $line .= str_pad($amountCents, 10, '0', STR_PAD_LEFT);
         
-        // Employee Name (32 chars)
-        $accountName = $bankAccount->account_name ?? $employee->full_name ?? '';
+        // Employee Name (32 chars) - Handle manual entries
+        if ($isManual && isset($bankAccount->details)) {
+            $accountName = $bankAccount->details['account_name'] ?? 'MANUAL ENTRY';
+        } else {
+            $accountName = $bankAccount->account_name ?? $employee->full_name ?? '';
+        }
         $accountName = strtoupper(substr($accountName, 0, 32));
         $line .= str_pad($accountName, 32, ' ', STR_PAD_RIGHT);
         
