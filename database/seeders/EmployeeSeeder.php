@@ -13,15 +13,17 @@ class EmployeeSeeder extends Seeder
 {
     public function run()
     {
-        // 1. Ensure Paragon Tech Limited exists
-        $company = Company::firstOrCreate(
-            ['name' => 'Paragon Tech Limited'],
-            ['status' => 'Active']
-        );
+        // 1. Fetch company created by CompaniesSeeder (or fallback to first company)
+        $company = Company::where('name', 'Paragon Tech Limited')->first() ?? Company::first();
 
-        // 2. Define Departments
-        $adminDept = Department::firstOrCreate(['name' => 'Administrations', 'company_id' => $company->id]);
-        $accountsDept = Department::firstOrCreate(['name' => 'Accounts', 'company_id' => $company->id]);
+        if (!$company) {
+            $this->command->error('No company found. Please run CompaniesSeeder first.');
+            return;
+        }
+
+        // 2. Fetch existing departments (or set to null if not found)
+        $adminDept = Department::where('name', 'Administrations')->first();
+        $accountsDept = Department::where('name', 'Accounts')->first();
 
         // ==========================================
         // EMPLOYEE 1: Wilxon Mar Baja Andres (PAR-0001)
@@ -30,7 +32,7 @@ class EmployeeSeeder extends Seeder
             ['employee_number' => 'PAR-0001'],
             [
                 'company_id'      => $company->id,
-                'department_id'   => $adminDept->id ?? null,
+                'department_id'   => $adminDept?->id,
                 'full_name'       => 'Wilxon Mar Baja Andres',
                 'gender'          => 'Male',
                 'date_of_birth'   => '1998-11-11',
@@ -48,7 +50,6 @@ class EmployeeSeeder extends Seeder
             ]
         );
 
-        // Wilxon Bank Account
         BankAccount::updateOrCreate(
             ['employee_id' => $wilxon->id],
             [
@@ -60,7 +61,6 @@ class EmployeeSeeder extends Seeder
             ]
         );
 
-        // Wilxon Loan
         Loan::updateOrCreate(
             ['employee_id' => $wilxon->id, 'amount' => 500.00],
             [
@@ -80,7 +80,7 @@ class EmployeeSeeder extends Seeder
             ['employee_number' => 'PAR-0002'],
             [
                 'company_id'      => $company->id,
-                'department_id'   => null, // N/A on screenshot
+                'department_id'   => null,
                 'full_name'       => 'Karl David Tavas Valmonte',
                 'gender'          => 'Male',
                 'date_of_birth'   => '1998-11-11',
@@ -98,7 +98,6 @@ class EmployeeSeeder extends Seeder
             ]
         );
 
-        // Karl Bank Account
         BankAccount::updateOrCreate(
             ['employee_id' => $karl->id],
             [
@@ -110,7 +109,6 @@ class EmployeeSeeder extends Seeder
             ]
         );
 
-        // Karl Loan
         Loan::updateOrCreate(
             ['employee_id' => $karl->id, 'amount' => 500.00],
             [
@@ -130,7 +128,7 @@ class EmployeeSeeder extends Seeder
             ['employee_number' => 'PAR-0003'],
             [
                 'company_id'      => $company->id,
-                'department_id'   => $accountsDept->id ?? null,
+                'department_id'   => $accountsDept?->id,
                 'full_name'       => 'Joyce Ann Tavara Ugay',
                 'gender'          => 'Female',
                 'date_of_birth'   => '1998-07-04',
@@ -148,7 +146,6 @@ class EmployeeSeeder extends Seeder
             ]
         );
 
-        // Joyce Bank Account
         BankAccount::updateOrCreate(
             ['employee_id' => $joyce->id],
             [
@@ -160,6 +157,6 @@ class EmployeeSeeder extends Seeder
             ]
         );
 
-        $this->command->info('3 Expatriate employees, bank accounts, and loans seeded successfully!');
+        $this->command->info('3 Expatriate employees seeded successfully without schema conflicts!');
     }
 }
