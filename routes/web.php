@@ -89,6 +89,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/attendance/bulk-update', [AttendanceController::class, 'bulkUpdate'])->name('attendance.bulk.update');
     Route::delete('/attendance/{log}', [AttendanceController::class, 'destroy'])->name('attendance.destroy');
     Route::get('/employees/{employee}/attendance', [AttendanceController::class, 'show'])->name('employees.attendance');
+    Route::get('/attendance/export', [AttendanceController::class, 'export'])->name('attendance.export');
 });
 
 // ============ PAYROLL ROUTES ============
@@ -225,5 +226,12 @@ Route::middleware(['auth', SuperAdminMiddleware::class])
         Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
         Route::post('/{user}/toggle-active', [UserController::class, 'toggleActive'])->name('toggle-active');
     });
+
+// Print Payslips
+Route::get('/payroll/{payroll}/print-payslips', [PayrollController::class, 'printPayslips'])->name('payroll.print-payslips');
+
+
+// Print Signing
+Route::get('/payroll/{payroll}/print-signing', [PayrollController::class, 'printSigning'])->name('payroll.print-signing');
     
 require __DIR__.'/auth.php';

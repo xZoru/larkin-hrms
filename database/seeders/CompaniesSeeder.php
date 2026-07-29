@@ -93,8 +93,8 @@ class CompaniesSeeder extends Seeder
                 'is_active' => true
             ],
             [
-                'code' => 'HIVE',
-                'name' => 'Hive',
+                'code' => 'HYVE',
+                'name' => 'Hyve',
                 'address' => 'Port Moresby, Papua New Guinea',
                 'phone' => '+675 123 4576',
                 'email' => 'info@hive.com',

@@ -636,8 +636,13 @@
                             </span>
                         </div>
                         <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                            <button type="button" class="btn-export" onclick="exportTable()">
-                                <i class="fas fa-file-excel"></i> Export
+                            <a href="{{ route('attendance.export', ['fortnight' => $fortnight]) }}" 
+                            class="btn-export" 
+                            style="background: #217346; text-decoration: none;">
+                                <i class="fas fa-file-excel"></i> Export Excel
+                            </a>
+                            <button type="button" class="btn-export" onclick="exportTable()" style="background: #0ea5e9;">
+                                <i class="fas fa-file-csv"></i> Export CSV
                             </button>
                             <button type="submit" class="btn-save">
                                 <i class="fas fa-save"></i> Save Changes

@@ -6,10 +6,13 @@ use App\Models\Employee;
 use App\Models\AttendanceLog;
 use App\Models\AttendanceSummary;
 use App\Models\Holiday;
+use App\Models\Company;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use App\Exports\TimesheetExport;
+use Maatwebsite\Excel\Facades\Excel;
 class AttendanceController extends Controller
 {
     // ============ MAIN ATTENDANCE PAGE ============
@@ -707,5 +710,57 @@ class AttendanceController extends Controller
             ['employee_id', 'date'], // Columns that hold the unique constraint
             ['hours_worked', 'attendance_type', 'notes', 'is_sunday', 'is_holiday', 'fortnight_number', 'updated_at'] // Columns to update on duplicate
         );
+    }
+
+    public function export(Request $request)
+    {
+        $user = auth()->user();
+        $companyId = $user->getCurrentCompanyId();
+        $allowedTypes = $user->getAllowedEmployeeTypes();
+        $fortnight = $request->fortnight ?? $this->getCurrentFortnight();
+        $period = $this->getFortnightPeriod($fortnight);
+        
+        // Get employees
+        $employees = Employee::where('company_id', $companyId)
+            ->where('status', 'Active')
+            ->whereIn('employee_type', $allowedTypes)
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get();
+        
+        // Get attendance logs
+        $attendanceLogs = AttendanceLog::whereIn('employee_id', $employees->pluck('id'))
+            ->where('fortnight_number', $fortnight)
+            ->get()
+            ->groupBy('employee_id')
+            ->map(function ($logs) {
+                return $logs->keyBy(function ($log) {
+                    return $log->date->format('Y-m-d');
+                });
+            });
+        
+        // Get summaries
+        $summaries = AttendanceSummary::whereIn('employee_id', $employees->pluck('id'))
+            ->where('fortnight_number', $fortnight)
+            ->get()
+            ->keyBy('employee_id');
+        
+        // Get company name - FIXED: use Company model
+        $company = \App\Models\Company::find($companyId);
+        $companyName = $company ? $company->name : 'Paragon Tech Limited';
+        
+        // Generate export
+        $export = new TimesheetExport(
+            $fortnight, 
+            $period, 
+            $employees, 
+            $attendanceLogs, 
+            $summaries, 
+            $companyName
+        );
+        
+        $filename = 'timesheet_' . $fortnight . '_' . now()->format('Ymd_His') . '.xlsx';
+        
+        return Excel::download($export, $filename);
     }
 }

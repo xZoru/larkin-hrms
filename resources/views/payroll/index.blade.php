@@ -134,38 +134,93 @@
         background: #dbeafe;
         color: #1e40af;
     }
-    .btn-action {
-        padding: 4px 10px;
+    
+    /* ============================================
+       DROPDOWN ACTIONS - FIXED FOR TABLE
+       ============================================ */
+    .dropdown-container {
+        position: relative;
+        display: inline-block;
+    }
+    .dropdown-toggle {
+        background: #f1f5f9;
+        color: #475569;
+        padding: 6px 14px;
         border-radius: 6px;
         font-size: 12px;
         font-weight: 500;
-        transition: all 0.2s;
-        text-decoration: none;
-        display: inline-block;
-        border: none;
+        border: 1px solid #e2e8f0;
         cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
     }
-    .btn-action.view {
-        background: #dbeafe;
-        color: #1e40af;
+    .dropdown-toggle:hover {
+        background: #e2e8f0;
     }
-    .btn-action.view:hover {
-        background: #bfdbfe;
+    .dropdown-toggle i {
+        font-size: 10px;
+        transition: transform 0.2s;
     }
-    .btn-action.delete {
-        background: #fee2e2;
-        color: #991b1b;
+    .dropdown-toggle.open i {
+        transform: rotate(180deg);
     }
-    .btn-action.delete:hover {
-        background: #fecaca;
+    .dropdown-menu {
+        position: fixed;
+        min-width: 200px;
+        background: white;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        z-index: 99999;
+        display: none;
+        padding: 6px 0;
     }
-    .btn-action.summary {
-        background: #e0e7ff;
-        color: #3730a3;
+    .dropdown-menu.show {
+        display: block;
     }
-    .btn-action.summary:hover {
-        background: #c7d2fe;
+    .dropdown-menu .dropdown-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 16px;
+        color: #334155;
+        font-size: 13px;
+        text-decoration: none;
+        transition: background 0.15s;
+        border: none;
+        background: none;
+        width: 100%;
+        cursor: pointer;
+        text-align: left;
+        font-weight: 400;
+        font-family: inherit;
+        line-height: 1.5;
     }
+    .dropdown-menu .dropdown-item:hover {
+        background: #f1f5f9;
+    }
+    .dropdown-menu .dropdown-item i {
+        width: 18px;
+        font-size: 14px;
+        color: #64748b;
+        text-align: center;
+        flex-shrink: 0;
+    }
+    .dropdown-menu .dropdown-item.text-danger {
+        color: #dc2626;
+    }
+    .dropdown-menu .dropdown-item.text-danger i {
+        color: #dc2626;
+    }
+    .dropdown-divider {
+        height: 1px;
+        background: #e2e8f0;
+        margin: 4px 12px;
+    }
+    
     .filter-select {
         padding: 8px 12px;
         border: 1px solid #d1d5db;
@@ -224,19 +279,16 @@
     .btn-create:hover {
         background: #4338ca;
     }
-    .action-buttons {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        flex-wrap: wrap;
-    }
+    
     @media (max-width: 768px) {
         .table-payroll { font-size: 11px; }
         .table-payroll thead th, .table-payroll tbody td { padding: 6px 8px; }
         .stat-box .stat-value { font-size: 16px; }
         .payroll-header { padding: 16px; }
         .payroll-header .company-name { font-size: 16px; }
+        .dropdown-menu {
+            min-width: 180px;
+        }
     }
 </style>
 
@@ -263,7 +315,6 @@
                 </div>
             </div>
         </div>
-
 
         <!-- Filters -->
         <div class="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
@@ -345,18 +396,40 @@
                                     {{ $payroll->status }}
                                 </span>
                             </td>
-                            <td>
-                                <div class="action-buttons">
-                                    <a href="{{ route('payroll.summary', ['fortnight' => $payroll->fortnight_number]) }}" class="btn-action summary" title="View Payroll Summary">
-                                        <i class="fas fa-chart-bar"></i> Summary
-                                    </a>
-                                    <form method="POST" action="{{ route('payroll.destroy', $payroll) }}" class="inline">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn-action delete" title="Delete Payroll" onclick="return confirm('Delete this payroll?')">
-                                            <i class="fas fa-trash"></i>
+                            <td class="text-center">
+                                <div class="dropdown-container">
+                                    <button type="button" class="dropdown-toggle" onclick="toggleDropdown(event, this)">
+                                        <span>Actions</span>
+                                    </button>
+                                    <div class="dropdown-menu">
+                                        <a href="{{ route('payroll.summary', ['fortnight' => $payroll->fortnight_number]) }}" class="dropdown-item">
+                                            <i class="fas fa-chart-bar"></i> View Summary
+                                        </a>
+                                        
+                                        <button type="button" class="dropdown-item" onclick="printPayslips('{{ $payroll->id }}')">
+                                            <i class="fas fa-file-invoice"></i> Print Payslips
                                         </button>
-                                    </form>
+                                        
+                                        <button type="button" class="dropdown-item" onclick="printSigning('{{ $payroll->id }}')">
+                                            <i class="fas fa-signature"></i> Print Signing
+                                        </button>
+                                        
+                                        <div class="dropdown-divider"></div>
+                                        
+                                        <a href="{{ route('payroll.export-aba', $payroll) }}" class="dropdown-item">
+                                            <i class="fas fa-file-alt"></i> Export ABA
+                                        </a>
+                                        
+                                        <div class="dropdown-divider"></div>
+                                        
+                                        <form method="POST" action="{{ route('payroll.destroy', $payroll) }}" class="inline w-full" onsubmit="return confirm('Delete this payroll?')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="dropdown-item text-danger">
+                                                <i class="fas fa-trash"></i> Delete Payroll
+                                            </button>
+                                        </form>
+                                    </div>
                                 </div>
                             </td>
                         </tr>
@@ -420,5 +493,101 @@
             }
         });
     });
+
+    // ============================================
+    // DROPDOWN TOGGLE - FIXED POSITION
+    // ============================================
+    function toggleDropdown(event, button) {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        const container = button.closest('.dropdown-container');
+        const menu = container.querySelector('.dropdown-menu');
+        const isOpen = menu.classList.contains('show');
+        
+        // Close all other dropdowns
+        document.querySelectorAll('.dropdown-menu.show').forEach(function(el) {
+            el.classList.remove('show');
+            const toggle = el.closest('.dropdown-container').querySelector('.dropdown-toggle');
+            if (toggle) toggle.classList.remove('open');
+        });
+        
+        if (isOpen) {
+            menu.classList.remove('show');
+            button.classList.remove('open');
+        } else {
+            // Position the menu using fixed positioning
+            const rect = button.getBoundingClientRect();
+            menu.style.top = (rect.bottom + 5) + 'px';
+            menu.style.left = (rect.left - 50) + 'px';
+            
+            // Make sure it stays within viewport
+            const menuWidth = parseInt(menu.style.minWidth) || 200;
+            const rightEdge = rect.left + menuWidth - 50;
+            const viewportWidth = window.innerWidth;
+            
+            if (rightEdge > viewportWidth - 10) {
+                menu.style.left = (viewportWidth - menuWidth - 10) + 'px';
+            }
+            
+            menu.classList.add('show');
+            button.classList.add('open');
+        }
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(event) {
+        document.querySelectorAll('.dropdown-container').forEach(function(container) {
+            const menu = container.querySelector('.dropdown-menu');
+            const toggle = container.querySelector('.dropdown-toggle');
+            if (menu && menu.classList.contains('show') && !container.contains(event.target)) {
+                menu.classList.remove('show');
+                if (toggle) toggle.classList.remove('open');
+            }
+        });
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            document.querySelectorAll('.dropdown-menu.show').forEach(function(el) {
+                el.classList.remove('show');
+                const toggle = el.closest('.dropdown-container').querySelector('.dropdown-toggle');
+                if (toggle) toggle.classList.remove('open');
+            });
+        }
+    });
+
+    // Close on scroll
+    document.addEventListener('scroll', function() {
+        document.querySelectorAll('.dropdown-menu.show').forEach(function(el) {
+            el.classList.remove('show');
+            const toggle = el.closest('.dropdown-container').querySelector('.dropdown-toggle');
+            if (toggle) toggle.classList.remove('open');
+        });
+    });
+
+    // ============================================
+    // PRINT FUNCTIONS
+    // ============================================
+    function printPayslips(payrollId) {
+        const url = '/payroll/' + payrollId + '/print-payslips';
+        window.open(url, '_blank');
+        closeAllDropdowns();
+    }
+
+    function printSigning(payrollId) {
+        const url = '/payroll/' + payrollId + '/print-signing';
+        window.open(url, '_blank');
+        closeAllDropdowns();
+    }
+
+    function closeAllDropdowns() {
+        document.querySelectorAll('.dropdown-menu.show').forEach(function(el) {
+            el.classList.remove('show');
+            const toggle = el.closest('.dropdown-container').querySelector('.dropdown-toggle');
+            if (toggle) toggle.classList.remove('open');
+        });
+    }
 </script>
 @endsection

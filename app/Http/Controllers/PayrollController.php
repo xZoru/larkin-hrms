@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use App\Services\ABAGeneratorService;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class PayrollController extends Controller
 {
@@ -704,17 +705,134 @@ public function summary(Request $request)
             'total_employees' => $items->count(),
         ]);
     }
-
-    // ============ DELETE PAYROLL ============
-    public function destroy(Payroll $payroll)
-    {
-        $payroll->items()->delete();
-        $payroll->delete();
-
-        return redirect()->route('payroll.index')
-            ->with('success', 'Payroll deleted successfully.');
+public function printPayslips($payrollId)
+{
+    $payroll = Payroll::with(['items.employee.bankAccounts', 'company'])->findOrFail($payrollId);
+    
+    $payrollItems = $payroll->items()
+        ->with('employee.bankAccounts')
+        ->whereNotNull('employee_id')
+        ->get();
+    
+    // Set the logo
+    $company = $payroll->company;
+    if ($company) {
+        $logoPath = null;
+        
+        // Check database path first
+        if ($company->logo_path) {
+            $path = public_path($company->logo_path);
+            if (file_exists($path)) {
+                $logoPath = $path;
+            }
+        }
+        
+        // If not found, try company name variations
+        if (!$logoPath) {
+            $companyName = strtolower(str_replace(' ', '-', $company->name ?? ''));
+            $possiblePaths = [
+                public_path('images/' . $companyName . '.jpg'),
+                public_path('images/' . $companyName . '.png'),
+                public_path('images/' . $companyName . '.jpeg'),
+            ];
+            foreach ($possiblePaths as $path) {
+                if (file_exists($path)) {
+                    $logoPath = $path;
+                    break;
+                }
+            }
+        }
+        
+        // Convert to base64 for DomPDF
+        if ($logoPath && file_exists($logoPath)) {
+            $extension = pathinfo($logoPath, PATHINFO_EXTENSION);
+            $imageData = base64_encode(file_get_contents($logoPath));
+            $company->logo_data = 'data:image/' . $extension . ';base64,' . $imageData;
+        } else {
+            $company->logo_data = null;
+        }
     }
-
+    
+    $payrollItems->each(function ($item) {
+        $item->total_deductions = ($item->tax ?? 0) + 
+                                  ($item->nasfund_ee ?? 0) + 
+                                  ($item->loan_deduction ?? 0) + 
+                                  ($item->other_deductions ?? 0);
+    });
+    
+    $data = [
+        'payroll' => $payroll,
+        'payrollItems' => $payrollItems,
+        'company' => $company,
+        'fortnight' => $payroll->fortnight_number,
+        'period_start' => $payroll->period_start,
+        'period_end' => $payroll->period_end,
+        'generated_date' => now(),
+    ];
+    
+    $pdf = Pdf::loadView('payroll.print-payslips', $data);
+    $pdf->setPaper('A4', 'landscape');
+    
+    $pdf->setOptions([
+        'defaultFont' => 'Arial',
+        'isRemoteEnabled' => true,
+        'isHtml5ParserEnabled' => true,
+        'isPhpEnabled' => true,
+        'isFontSubsettingEnabled' => true,
+        'margin_top' => 5,
+        'margin_bottom' => 5,
+        'margin_left' => 5,
+        'margin_right' => 5,
+    ]);
+    
+    return $pdf->download('payslips_FN' . $payroll->fortnight_number . '.pdf');
+}
+/**
+ * Print signing sheet for all employees in a payroll
+ */
+/**
+ * Print signing sheet for cash employees only
+ */
+public function printSigning($payrollId)
+{
+    $payroll = Payroll::with(['items.employee', 'company'])->findOrFail($payrollId);
+    
+    // Get ONLY cash employees
+    $payrollItems = $payroll->items()
+        ->with('employee')
+        ->where('payment_method', 'Cash')
+        ->orWhere('payment_method', 'Cash Payment')
+        ->get();
+    
+    // Get company details
+    $company = $payroll->company;
+    
+    $data = [
+        'payroll' => $payroll,
+        'payrollItems' => $payrollItems,
+        'company' => $company,
+        'fortnight' => $payroll->fortnight_number,
+        'period_start' => $payroll->period_start,
+        'period_end' => $payroll->period_end,
+        'generated_date' => now(),
+        'total_cash_employees' => $payrollItems->count(),
+        'total_cash_payout' => $payrollItems->sum('net_pay'),
+    ];
+    
+    $pdf = Pdf::loadView('payroll.print-signing', $data);
+    $pdf->setPaper('A4', 'landscape');
+    
+    // ✅ ADD THESE OPTIONS
+    $pdf->setOptions([
+        'defaultFont' => 'Courier',
+        'isHtml5ParserEnabled' => true,
+        'isRemoteEnabled' => true,
+        'isPhpEnabled' => true,
+        'isFontSubsettingEnabled' => true,
+    ]);
+    
+    return $pdf->download('for-signing_cash_' . $payroll->fortnight_number . '.pdf');
+}
     // ============ APPROVE PAYROLL ============
     public function approve(Payroll $payroll)
     {

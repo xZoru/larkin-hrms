@@ -13,6 +13,7 @@ use App\Models\DisciplineRecord;
 use App\Models\BankAccount;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
@@ -208,49 +209,53 @@ private function getNasfundData($companyId, $fortnight)
      */
     public function swtIndex(Request $request)
     {
-        $companyId = auth()->user()->company_id;
-        $company = Company::find($companyId);
-        
-        // Get available months from payroll data
-        $months = Payroll::where('company_id', $companyId)
-            ->selectRaw('DISTINCT DATE_FORMAT(pay_date, "%Y-%m") as month')
-            ->orderBy('month', 'desc')
-            ->pluck('month')
-            ->toArray();
-        
-        // Build month options with formatted display
-        $monthOptions = [];
-        foreach ($months as $month) {
-            $date = Carbon::createFromFormat('Y-m', $month);
-            $monthOptions[$month] = $date->format('F Y');
-        }
-        
-        $selectedMonth = $request->month ?? ($months[0] ?? null);
-        $reportData = [];
-        $summary = [];
-        
-        if ($selectedMonth) {
-            $reportData = $this->getSwtData($companyId, $selectedMonth);
-            $summary = $this->calculateSwtSummary($reportData);
-        }
-        
-        // Get available years for filter
-        $years = Payroll::where('company_id', $companyId)
-            ->selectRaw('DISTINCT YEAR(pay_date) as year')
-            ->orderBy('year', 'desc')
-            ->pluck('year')
-            ->toArray();
-        
-        return view('reports.swt.index', compact(
-            'company',
-            'monthOptions',
-            'selectedMonth',
-            'reportData',
-            'summary',
-            'years'
-        ));
+    $companyId = auth()->user()->company_id;
+    $company = Company::find($companyId);
+
+    $driver = DB::connection()->getDriverName();
+    $dateFormat = $driver === 'sqlite' ? "strftime('%Y-%m', pay_date)" : "DATE_FORMAT(pay_date, '%Y-%m')";
+    $yearFormat = $driver === 'sqlite' ? "strftime('%Y', pay_date)" : "YEAR(pay_date)";
+
+    // Get available months from payroll data
+    $months = Payroll::where('company_id', $companyId)
+        ->selectRaw("DISTINCT {$dateFormat} as month")
+        ->orderBy('month', 'desc')
+        ->pluck('month')
+        ->toArray();
+
+    // Build month options with formatted display
+    $monthOptions = [];
+    foreach ($months as $month) {
+        $date = Carbon::createFromFormat('Y-m', $month);
+        $monthOptions[$month] = $date->format('F Y');
     }
-    
+
+    $selectedMonth = $request->month ?? ($months[0] ?? null);
+    $reportData = [];
+    $summary = [];
+
+    if ($selectedMonth) {
+        $reportData = $this->getSwtData($companyId, $selectedMonth);
+        $summary = $this->calculateSwtSummary($reportData);
+    }
+
+    // Get available years for filter
+    $years = Payroll::where('company_id', $companyId)
+        ->selectRaw("DISTINCT {$yearFormat} as year")
+        ->orderBy('year', 'desc')
+        ->pluck('year')
+        ->toArray();
+
+    return view('reports.swt.index', compact(
+        'company',
+        'monthOptions',
+        'selectedMonth',
+        'reportData',
+        'summary',
+        'years'
+    ));
+    }
+
     /**
      * Export SWT Report
      */
@@ -289,9 +294,12 @@ private function getNasfundData($companyId, $fortnight)
      */
     private function getSwtData($companyId, $month)
     {
+        $driver = DB::connection()->getDriverName();
+        $dateFormat = $driver === 'sqlite' ? "strftime('%Y-%m', pay_date)" : "DATE_FORMAT(pay_date, '%Y-%m')";
+
         // Get all payrolls for the month
         $payrolls = Payroll::where('company_id', $companyId)
-            ->whereRaw('DATE_FORMAT(pay_date, "%Y-%m") = ?', [$month])
+            ->whereRaw("{$dateFormat} = ?", [$month])
             ->with(['items.employee'])
             ->get();
         
@@ -299,16 +307,13 @@ private function getNasfundData($companyId, $fortnight)
             return collect();
         }
         
-        // ✅ Get current user's allowed employee types
         $user = auth()->user();
         $allowedTypes = $user->getAllowedEmployeeTypes();
         
-        // Aggregate payroll items by employee
         $employeeData = [];
         
         foreach ($payrolls as $payroll) {
             foreach ($payroll->items as $item) {
-                // ✅ Skip if no employee or not allowed type
                 if (!$item->employee || !in_array($item->employee->employee_type, $allowedTypes)) {
                     continue;
                 }
