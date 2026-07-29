@@ -405,9 +405,15 @@ private function getNasfundData($companyId, $fortnight)
         $companyId = auth()->user()->company_id;
         $company = Company::find($companyId);
         
+        // Check driver to support both SQLite and MySQL
+        $driver = DB::connection()->getDriverName();
+        $yearFormat = $driver === 'sqlite' 
+            ? "strftime('%Y', period_start)" 
+            : "YEAR(period_start)";
+
         // Get available years from payroll data
         $years = Payroll::where('company_id', $companyId)
-            ->selectRaw('DISTINCT YEAR(period_start) as year')
+            ->selectRaw("DISTINCT {$yearFormat} as year")
             ->orderBy('year', 'desc')
             ->pluck('year')
             ->toArray();
