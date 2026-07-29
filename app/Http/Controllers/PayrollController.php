@@ -719,17 +719,17 @@ public function printPayslips($payrollId)
     if ($company) {
         $logoPath = null;
         
-        // Check database path first
-        if ($company->logo_path) {
+        // 1. Check database path first
+        if (!empty($company->logo_path)) {
             $path = public_path($company->logo_path);
             if (file_exists($path)) {
                 $logoPath = $path;
             }
         }
         
-        // If not found, try company name variations
-        if (!$logoPath) {
-            $companyName = strtolower(str_replace(' ', '-', $company->name ?? ''));
+        // 2. Try company name variations
+        if (!$logoPath && $company->name) {
+            $companyName = strtolower(str_replace(' ', '-', trim($company->name)));
             $possiblePaths = [
                 public_path('images/' . $companyName . '.jpg'),
                 public_path('images/' . $companyName . '.png'),
@@ -742,12 +742,31 @@ public function printPayslips($payrollId)
                 }
             }
         }
+
+        // 3. Fallback: Search for default logo files in public/images/
+        if (!$logoPath) {
+            $defaultPaths = [
+                public_path('images/logo.jpg'),
+                public_path('images/logo.png'),
+                public_path('images/logo.jpeg'),
+                public_path('images/logo.JPG'),
+                public_path('images/logo.PNG'),
+            ];
+            foreach ($defaultPaths as $path) {
+                if (file_exists($path)) {
+                    $logoPath = $path;
+                    break;
+                }
+            }
+        }
         
         // Convert to base64 for DomPDF
         if ($logoPath && file_exists($logoPath)) {
             $extension = pathinfo($logoPath, PATHINFO_EXTENSION);
+            // Handle jpg vs jpeg extension for MIME type
+            $mimeType = strtolower($extension) === 'jpg' ? 'jpeg' : strtolower($extension);
             $imageData = base64_encode(file_get_contents($logoPath));
-            $company->logo_data = 'data:image/' . $extension . ';base64,' . $imageData;
+            $company->logo_data = 'data:image/' . $mimeType . ';base64,' . $imageData;
         } else {
             $company->logo_data = null;
         }
