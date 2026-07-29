@@ -151,7 +151,7 @@
                                         name="date_of_birth" 
                                         id="date_of_birth"
                                         required 
-                                        class="flatpickr-input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 @error('date_of_birth') border-red-500 @enderror" 
+                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 @error('date_of_birth') border-red-500 @enderror" 
                                         value="{{ old('date_of_birth') }}"
                                         placeholder="DD/MM/YYYY">
                                     @error('date_of_birth') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
@@ -182,7 +182,7 @@
                                     name="joining_date" 
                                     id="joining_date"
                                     required 
-                                    class="flatpickr-input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 @error('joining_date') border-red-500 @enderror" 
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 @error('joining_date') border-red-500 @enderror" 
                                     value="{{ old('joining_date') }}"
                                     placeholder="DD/MM/YYYY">
                                 @error('joining_date') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
@@ -192,7 +192,7 @@
                                 <input type="text" 
                                     name="end_date" 
                                     id="end_date"
-                                    class="flatpickr-input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" 
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" 
                                     value="{{ old('end_date') }}"
                                     placeholder="DD/MM/YYYY">
                             </div>
@@ -201,7 +201,7 @@
                                 <input type="text" 
                                     name="deployment_date" 
                                     id="deployment_date"
-                                    class="flatpickr-input mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" 
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" 
                                     value="{{ old('deployment_date') }}"
                                     placeholder="DD/MM/YYYY">
                             </div>
@@ -486,7 +486,6 @@
             }
 
             if (nasfundToggle) {
-                // Default: OFF
                 toggleNasfund(false);
 
                 nasfundToggle.addEventListener('click', function() {
@@ -494,7 +493,6 @@
                     toggleNasfund(!isVisible);
                 });
 
-                // If old value exists, turn ON
                 @if(old('nasfund_number'))
                     setTimeout(function() {
                         if (nasfundContainer.style.display === 'none') {
@@ -514,7 +512,6 @@
             const bankInputs = bankContainer ? bankContainer.querySelectorAll('input:not([name*="preferred_account"])') : [];
 
             function toggleBankFields(show) {
-                // ✅ Update hidden input value
                 if (bankHiddenInput) {
                     bankHiddenInput.value = show ? 'on' : 'off';
                 }
@@ -544,7 +541,6 @@
             }
 
             if (bankToggle) {
-                // Default: OFF
                 toggleBankFields(false);
 
                 bankToggle.addEventListener('click', function() {
@@ -552,7 +548,6 @@
                     toggleBankFields(!isVisible);
                 });
 
-                // If old value exists, turn ON
                 @if(old('bank_toggle') == 'on' || old('bank_accounts.0.account_number'))
                     setTimeout(function() {
                         toggleBankFields(true);
@@ -577,17 +572,36 @@
                     });
                 });
             }
+
+            // ============ FLATPICKR DATE PICKER ============
+            if (typeof flatpickr !== 'undefined') {
+                // Birth Date
+                flatpickr("#date_of_birth", {
+                    dateFormat: "d/m/Y",
+                    altInput: true,
+                    altFormat: "d/m/Y",
+                    allowInput: true,
+                    maxDate: "today"
+                });
+
+                // Joining Date, End Date, Deployment Date
+                flatpickr("#joining_date, #end_date, #deployment_date", {
+                    dateFormat: "d/m/Y",
+                    altInput: true,
+                    altFormat: "d/m/Y",
+                    allowInput: true
+                });
+            }
         });
 
         // ============ SALARY AUTO-CALCULATION ============
-        function calculateHourlyRate() {
+        window.calculateHourlyRate = function() {
             const monthlySalary = parseFloat(document.getElementById('monthly_salary').value);
-            const fortnightHours = parseInt(document.getElementById('fortnight_hours').value);
+            const fortnightHoursSelect = document.getElementById('fortnight_hours').value;
             const customHours = parseInt(document.getElementById('custom_fortnight_hours').value);
             
-            // Calculate monthly hours
-            let hoursPerFortnight = fortnightHours;
-            if (fortnightHours === 'custom') {
+            let hoursPerFortnight = parseInt(fortnightHoursSelect);
+            if (fortnightHoursSelect === 'custom') {
                 hoursPerFortnight = customHours || 84;
             }
             const monthlyHours = (hoursPerFortnight * 26) / 12;
@@ -596,18 +610,16 @@
                 const hourlyRate = monthlySalary / monthlyHours;
                 document.getElementById('hourly_rate').value = hourlyRate.toFixed(2);
                 updateQuickCalculations(hourlyRate, hoursPerFortnight);
-                document.getElementById('formula_display').textContent = 
-                    `Monthly Salary (K${monthlySalary.toFixed(2)}) ÷ ${monthlyHours.toFixed(1)} hours = K${hourlyRate.toFixed(2)}/hr`;
             }
-        }
+        };
 
-        function calculateMonthlySalary() {
+        window.calculateMonthlySalary = function() {
             const hourlyRate = parseFloat(document.getElementById('hourly_rate').value);
-            const fortnightHours = parseInt(document.getElementById('fortnight_hours').value);
+            const fortnightHoursSelect = document.getElementById('fortnight_hours').value;
             const customHours = parseInt(document.getElementById('custom_fortnight_hours').value);
             
-            let hoursPerFortnight = fortnightHours;
-            if (fortnightHours === 'custom') {
+            let hoursPerFortnight = parseInt(fortnightHoursSelect);
+            if (fortnightHoursSelect === 'custom') {
                 hoursPerFortnight = customHours || 84;
             }
             const monthlyHours = (hoursPerFortnight * 26) / 12;
@@ -616,10 +628,8 @@
                 const monthlySalary = hourlyRate * monthlyHours;
                 document.getElementById('monthly_salary').value = monthlySalary.toFixed(2);
                 updateQuickCalculations(hourlyRate, hoursPerFortnight);
-                document.getElementById('formula_display').textContent = 
-                    `Hourly Rate (K${hourlyRate.toFixed(2)}) × ${monthlyHours.toFixed(1)} hours = K${monthlySalary.toFixed(2)}/month`;
             }
-        }
+        };
 
         function updateQuickCalculations(hourlyRate, hoursPerFortnight) {
             const dailyRate = hourlyRate * 8;
@@ -631,9 +641,6 @@
             document.getElementById('weekly_rate').textContent = `K ${weeklyRate.toFixed(2)}`;
             document.getElementById('fortnightly_rate').textContent = `K ${fortnightlyRate.toFixed(2)}`;
             document.getElementById('annual_salary').textContent = `K ${annualSalary.toFixed(2)}`;
-            
-            document.getElementById('hours_display').textContent = 
-                `${hoursPerFortnight} hours per fortnight × 26 fortnights ÷ 12 months = ${(hoursPerFortnight * 26 / 12).toFixed(1)} hours/month`;
         }
 
         // ============ FORTNIGHT HOURS SELECTOR ============
@@ -649,47 +656,17 @@
                         customInput.focus();
                     } else {
                         customContainer.style.display = 'none';
-                        // Recalculate with selected value
-                        calculateHourlyRate();
+                        window.calculateHourlyRate();
                     }
                 });
             }
             
             if (customInput) {
                 customInput.addEventListener('input', function() {
-                    calculateHourlyRate();
+                    window.calculateHourlyRate();
                 });
             }
         });
-
-                // ============ FLATPKR DATE PICKER ============
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize all date pickers
-            flatpickr(".flatpickr-input", {
-                dateFormat: "d/m/Y",
-                allowInput: true,
-                weekNumbers: true,
-                altInput: true,
-                altFormat: "Y/m/d",
-            });
-
-            // You can also add specific configs for different fields if needed
-            flatpickr("#date_of_birth", {
-                dateFormat: "d/m/Y",
-                allowInput: true,
-                maxDate: new Date(), // Can't select future dates
-                altInput: true,
-                altFormat: "d/m/Y",
-            });
-
-            flatpickr("#joining_date", {
-                dateFormat: "d/m/Y",
-                allowInput: true,
-                altInput: true,
-                altFormat: "Y/m/d",
-            });
-        });
-        
     })();
 </script>
 @endsection
