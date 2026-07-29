@@ -577,18 +577,18 @@
             if (typeof flatpickr !== 'undefined') {
                 // Birth Date
                 flatpickr("#date_of_birth", {
-                    dateFormat: "d/m/Y",
+                    dateFormat: "Y-m-d", // Submitted to backend: 1998-11-11
                     altInput: true,
-                    altFormat: "d/m/Y",
+                    altFormat: "d/m/Y",  // Displayed to user: 11/11/1998
                     allowInput: true,
                     maxDate: "today"
                 });
 
                 // Joining Date, End Date, Deployment Date
                 flatpickr("#joining_date, #end_date, #deployment_date", {
-                    dateFormat: "d/m/Y",
+                    dateFormat: "Y-m-d", // Submitted to backend: 2024-05-28
                     altInput: true,
-                    altFormat: "d/m/Y",
+                    altFormat: "d/m/Y",  // Displayed to user: 28/05/2024
                     allowInput: true
                 });
             }
