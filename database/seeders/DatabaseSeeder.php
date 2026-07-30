@@ -19,7 +19,7 @@ class DatabaseSeeder extends Seeder
             LeaveRecordSeeder::class,     
             LoanSeeder::class,            
             NotificationSeeder::class,
-            UsersSeeder::class    
+            // Removed duplicate UsersSeeder::class
         ]);
     }
 }

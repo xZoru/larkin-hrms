@@ -9,7 +9,6 @@ class MemoTemplateSeeder extends Seeder
 {
     public function run()
     {
-        // SOW: Memos generated directly from predefined templates
         $templates = [
             [
                 'name' => 'Verbal Warning',
@@ -63,7 +62,10 @@ class MemoTemplateSeeder extends Seeder
         ];
 
         foreach ($templates as $template) {
-            MemoTemplate::create($template);
+            MemoTemplate::updateOrCreate(
+                ['name' => $template['name']],
+                $template
+            );
         }
 
         $this->command->info('Memo templates seeded successfully!');
