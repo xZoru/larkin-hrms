@@ -18,19 +18,7 @@ class ABAGeneratorService
             ->with(['employee.bankAccounts'])
             ->whereNotNull('employee_id')
             ->where('net_pay', '>', 0)
-            ->get()
-            ->filter(function($item) {
-                if (!$item->employee || !$item->employee->bankAccounts) {
-                    return false;
-                }
-                
-                // Get active account or fallback to first available account
-                $activeAccount = $item->employee->bankAccounts
-                    ->where('is_active', true)
-                    ->first() ?? $item->employee->bankAccounts->first();
-                
-                return !is_null($activeAccount);
-            });
+            ->get();
 
         // 2. Get manual entries (employee_id = null)
         $manualItems = $payroll->items()
@@ -120,13 +108,9 @@ class ABAGeneratorService
                 // Regular employee (uses already loaded collection without running new SQL queries)
                 $employee = $item->employee;
                 $bankAccount = $employee->bankAccounts
-                    ->where('is_active', true)
-                    ->first() ?? $employee->bankAccounts->first();
+                    ? ($employee->bankAccounts->where('is_active', true)->first() ?? $employee->bankAccounts->first())
+                    : null;
                 $amount = $item->net_pay;
-            }
-            
-            if (!$bankAccount) {
-                continue;
             }
 
             $detail = $this->formatDetailRecord(
