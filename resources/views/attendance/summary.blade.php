@@ -326,7 +326,6 @@
     /* ============================================
        SUNDAY STYLES - RED
        ============================================ */
-    /* Sunday column - light red background */
     .day-cell.weekend-cell {
         background: #fef2f2 !important;
         border-color: #fecaca !important;
@@ -341,7 +340,6 @@
         background: #fff5f5 !important;
     }
     
-    /* Sunday header - red text and background */
     th.weekend-header {
         background: #fef2f2 !important;
         border-bottom: 2px solid #fecaca !important;
@@ -511,10 +509,7 @@
         color: #4f46e5;
         font-size: 16px;
     }
-    
-    /* ============================================
-       RESPONSIVE
-       ============================================ */
+
     @media (max-width: 1400px) {
         .day-cell { width: 48px; min-width: 48px; max-width: 48px; }
         .day-cell .hours-input { font-size: 10px; height: 24px; padding: 2px 2px; }
@@ -616,7 +611,8 @@
 
         <!-- MAIN CONTENT -->
         @if($generated)
-            <form method="POST" action="{{ route('attendance.summary.bulk-update') }}">
+            <!-- Form given explicit ID summaryForm -->
+            <form id="summaryForm" method="POST" action="{{ route('attendance.summary.bulk-update') }}">
                 @csrf
                 <input type="hidden" name="fortnight" value="{{ $fortnight }}">
 
@@ -644,7 +640,8 @@
                             <button type="button" class="btn-export" onclick="exportTable()" style="background: #0ea5e9;">
                                 <i class="fas fa-file-csv"></i> Export CSV
                             </button>
-                            <button type="submit" class="btn-save">
+                            <!-- Submit Button Linked explicitly using form attribute -->
+                            <button type="submit" form="summaryForm" class="btn-save">
                                 <i class="fas fa-save"></i> Save Changes
                             </button>
                         </div>
@@ -776,6 +773,8 @@
 <script>
     function exportTable() {
         var table = document.getElementById('attendanceTable');
+        if (!table) return;
+
         var rows = table.querySelectorAll('tr');
         var csv = [];
         
@@ -785,9 +784,8 @@
         var headerCells = headerRow.querySelectorAll('th');
         headerCells.forEach(function(cell) {
             var text = cell.textContent.trim();
-            // Clean up header text
             text = text.replace(/[🎉]/g, '').trim();
-            headers.push(text);
+            headers.push('"' + text + '"');
         });
         csv.push(headers.join(','));
         
@@ -799,10 +797,10 @@
             cells.forEach(function(cell) {
                 var input = cell.querySelector('input.hours-input');
                 if (input) {
-                    rowData.push(input.value || '0');
+                    rowData.push('"' + (input.value || '0') + '"');
                 } else {
-                    var text = cell.textContent.trim();
-                    rowData.push(text);
+                    var text = cell.textContent.trim().replace(/"/g, '""');
+                    rowData.push('"' + text + '"');
                 }
             });
             csv.push(rowData.join(','));

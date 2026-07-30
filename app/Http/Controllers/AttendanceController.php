@@ -310,7 +310,7 @@ class AttendanceController extends Controller
         ));
     }
 
-    public function summaryBulkUpdate(Request $request)
+public function summaryBulkUpdate(Request $request)
     {
         $request->validate([
             'fortnight' => 'required|string',
@@ -341,6 +341,7 @@ class AttendanceController extends Controller
                 continue;
             }
 
+            // Check if timesheet is already locked
             $existingStatus = AttendanceLog::where('employee_id', $employee->id)
                 ->where('fortnight_number', $fortnight)
                 ->value('timesheet_status') ?? 'Draft';
@@ -352,9 +353,13 @@ class AttendanceController extends Controller
 
             foreach ($dailyRows as $dateKey => $data) {
                 $type = $data['type'] ?? 'Work';
-                $hours = $data['hours'] ?? 0;
+                $hoursInput = $data['hours'] ?? null;
+
+                // Non-work types should always reset hours to 0
                 if (in_array($type, ['Annual Leave', 'Leave Without Pay', 'Absent'], true)) {
                     $hours = 0;
+                } else {
+                    $hours = ($hoursInput === '' || $hoursInput === null) ? 0 : (float) $hoursInput;
                 }
 
                 $date = Carbon::parse($dateKey);
@@ -365,7 +370,7 @@ class AttendanceController extends Controller
                         'date' => $dateKey,
                     ],
                     [
-                        'hours_worked' => $hours ?: 0,
+                        'hours_worked' => $hours,
                         'attendance_type' => $type,
                         'is_sunday' => $date->isSunday(),
                         'is_holiday' => in_array($dateKey, $publicHolidays, true),
@@ -376,11 +381,12 @@ class AttendanceController extends Controller
                 );
             }
 
+            // Recalculate summary totals (REG, OT, Sun, Hol) for this employee
             $this->updateSummary($employee->id, $fortnight);
             $updatedEmployeeIds->push($employee->id);
         }
 
-        $message = 'Attendance summary saved for ' . $updatedEmployeeIds->unique()->count() . ' employees.';
+        $message = 'Attendance summary saved for ' . $updatedEmployeeIds->unique()->count() . ' employee(s).';
         if ($skippedLocked > 0) {
             $message .= " {$skippedLocked} locked timesheet(s) were skipped.";
         }
