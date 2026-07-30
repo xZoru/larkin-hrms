@@ -96,31 +96,27 @@ class ABAGeneratorService
     {
         $lines = [];
         
-        //  Get file format from bankDetails (default: STANDARD)
-        $fileFormat = $bankDetails['aba_file_format'] ?? 'STANDARD';
-        
         // Tracer Reference
         $tracerReference = $this->formatTracerReference($company, $bankDetails);
         
-        // Header
-        $header = $this->formatHeader($company, $bankDetails);
-        $lines[] = $this->padLine($header, $fileFormat);
+        // 1. Header Record (Record Type 0)
+        $lines[] = $this->formatHeader($company, $bankDetails);
 
-        // Detail Records
+        // 2. Detail Records (Record Type 1)
         $transactionCount = 0;
         $totalAmount = 0;
 
         foreach ($payrollItems as $item) {
-            // ✅ Check if this is a manual entry (has virtual_bank_account)
+            // Check if this is a manual entry (has virtual_bank_account)
             $isManual = isset($item->virtual_bank_account);
             
             if ($isManual) {
-                // ✅ Manual entry - use virtual bank account
+                // Manual entry - use virtual bank account
                 $bankAccount = $item->virtual_bank_account;
                 $employee = null;
                 $amount = $item->net_pay;
             } else {
-                // ✅ Regular employee
+                // Regular employee
                 $employee = $item->employee;
                 $bankAccount = $employee->bankAccounts()->where('is_active', true)->first();
                 $amount = $item->net_pay;
@@ -138,30 +134,45 @@ class ABAGeneratorService
                 $bankDetails['debit_description'] ?? '',
                 $tracerReference,
                 $payroll,
-                $isManual  //  Pass isManual flag
+                $isManual
             );
             
-            $lines[] = $this->padLine($detail, $fileFormat);
+            $lines[] = $detail;
             
             $transactionCount++;
             $totalAmount += $amount;
         }
 
-        // Contra Record
-        $tracerRecord = $this->formatTracerRecord($company, $bankDetails, $totalAmount, $tracerReference, $payroll);
-        $lines[] = $this->padLine($tracerRecord, $fileFormat);
+        // 3. Contra / Balancing Record (Record Type 1)
+        $lines[] = $this->formatTracerRecord($company, $bankDetails, $totalAmount, $tracerReference, $payroll);
         $transactionCount++;
 
-        // Trailer
-        $trailer = $this->formatTrailerRecord($transactionCount, $totalAmount);
-        $lines[] = $this->padLine($trailer, $fileFormat);
+        // 4. Trailer / Footer Record (Record Type 7)
+        $lines[] = $this->formatTrailerRecord($transactionCount, $totalAmount);
 
-        return implode("\r\n", $lines);
+        // 5. Strict 132-Character Validation Check
+        foreach ($lines as $index => $line) {
+            $length = strlen($line);
+            if ($length !== 132) {
+                $lineType = match ($index) {
+                    0 => 'Header Record (Type 0)',
+                    count($lines) - 1 => 'Trailer/Footer Record (Type 7)',
+                    default => "Detail Record (Line " . ($index + 1) . ")",
+                };
+
+                throw new \Exception(
+                    "ABA File Generation Error: {$lineType} must be exactly 132 characters long. Current length is {$length}."
+                );
+            }
+        }
+
+        // 6. Join lines using Windows CRLF (\r\n) with a trailing newline
+        return implode("\r\n", $lines) . "\r\n";
     }
 
     /**
      * Format Tracer Reference
-     * Output: 088-950000007009276416LARKIN ENTERPRIS00000000
+     * Output: 088-950000007009276416LARKIN ENTERPRIS00000000 (46 chars)
      */
     private function formatTracerReference($company, $bankDetails)
     {
@@ -176,63 +187,60 @@ class ABAGeneratorService
         $account = preg_replace('/[^0-9]/', '', $account);
         $account = str_pad(substr($account, 0, 15), 15, '0', STR_PAD_LEFT);
         
-        //  FIX: Use $company->name directly (this is correct in the header!)
         $companyName = $company->name ?? 'LARKIN ENTERPRISES LIMITED';
-        
-        // Convert to uppercase
         $companyName = strtoupper($companyName);
+        $companyName = str_pad(substr($companyName, 0, 16), 16, ' ');
         
-        // Take first 16 characters
-        $companyName = substr($companyName, 0, 16);
-        
-        // Pad to exactly 16 characters
-        $companyName = str_pad($companyName, 16, ' ');
-        
-        // Padding (8 zeros)
         $padding = str_repeat('0', 8);
         
-        // Build tracer reference
         return $bsbFormatted . $account . $companyName . $padding;
     }
 
+    /**
+     * Record Type 0: Descriptive Header Record (Exact length: 132 characters)
+     */
     private function formatHeader($company, $bankDetails)
     {
         $line = '';
         
-        $line .= '0';
-        $line .= str_repeat(' ', 17);
-        $line .= '01';
+        $line .= '0';                                                                            // Record Type (1)
+        $line .= str_repeat(' ', 17);                                                           // Sequence/Filler (17)
+        $line .= '01';                                                                          // Reel Sequence (2)
+        
         $bankCode = $bankDetails['bank_code'] ?? 'BSP';
-        $line .= str_pad(substr($bankCode, 0, 3), 3, ' ');
-        $line .= str_repeat(' ', 7);
+        $line .= str_pad(substr($bankCode, 0, 3), 3, ' ');                                      // Bank Name (3)
+        $line .= str_repeat(' ', 7);                                                            // Reserved Filler (7)
         
         $userName = $bankDetails['account_name'] ?? $company->name ?? 'LARKIN ENTERPRISES LIMITED';
         $userName = strtoupper($userName);
-        $userName = str_pad(substr($userName, 0, 26), 26, ' ', STR_PAD_RIGHT);
-        $line .= $userName;
+        $line .= str_pad(substr($userName, 0, 26), 26, ' ', STR_PAD_RIGHT);                    // User Name (26)
         
         $apcaId = $bankDetails['apca_user_id'] ?? $company->apca_user_id ?? '000001';
-        $line .= str_pad(substr($apcaId, 0, 6), 6, '0', STR_PAD_LEFT);
+        $line .= str_pad(substr($apcaId, 0, 6), 6, '0', STR_PAD_LEFT);                         // User ID (6)
         
         $description = $bankDetails['payment_type'] ?? 'SALARY';
         $description = strtoupper(substr($description, 0, 12));
-        $line .= str_pad($description, 12, ' ', STR_PAD_RIGHT);
+        $line .= str_pad($description, 12, ' ', STR_PAD_RIGHT);                                // Description (12)
         
         $date = $bankDetails['payment_date'] ?? now()->format('Y-m-d');
         $dateObj = \Carbon\Carbon::parse($date);
-        $line .= $dateObj->format('Ymd');
+        $line .= $dateObj->format('Ymd');                                                       // Processing Date YYYYMMDD (8)
         
-        $line .= str_repeat(' ', 40);
+        // 1 + 17 + 2 + 3 + 7 + 26 + 6 + 12 + 8 = 82 characters.
+        // Requires exactly 50 trailing spaces to reach 132 characters total.
+        $line .= str_repeat(' ', 50);                                                           // Trailing padding (50)
         
-        return $line;
+        return str_pad(substr($line, 0, 132), 132, ' ', STR_PAD_RIGHT);
     }
 
+    /**
+     * Record Type 1: Payment Detail Record (Exact length: 132 characters)
+     */
     private function formatDetailRecord($bankAccount, $employee, $amount, $paymentType, $debitDescription, $tracerReference, $payroll, $isManual = false)
     {
         $line = '';
         
-        // Record Type
-        $line .= '1';
+        $line .= '1';                                                                            // Record Type (1)
         
         // BSB
         $bsb = $bankAccount->bsb_code ?? '';
@@ -242,127 +250,110 @@ class ABAGeneratorService
         }
         $bsb = str_pad($bsb, 6, '0', STR_PAD_LEFT);
         $bsbFormatted = substr($bsb, 0, 3) . '-' . substr($bsb, 3, 3);
-        $line .= str_pad($bsbFormatted, 7, '-', STR_PAD_RIGHT);
+        $line .= str_pad($bsbFormatted, 7, '-', STR_PAD_RIGHT);                                 // BSB Number (7)
         
         // Account Number (15 digits)
         $accountNumber = $bankAccount->account_number ?? '';
         $accountNumber = preg_replace('/[^0-9]/', '', $accountNumber);
         $accountNumber = substr($accountNumber, 0, 15);
-        $line .= str_pad($accountNumber, 15, '0', STR_PAD_LEFT);
+        $line .= str_pad($accountNumber, 15, '0', STR_PAD_LEFT);                                // Account Number (15)
         
-        // Space
-        $line .= ' ';
+        $line .= ' ';                                                                           // Indicator (1)
+        $line .= '53';                                                                          // Transaction Code (2)
         
-        // Transaction Code
-        $line .= '53';
-        
-        // Amount
         $amountCents = round($amount * 100);
-        $line .= str_pad($amountCents, 10, '0', STR_PAD_LEFT);
+        $line .= str_pad($amountCents, 10, '0', STR_PAD_LEFT);                                 // Amount (10)
         
-        // Employee Name (32 chars) - Handle manual entries
+        // Employee / Payee Name (32 chars)
         if ($isManual && isset($bankAccount->details)) {
             $accountName = $bankAccount->details['account_name'] ?? 'MANUAL ENTRY';
         } else {
             $accountName = $bankAccount->account_name ?? $employee->full_name ?? '';
         }
         $accountName = strtoupper(substr($accountName, 0, 32));
-        $line .= str_pad($accountName, 32, ' ', STR_PAD_RIGHT);
+        $line .= str_pad($accountName, 32, ' ', STR_PAD_RIGHT);                                // Account Name (32)
         
         // Description (18 chars)
         $fortnightRef = 'FN' . $payroll->fortnight_number;
         $description = strtoupper(substr($fortnightRef, 0, 18));
-        $line .= str_pad($description, 18, ' ', STR_PAD_RIGHT);
+        $line .= str_pad($description, 18, ' ', STR_PAD_RIGHT);                                // Description / Reference (18)
         
-        // ✅ FIX: Use the FULL 46-char tracer reference
-        $line .= $tracerReference;
+        // Full 46-character Tracer Reference
+        $line .= $tracerReference;                                                             // Tracer Reference (46)
         
-        return $line;
+        // 1 + 7 + 15 + 1 + 2 + 10 + 32 + 18 + 46 = 132 characters total.
+        return str_pad(substr($line, 0, 132), 132, ' ', STR_PAD_RIGHT);
     }
 
+    /**
+     * Record Type 1: Balancing / Contra Record (Exact length: 132 characters)
+     */
     private function formatTracerRecord($company, $bankDetails, $totalAmount, $tracerReference, $payroll)
     {
         $line = '';
         
-        // Record Type
-        $line .= '1';
+        $line .= '1';                                                                            // Record Type (1)
         
         // Tracer BSB
         $bsb = $bankDetails['bsb_number'] ?? $company->bsb_code ?? '088950';
         $bsb = preg_replace('/[^0-9]/', '', $bsb);
         $bsb = str_pad($bsb, 6, '0', STR_PAD_LEFT);
         $bsbFormatted = substr($bsb, 0, 3) . '-' . substr($bsb, 3, 3);
-        $line .= str_pad($bsbFormatted, 7, '-', STR_PAD_RIGHT);
+        $line .= str_pad($bsbFormatted, 7, '-', STR_PAD_RIGHT);                                 // BSB Number (7)
         
         // Tracer Account
         $account = $bankDetails['account_number'] ?? $company->bank_account_number ?? '7009276416';
         $account = preg_replace('/[^0-9]/', '', $account);
         $account = substr($account, 0, 15);
-        $line .= str_pad($account, 15, '0', STR_PAD_LEFT);
+        $line .= str_pad($account, 15, '0', STR_PAD_LEFT);                                     // Account Number (15)
         
-        // Space
-        $line .= ' ';
+        $line .= ' ';                                                                           // Indicator (1)
+        $line .= '13';                                                                          // Transaction Code - Contra (2)
         
-        // Transaction Code (Contra)
-        $line .= '13';
-        
-        // Total Amount
         $totalAmountCents = round($totalAmount * 100);
-        $line .= str_pad($totalAmountCents, 10, '0', STR_PAD_LEFT);
+        $line .= str_pad($totalAmountCents, 10, '0', STR_PAD_LEFT);                             // Amount (10)
         
         // Company Name
         $userName = $bankDetails['account_name'] ?? $company->name ?? 'LARKIN ENTERPRISES LIMITED';
         $userName = strtoupper($userName);
-        $userName = str_pad(substr($userName, 0, 32), 32, ' ', STR_PAD_RIGHT);
-        $line .= $userName;
+        $line .= str_pad(substr($userName, 0, 32), 32, ' ', STR_PAD_RIGHT);                    // Company Name (32)
         
         // Description
         $fortnightRef = 'FN' . $payroll->fortnight_number;
         $tracerRef = $bankDetails['tracer_reference'] ?? $fortnightRef;
         $tracerRef = strtoupper(substr($tracerRef, 0, 18));
-        $line .= str_pad($tracerRef, 18, ' ', STR_PAD_RIGHT);
+        $line .= str_pad($tracerRef, 18, ' ', STR_PAD_RIGHT);                                  // Reference (18)
         
         // Tracer Reference
-        $line .= $tracerReference;
+        $line .= $tracerReference;                                                             // Tracer Reference (46)
         
-        return $line;
+        // 1 + 7 + 15 + 1 + 2 + 10 + 32 + 18 + 46 = 132 characters total.
+        return str_pad(substr($line, 0, 132), 132, ' ', STR_PAD_RIGHT);
     }
 
+    /**
+     * Record Type 7: File Trailer / Footer Record (Exact length: 132 characters)
+     */
     private function formatTrailerRecord($transactionCount, $totalAmount)
     {
         $line = '';
         
-        $line .= '7';
-        $line .= '999-999';
-        $line .= str_repeat(' ', 12);
+        $line .= '7';                                                                            // Record Type (1)
+        $line .= '999-999';                                                                     // BSB Filler (7)
+        $line .= str_repeat(' ', 12);                                                           // Reserved Filler (12)
         
         $totalAmountCents = round($totalAmount * 100);
-        $line .= str_pad(0, 10, '0', STR_PAD_LEFT);
-        $line .= str_pad($totalAmountCents, 10, '0', STR_PAD_LEFT);
-        $line .= str_pad($totalAmountCents, 10, '0', STR_PAD_LEFT);
-        $line .= str_repeat(' ', 24);
-        $line .= str_pad($transactionCount, 6, '0', STR_PAD_LEFT);
-        $line .= str_repeat(' ', 40);
+        $line .= str_pad(0, 10, '0', STR_PAD_LEFT);                                             // Net Total (10)
+        $line .= str_pad($totalAmountCents, 10, '0', STR_PAD_LEFT);                             // Credit Total (10)
+        $line .= str_pad($totalAmountCents, 10, '0', STR_PAD_LEFT);                             // Debit Total (10)
+        $line .= str_repeat(' ', 24);                                                           // Reserved Filler (24)
+        $line .= str_pad($transactionCount, 6, '0', STR_PAD_LEFT);                             // Item Count (6)
         
-        return $line;
-    }
-    
-    private function padLine($line, $fileFormat = 'STANDARD')
-    {
-        // Remove any existing line breaks
-        $line = preg_replace('/\r\n|\r|\n/', '', $line);
+        // 1 + 7 + 12 + 10 + 10 + 10 + 24 + 6 = 80 characters.
+        // Requires exactly 52 trailing spaces to reach 132 characters total.
+        $line .= str_repeat(' ', 52);                                                           // Trailing padding (52)
         
-        // Determine target length based on format
-        $targetLength = ($fileFormat === 'KUNDUPEI') ? 132 : 120;
-        $length = strlen($line);
-        
-        // Only pad if shorter than target (don't truncate)
-        if ($length < $targetLength) {
-            $line = str_pad($line, $targetLength, ' ');
-        }
-        // If longer than target, keep as-is (ABA allows longer lines)
-        
-        return $line;
+        return str_pad(substr($line, 0, 132), 132, ' ', STR_PAD_RIGHT);
     }
 
     private function generateBatchNumber()

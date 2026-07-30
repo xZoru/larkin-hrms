@@ -240,14 +240,6 @@
                         </div>
                     </div>
 
-                    <!-- ABA File Format -->
-                    <div class="form-group">
-                        <label>ABA File Format</label>
-                        <select name="aba_file_format" class="form-control">
-                            <option value="STANDARD" {{ $company->aba_file_format == 'STANDARD' ? 'selected' : '' }}>Standard (120 chars)</option>
-                            <option value="KUNDUPEI" {{ $company->aba_file_format == 'KUNDUPEI' ? 'selected' : '' }}>KunduPei BSP (132 chars)</option>
-                        </select>
-                    </div>
 
                     <div class="mt-4 p-3 bg-blue-50 rounded-lg">
                         <p class="text-sm text-blue-700">
