@@ -31,7 +31,7 @@ Route::middleware(['auth'])->prefix('tax-tables')->name('tax-tables.')->group(fu
 
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect()->route('login');
 });
 
 Route::get('/dashboard', function () {
@@ -106,6 +106,8 @@ Route::middleware(['auth'])->group(function () {
     ->name('payroll.summary.bulk-update');
     Route::post('/payroll/calculate-tax', [PayrollController::class, 'calculateTax'])
     ->name('payroll.calculate-tax');
+    Route::get('/payroll/{payroll}/export-excel', [PayrollController::class, 'exportExcel'])
+    ->name('payroll.export-excel');
 });
 
 // ============ LOAN REQUESTS ROUTES ============

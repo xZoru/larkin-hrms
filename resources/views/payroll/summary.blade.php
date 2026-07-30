@@ -621,6 +621,11 @@
                             <i class="fas fa-save"></i> Save All Changes
                         </button>
                     </div>
+                    <a href="{{ route('payroll.export-excel', $payroll->id) }}" 
+                    class="btn btn-success" 
+                    style="background: #059669; color: white; padding: 10px 20px; border-radius: 8px; font-weight: 600; border: none; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-file-excel"></i> Export Excel
+                    </a>
                 </div>
             </div>
 

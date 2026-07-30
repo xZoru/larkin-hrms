@@ -4,57 +4,58 @@
     <meta charset="utf-8">
     <title>For Signing - Cash Employees - {{ $payroll->fortnight_number }}</title>
     <style>
+        @page {
+            size: 8.26in 11.69in;
+            margin: 15mm 12mm;
+        }
         body {
             font-family: Arial, sans-serif;
             font-size: 12px;
-            padding: 20px;
+            padding: 0;
             margin: 0;
+            color: #000;
         }
         .header {
-            text-align: center;
-            border-bottom: 2px solid #000;
-            padding-bottom: 15px;
             margin-bottom: 20px;
         }
+        .header .logo {
+            text-align: left;
+            margin-bottom: 10px;
+        }
+        .header .logo img {
+            height: 120px;
+            max-width: auto;
+        }
         .header h1 {
-            margin: 0;
-            font-size: 22px;
+            text-align: center;
+            margin: 0 0 15px 0;
+            font-size: 18px;
             font-weight: bold;
             text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-        .header .subtitle {
-            font-size: 14px;
-            color: #dc2626;
-            font-weight: bold;
-            margin-top: 5px;
-            text-transform: uppercase;
-        }
-        .header .company-name {
-            font-size: 16px;
-            font-weight: bold;
-            margin-top: 5px;
         }
         .header .info {
-            margin-top: 8px;
             font-size: 12px;
+            line-height: 1.6;
         }
-        .header .info span {
-            display: inline-block;
-            margin: 0 15px;
-        }
-        .header .info .label {
-            font-weight: bold;
+        .header .info div {
+            margin: 0;
         }
         .signing-table {
             width: 100%;
+            table-layout: fixed;
             border-collapse: collapse;
             margin-top: 15px;
+        }
+        .signing-table th,
+        .signing-table td {
+            box-sizing: border-box;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
         .signing-table th {
             background: #e8e8e8;
             border: 1px solid #000;
-            padding: 10px 12px;
+            padding: 8px 10px;
             text-align: left;
             font-size: 11px;
             font-weight: bold;
@@ -62,105 +63,24 @@
         }
         .signing-table td {
             border: 1px solid #000;
-            padding: 10px 12px;
-            font-size: 12px;
+            padding: 8px 10px;
+            font-size: 11px;
             vertical-align: middle;
+        }
+        .signing-table tbody tr:nth-child(odd) td {
+            background: #f2f2f2;
+        }
+        .signing-table tbody tr:nth-child(even) td {
+            background: #fff;
         }
         .signing-table .number-cell {
             text-align: center;
-            width: 40px;
-            font-weight: bold;
-        }
-        .signing-table .emp-no-cell {
-            width: 120px;
-            font-weight: bold;
-        }
-        .signing-table .name-cell {
-            width: 250px;
-        }
-        .signing-table .amount-cell {
-            text-align: right;
-            width: 130px;
-            font-weight: bold;
-            font-size: 13px;
-        }
-        .signing-table .signature-cell {
-            text-align: center;
-            width: 180px;
-        }
-        .signing-table .signature-cell .sig-line {
-            display: inline-block;
-            width: 140px;
-            border-bottom: 1px solid #000;
-            margin-top: 18px;
-        }
-        .signing-table .signature-cell .sig-label {
-            display: block;
-            font-size: 9px;
-            color: #666;
-            margin-top: 2px;
-        }
-        .signing-table .date-cell {
-            text-align: center;
-            width: 130px;
-        }
-        .signing-table .date-cell .date-line {
-            display: inline-block;
-            width: 110px;
-            border-bottom: 1px solid #000;
-            margin-top: 18px;
-        }
-        .signing-table .date-cell .date-label {
-            display: block;
-            font-size: 9px;
-            color: #666;
-            margin-top: 2px;
-        }
-        .signing-table tr:hover {
-            background: #f9fafb;
         }
         .footer {
-            margin-top: 25px;
+            margin-top: 20px;
             font-size: 10px;
             color: #666;
             text-align: center;
-            border-top: 1px solid #ccc;
-            padding-top: 12px;
-        }
-        .total-box {
-            margin-top: 20px;
-            padding: 12px 20px;
-            background: #f8f8f8;
-            border: 2px solid #000;
-            text-align: center;
-            font-weight: bold;
-            font-size: 14px;
-            display: flex;
-            justify-content: center;
-            gap: 40px;
-        }
-        .total-box span {
-            display: inline-block;
-        }
-        .total-box .highlight {
-            color: #dc2626;
-            font-size: 16px;
-        }
-        .watermark {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            opacity: 0.03;
-            font-size: 100px;
-            font-weight: bold;
-            color: #000;
-            z-index: -1;
-            text-transform: uppercase;
-            letter-spacing: 10px;
-        }
-        .page-break {
-            page-break-after: always;
         }
         .empty-state {
             text-align: center;
@@ -181,63 +101,69 @@
     </style>
 </head>
 <body>
-    <div class="watermark">CASH PAYMENT</div>
-    
+
     <!-- Header -->
     <div class="header">
-        <h1>FOR-SIGNING</h1>
-        <div class="subtitle">★ CASH EMPLOYEES ★</div>
-        <div class="company-name">{{ $company->name ?? 'Paragon Tech Limited' }}</div>
-        <div class="info">
-            <span><span class="label">Fortnight:</span> {{ $payroll->fortnight_number }}</span>
-            <span><span class="label">Period:</span> {{ $payroll->period_start->format('M d, Y') }} - {{ $payroll->period_end->format('M d, Y') }}</span>
-            <span><span class="label">Generated:</span> {{ $generated_date->format('M d, Y H:i') }}</span>
-        </div>
-    </div>
+        @php
+            $logoPath = null;
+            $logoDataUri = null;
+            if (!empty($company->logo_path)) {
+                // Handles either a full/absolute path or a relative path stored from public/
+                $logoPath = str_starts_with($company->logo_path, '/')
+                    ? $company->logo_path
+                    : public_path(ltrim($company->logo_path, '/'));
 
-    <!-- Cash Employees Count -->
-    <div style="text-align: right; font-size: 11px; color: #666; margin-bottom: 5px;">
-        Total Cash Employees: <strong>{{ $total_cash_employees ?? $payrollItems->count() }}</strong>
+                if ($logoPath && file_exists($logoPath)) {
+                    $imageData = base64_encode(file_get_contents($logoPath));
+                    $mimeType = mime_content_type($logoPath) ?: 'image/png';
+                    $logoDataUri = 'data:' . $mimeType . ';base64,' . $imageData;
+                }
+            }
+        @endphp
+        @if($logoDataUri)
+        <div class="logo">
+            <img src="{{ $logoDataUri }}" alt="{{ $company->name ?? 'Company' }} logo">
+        </div>
+        @endif
+
+        <h1>FOR-SIGNING</h1>
+
+        <div class="info">
+            <div><strong>Company:</strong> {{ $company->name ?? 'N/A' }}</div>
+            <div><strong>Fortnight:</strong> {{ $payroll->fortnight_number }}</div>
+            <div><strong>Date Range:</strong> {{ $payroll->period_start->format('M d, Y') }} - {{ $payroll->period_end->format('M d, Y') }}</div>
+            <div><strong>Date Generated:</strong> {{ $generated_date->format('M d, Y') }}</div>
+        </div>
     </div>
 
     <!-- Signing Table -->
     @if($payrollItems->count() > 0)
     <table class="signing-table">
+        <colgroup>
+            <col style="width: 4%;">
+            <col style="width: 15%;">
+            <col style="width: 36%;">
+            <col style="width: 45%;">
+        </colgroup>
         <thead>
             <tr>
-                <th style="text-align: center;">#</th>
-                <th>EMP. NO</th>
-                <th>EMPLOYEE NAME</th>
-                <th style="text-align: right;">AMOUNT</th>
-                <th style="text-align: center;">SIGNATURE</th>
-                <th style="text-align: center;">DATE</th>
+                <th style="text-align: center; width: 4%;">#</th>
+                <th style="width: 15%;">EMP. NO</th>
+                <th style="width: 36%;">EMPLOYEE NAME</th>
+                <th style="width: 45%;">SIGNATURE</th>
             </tr>
         </thead>
         <tbody>
             @foreach($payrollItems as $index => $item)
             <tr>
-                <td class="number-cell">{{ $loop->iteration }}</td>
-                <td class="emp-no-cell">{{ $item->employee->employee_number ?? 'N/A' }}</td>
-                <td class="name-cell">{{ strtoupper($item->employee->full_name ?? 'N/A') }}</td>
-                <td class="amount-cell">K {{ number_format($item->net_pay ?? 0, 2) }}</td>
-                <td class="signature-cell">
-                    <div class="sig-line"></div>
-                    <span class="sig-label">Employee Signature</span>
-                </td>
-                <td class="date-cell">
-                    <div class="date-line"></div>
-                    <span class="date-label">Date</span>
-                </td>
+                <td class="number-cell" style="width: 4%;">{{ $loop->iteration }}</td>
+                <td class="emp-no-cell" style="width: 15%;">{{ $item->employee->employee_number ?? 'N/A' }}</td>
+                <td class="name-cell" style="width: 36%;">{{ strtoupper($item->employee->full_name ?? 'N/A') }}</td>
+                <td class="signature-cell" style="width: 45%;">&nbsp;</td>
             </tr>
             @endforeach
         </tbody>
     </table>
-
-    <!-- Total Box -->
-    <div class="total-box">
-        <span>Total Cash Employees: <strong>{{ $payrollItems->count() }}</strong></span>
-        <span>Total Cash Payout: <strong class="highlight">K {{ number_format($total_cash_payout ?? $payrollItems->sum('net_pay'), 2) }}</strong></span>
-    </div>
     @else
     <!-- Empty State -->
     <div class="empty-state">
@@ -247,22 +173,5 @@
     </div>
     @endif
 
-    <!-- Signing Instructions -->
-    <div style="margin-top: 20px; padding: 12px; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px; font-size: 11px;">
-        <strong>⚠️ INSTRUCTIONS:</strong>
-        <ol style="margin: 5px 0 0 20px; padding: 0;">
-            <li>Employee must sign and date in the presence of the Payroll Officer</li>
-            <li>Verify identity before signing</li>
-            <li>Keep this document for audit purposes</li>
-            <li>Cash payout must match the amount shown above</li>
-        </ol>
-    </div>
-
-    <!-- Footer -->
-    <div class="footer">
-        This is a system generated document. {{ $company->name ?? '' }} | {{ $generated_date->format('M d, Y H:i') }}
-        <br>
-        <span style="color: #dc2626; font-weight: bold;">CASH PAYMENT - SIGNING REQUIRED</span>
-    </div>
 </body>
 </html>

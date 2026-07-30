@@ -8,11 +8,14 @@ use App\Models\PayrollItem;
 use App\Models\AttendanceSummary;
 use App\Models\Loan;
 use App\Models\TaxTable;
+use App\Exports\PayrollSummaryExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use App\Services\ABAGeneratorService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Maatwebsite\Excel\Facades\Excel;
+
 
 class PayrollController extends Controller
 {
@@ -566,7 +569,7 @@ public function summary(Request $request)
     {
         $request->validate([
             'fortnight' => 'required|string',
-            'items' => 'required|array',
+            'items' => 'required|array|min:1',
             'items.*.regular_pay' => 'nullable|numeric|min:0',
             'items.*.overtime_pay' => 'nullable|numeric|min:0',
             'items.*.sunday_pay' => 'nullable|numeric|min:0',
@@ -591,19 +594,23 @@ public function summary(Request $request)
             $payrollItem = PayrollItem::find($itemId);
             
             if (!$payrollItem) continue;
+            
+            // Check if the payroll belongs to the company
             if ($payrollItem->payroll->company_id !== $companyId) continue;
-            if ($payrollItem->payroll->status === 'Locked') continue;
+            
+            // Don't allow updates to locked or approved payrolls
+            if (in_array($payrollItem->payroll->status, ['Locked', 'Approved', 'Paid'])) continue;
 
             $updateData = [];
             
-            // Map the fields - FIXED: other_earnings maps to allowance
+            // Map the fields
             $fieldMap = [
                 'regular_pay' => 'regular_pay',
                 'overtime_pay' => 'overtime_pay',
                 'sunday_pay' => 'sunday_pay',
                 'holiday_pay' => 'holiday_pay',
                 'leave_pay' => 'leave_pay',
-                'other_earnings' => 'allowance', // FIXED: maps to allowance
+                'other_earnings' => 'allowance',
                 'gross_wage' => 'gross_wage',
                 'tax' => 'tax',
                 'nasfund_ee' => 'nasfund_ee',
@@ -625,9 +632,10 @@ public function summary(Request $request)
             }
         }
 
-        // Update payroll totals
+        // Update payroll totals if any items were updated
         if ($updatedCount > 0 && isset($payrollItem)) {
-            $this->syncPayrollTotals($payrollItem->payroll);
+            $payroll = $payrollItem->payroll;
+            $this->syncPayrollTotals($payroll);
         }
 
         return response()->json([
@@ -916,5 +924,46 @@ public function printSigning($payrollId)
             $fortnights[] = $year . str_pad($i, 2, '0', STR_PAD_LEFT);
         }
         return $fortnights;
+    }
+    
+    public function exportExcel($payrollId)
+    {
+        $payroll = Payroll::findOrFail($payrollId);
+        
+        // Check authorization
+        if ($payroll->company_id !== auth()->user()->getCurrentCompanyId()) {
+            abort(403, 'You are not authorized to export this payroll.');
+        }
+        
+        return Excel::download(
+            new PayrollSummaryExport($payrollId), 
+            'payroll_FN' . $payroll->fortnight_number . '.xlsx'
+        );
+    }
+
+        public function destroy(Payroll $payroll)
+    {
+        $user = auth()->user();
+        $companyId = $user->getCurrentCompanyId();
+        
+        // Check if the payroll belongs to the current company
+        if ($payroll->company_id !== $companyId) {
+            abort(403, 'You are not authorized to delete this payroll.');
+        }
+        
+        // Check if payroll can be deleted (only Draft status)
+        if ($payroll->status !== 'Draft') {
+            return redirect()->route('payroll.index')
+                ->with('error', 'Only draft payrolls can be deleted.');
+        }
+        
+        // Delete all payroll items first (cascade will handle this if set)
+        $payroll->items()->delete();
+        
+        // Delete the payroll
+        $payroll->delete();
+        
+        return redirect()->route('payroll.index')
+            ->with('success', 'Payroll deleted successfully.');
     }
 }

@@ -416,13 +416,15 @@
                                         
                                         <div class="dropdown-divider"></div>
                                         
-                                        <a href="{{ route('payroll.export-aba', $payroll) }}" class="dropdown-item">
-                                            <i class="fas fa-file-alt"></i> Export ABA
+                                        <a href="{{ route('payroll.export-excel', $payroll) }}" class="dropdown-item">
+                                            <i class="fas fa-file-excel"></i> Export Excel
                                         </a>
                                         
                                         <div class="dropdown-divider"></div>
                                         
-                                        <form method="POST" action="{{ route('payroll.destroy', $payroll) }}" class="inline w-full" onsubmit="return confirm('Delete this payroll?')">
+                                        <form method="POST" action="{{ route('payroll.destroy', $payroll) }}" 
+                                            class="inline w-full" 
+                                            onsubmit="return confirm('Are you sure you want to delete this payroll? This action cannot be undone.')">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="dropdown-item text-danger">
