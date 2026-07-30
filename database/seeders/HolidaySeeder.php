@@ -25,14 +25,18 @@ class HolidaySeeder extends Seeder
 
         foreach ($companies as $company) {
             foreach ($holidays as $holiday) {
-                Holiday::create([
-                    'company_id' => $company->id,
-                    'name' => $holiday['name'],
-                    'date' => $holiday['date'],
-                    'description' => 'Public holiday',
-                    'is_recurring' => true,
-                    'is_active' => true,
-                ]);
+                Holiday::firstOrCreate(
+                    [
+                        'company_id' => $company->id,
+                        'name' => $holiday['name'],
+                        'date' => $holiday['date'],
+                    ],
+                    [
+                        'description' => 'Public holiday',
+                        'is_recurring' => true,
+                        'is_active' => true,
+                    ]
+                );
             }
         }
 

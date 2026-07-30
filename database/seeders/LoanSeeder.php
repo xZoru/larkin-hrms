@@ -22,14 +22,12 @@ class LoanSeeder extends Seeder
         $statuses = ['Pending', 'Approved', 'Released', 'On-Hold', 'Rejected', 'Completed'];
 
         foreach ($employees as $index => $employee) {
-            // Replaced fake() with rand() for production compatibility
             $amount = (float) rand(500, 3000);
             $installmentCount = rand(2, 12);
             $deductionPerCutoff = $amount / $installmentCount;
             
             $status = $statuses[array_rand($statuses)];
             
-            // Safe updateOrCreate to prevent duplicate key crashes
             $loan = Loan::updateOrCreate(
                 [
                     'company_id' => $employee->company_id,
