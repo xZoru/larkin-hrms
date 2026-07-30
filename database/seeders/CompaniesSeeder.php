@@ -18,6 +18,7 @@ class CompaniesSeeder extends Seeder
                 'phone' => '+675 123 4567',
                 'email' => 'info@larkinpom.com',
                 'regular_hours' => 84,
+                'logo_path' => 'images/larkin.jpg',
                 'is_active' => true
             ],
             [
@@ -27,6 +28,7 @@ class CompaniesSeeder extends Seeder
                 'phone' => '+675 123 4568',
                 'email' => 'info@larkinlae.com',
                 'regular_hours' => 84,
+                'logo_path' => 'images/larkin.jpg',
                 'is_active' => true
             ],
             [
@@ -36,6 +38,7 @@ class CompaniesSeeder extends Seeder
                 'phone' => '+675 123 4569',
                 'email' => 'info@adfocus.com',
                 'regular_hours' => 84,
+                'logo_path' => 'images/adfocus.jpg',
                 'is_active' => true
             ],
             [
@@ -45,6 +48,7 @@ class CompaniesSeeder extends Seeder
                 'phone' => '+675 123 4570',
                 'email' => 'info@yjs-pom.com',
                 'regular_hours' => 144, // SOW: YJ Security - 144hrs
+                'logo_path' => 'images/yj.jpg',
                 'is_active' => true
             ],
             [
@@ -54,6 +58,7 @@ class CompaniesSeeder extends Seeder
                 'phone' => '+675 123 4571',
                 'email' => 'info@yjs-lae.com',
                 'regular_hours' => 144, // SOW: YJ Security - 144hrs
+                'logo_path' => 'images/yj.jpg',
                 'is_active' => true
             ],
             [
@@ -63,6 +68,7 @@ class CompaniesSeeder extends Seeder
                 'phone' => '+675 123 4572',
                 'email' => 'info@wave.com',
                 'regular_hours' => 84,
+                'logo_path' => 'images/wave.jpg',
                 'is_active' => true
             ],
             [
@@ -72,6 +78,7 @@ class CompaniesSeeder extends Seeder
                 'phone' => '+675 123 4573',
                 'email' => 'info@carolines.com',
                 'regular_hours' => 84,
+                'logo_path' => 'images/carolines.jpg',
                 'is_active' => true
             ],
             [
@@ -81,6 +88,7 @@ class CompaniesSeeder extends Seeder
                 'phone' => '+675 123 4574',
                 'email' => 'info@paragontech.com',
                 'regular_hours' => 84,
+                'logo_path' => 'images/paragon.jpg',
                 'is_active' => true
             ],
             [
@@ -90,6 +98,7 @@ class CompaniesSeeder extends Seeder
                 'phone' => '+675 123 4575',
                 'email' => 'info@leferge.com',
                 'regular_hours' => 84,
+                'logo_path' => 'images/le-ferge.jpg',
                 'is_active' => true
             ],
             [
@@ -99,6 +108,7 @@ class CompaniesSeeder extends Seeder
                 'phone' => '+675 123 4576',
                 'email' => 'info@hive.com',
                 'regular_hours' => 84,
+                'logo_path' => 'images/hyve.jpg',
                 'is_active' => true
             ]
         ];
