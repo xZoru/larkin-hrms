@@ -104,7 +104,10 @@ class CompaniesSeeder extends Seeder
         ];
 
         foreach ($companies as $company) {
-            Company::create($company);
+            Company::updateOrCreate(
+                ['code' => $company['code']],
+                $company
+            );
         }
 
         $this->command->info('Companies seeded successfully!');
