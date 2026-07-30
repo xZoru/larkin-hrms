@@ -13,30 +13,32 @@ class ABAGeneratorService
 {
     public function generate(Payroll $payroll, Company $company, array $bankDetails)
     {
-        // ✅ Get regular payroll items with employees
+        // 1. Get regular payroll items with employees & bank accounts
         $regularItems = $payroll->items()
-            ->with(['employee.bankAccounts' => function($query) {
-                $query->where('is_active', true)
-                    ->orderBy('is_preferred', 'desc')
-                    ->orderBy('priority', 'asc');
-            }])
+            ->with(['employee.bankAccounts'])
             ->whereNotNull('employee_id')
             ->where('net_pay', '>', 0)
             ->get()
             ->filter(function($item) {
-                return $item->employee && 
-                    $item->employee->bankAccounts && 
-                    $item->employee->bankAccounts->isNotEmpty();
+                if (!$item->employee || !$item->employee->bankAccounts) {
+                    return false;
+                }
+                
+                // Get active account or fallback to first available account
+                $activeAccount = $item->employee->bankAccounts
+                    ->where('is_active', true)
+                    ->first() ?? $item->employee->bankAccounts->first();
+                
+                return !is_null($activeAccount);
             });
 
-        // ✅ Get manual entries (employee_id = null)
+        // 2. Get manual entries (employee_id = null)
         $manualItems = $payroll->items()
             ->whereNull('employee_id')
             ->where('details->type', 'manual_entry')
             ->where('net_pay', '>', 0)
             ->get()
             ->map(function($item) {
-                // Create a virtual bank account from details
                 $details = $item->details;
                 $item->virtual_bank_account = (object) [
                     'bsb_code' => $details['bsb'] ?? '',
@@ -47,11 +49,11 @@ class ABAGeneratorService
                 return $item;
             });
 
-        // ✅ Merge both collections
+        // 3. Merge both collections
         $payrollItems = $regularItems->merge($manualItems);
 
         if ($payrollItems->isEmpty()) {
-            throw new \Exception('No employees with valid bank details found for this payroll.');
+            throw new \Exception('No employees or manual entries with valid bank details found for this payroll.');
         }
 
         $content = $this->generateABAContent($payrollItems, $payroll, $company, $bankDetails);
@@ -99,26 +101,27 @@ class ABAGeneratorService
         // Tracer Reference
         $tracerReference = $this->formatTracerReference($company, $bankDetails);
         
-        // 1. Header Record (Record Type 0)
+        // 1. Header Record (Type 0)
         $lines[] = $this->formatHeader($company, $bankDetails);
 
-        // 2. Detail Records (Record Type 1)
+        // 2. Detail Records (Type 1)
         $transactionCount = 0;
         $totalAmount = 0;
 
         foreach ($payrollItems as $item) {
-            // Check if this is a manual entry (has virtual_bank_account)
             $isManual = isset($item->virtual_bank_account);
             
             if ($isManual) {
-                // Manual entry - use virtual bank account
+                // Manual entry
                 $bankAccount = $item->virtual_bank_account;
                 $employee = null;
                 $amount = $item->net_pay;
             } else {
-                // Regular employee
+                // Regular employee (uses already loaded collection without running new SQL queries)
                 $employee = $item->employee;
-                $bankAccount = $employee->bankAccounts()->where('is_active', true)->first();
+                $bankAccount = $employee->bankAccounts
+                    ->where('is_active', true)
+                    ->first() ?? $employee->bankAccounts->first();
                 $amount = $item->net_pay;
             }
             
@@ -143,14 +146,14 @@ class ABAGeneratorService
             $totalAmount += $amount;
         }
 
-        // 3. Contra / Balancing Record (Record Type 1)
+        // 3. Contra / Balancing Record (Type 1)
         $lines[] = $this->formatTracerRecord($company, $bankDetails, $totalAmount, $tracerReference, $payroll);
         $transactionCount++;
 
-        // 4. Trailer / Footer Record (Record Type 7)
+        // 4. Trailer / Footer Record (Type 7)
         $lines[] = $this->formatTrailerRecord($transactionCount, $totalAmount);
 
-        // 5. Strict 132-Character Validation Check
+        // 5. Mandatory Strict 132-Character Validation Check
         foreach ($lines as $index => $line) {
             $length = strlen($line);
             if ($length !== 132) {
