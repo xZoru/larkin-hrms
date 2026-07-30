@@ -191,30 +191,38 @@ class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidt
                     ->setVertical(Alignment::VERTICAL_CENTER);
 
                 // ---- Company logo ----
-                // Uses Company::logo_path, stored under public/images/ directly.
-                // If logo_path already includes "images/..." in the DB value, use
-                // it as-is. If it's just a bare filename (e.g. "larkin-pom.png"),
-                // swap to the commented line instead.
-                $logoPath = $this->company->logo_path
-                    ? public_path($this->company->logo_path)
-                    // : public_path('images/' . $this->company->logo_path)
-                    : public_path('images/logo.jpg'); // fallback default logo
+                $logoPath = null;
 
-                if (file_exists($logoPath)) {
+                // 1. Check SQLite database logo_path value
+                if (!empty($this->company->logo_path)) {
+                    $resolved = public_path(ltrim($this->company->logo_path, '/'));
+                    if (file_exists($resolved) && !is_dir($resolved)) {
+                        $logoPath = $resolved;
+                    }
+                }
+
+                // 2. Fall back to static committed public images (.png or .jpg)
+                if (!$logoPath) {
+                    if (file_exists(public_path('images/logo.png'))) {
+                        $logoPath = public_path('images/logo.png');
+                    } elseif (file_exists(public_path('images/logo.jpg'))) {
+                        $logoPath = public_path('images/logo.jpg');
+                    }
+                }
+
+                if ($logoPath) {
                     try {
                         $drawing = new Drawing();
                         $drawing->setName('Company Logo');
                         $drawing->setDescription('Company Logo');
                         $drawing->setPath($logoPath);
                         $drawing->setResizeProportional(true);
-                        $drawing->setHeight(150);           // bump this up/down to taste
-                        $drawing->setCoordinates('A1');    // anchor to the left of the D1:F3 title
+                        $drawing->setHeight(120);
+                        $drawing->setCoordinates('A1');
                         $drawing->setOffsetX(5);
                         $drawing->setOffsetY(5);
                         $drawing->setWorksheet($sheet);
 
-                        // Rows 1-3 default to a short height; widen them so a
-                        // taller logo isn't visually clipped/squashed.
                         $sheet->getRowDimension(1)->setRowHeight(30);
                         $sheet->getRowDimension(2)->setRowHeight(30);
                         $sheet->getRowDimension(3)->setRowHeight(30);
@@ -226,11 +234,9 @@ class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidt
                         ]);
                     }
                 } else {
-                    \Illuminate\Support\Facades\Log::warning('Payroll export: logo not found', [
+                    \Illuminate\Support\Facades\Log::warning('Payroll export: logo file not found on disk', [
                         'payroll_id' => $this->payrollId,
                         'company_id' => $this->company->id ?? null,
-                        'logo_path_column' => $this->company->logo_path ?? null,
-                        'resolved_path' => $logoPath,
                     ]);
                 }
 
@@ -249,9 +255,6 @@ class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidt
                 $sheet->getStyle('H4')->getFont()->setBold(true)->setSize(10);
 
                 // ---- Bank vs Cash payout split ----
-                // ASSUMPTION: $employee->payment_method holds 'bank' or 'cash'.
-                // Rename the property below if your Employee model uses a
-                // different field for this.
                 $bankTotal = 0;
                 $cashTotal = 0;
                 foreach ($this->payrollItems as $item) {
@@ -272,11 +275,6 @@ class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidt
                 $sheet->getStyle('P4:P5')->getNumberFormat()->setFormatCode($this->kinaFormat);
 
                 // ---- Bank Payout Summary panel, top-right ----
-                // ASSUMPTION: $employee->location holds the site/department
-                // category shown here (e.g. Management, Kutubu, VET, Wewak...).
-                // ASSUMPTION: $employee->nationality holds something like
-                // 'national' or 'expat'. Rename the properties below if your
-                // Employee model uses different fields for these.
                 $sheet->mergeCells('T2:U2');
                 $sheet->setCellValue('T2', 'BANK PAYOUT SUMMARY');
                 $sheet->getStyle('T2')->getFont()->setBold(true)->setSize(11);

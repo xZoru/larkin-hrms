@@ -212,15 +212,37 @@
                         @endphp
                         <td class="grid-cell">
 
-                            <!-- ===== LOGO ===== -->
-                            <div class="logo-block">
-                                @if(isset($company->logo_data) && $company->logo_data)
-                                    <img src="{{ $company->logo_data }}" class="logo-img" alt="{{ $company->name ?? 'Larkin' }}">
-                                @else
-                                    <div class="brand-name">{{ $company->name ?? 'Larkin' }}</div>
-                                    <div class="brand-tagline">{{ $company->tagline ?? 'Enterprises Ltd' }}</div>
-                                @endif
-                            </div>
+                    <!-- ===== LOGO ===== -->
+                    <div class="logo-block">
+                        @php
+                            $logoDataUri = null;
+
+                            // 1. Try company logo_path if specified in SQLite
+                            if (!empty($company->logo_path)) {
+                                $path = public_path(ltrim($company->logo_path, '/'));
+                                if (file_exists($path) && !is_dir($path)) {
+                                    $mime = mime_content_type($path) ?: 'image/png';
+                                    $logoDataUri = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($path));
+                                }
+                            }
+
+                            // 2. Fall back directly to public/images/logo.png (or logo.jpg)
+                            if (!$logoDataUri) {
+                                $defaultPath = public_path('images/logo.png'); // Change extension if using logo.jpg
+                                if (file_exists($defaultPath)) {
+                                    $mime = mime_content_type($defaultPath) ?: 'image/png';
+                                    $logoDataUri = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($defaultPath));
+                                }
+                            }
+                        @endphp
+
+                        @if($logoDataUri)
+                            <img src="{{ $logoDataUri }}" class="logo-img" alt="{{ $company->name ?? 'Company Logo' }}">
+                        @else
+                            <div class="brand-name">{{ $company->name ?? 'Larkin' }}</div>
+                            <div class="brand-tagline">{{ $company->tagline ?? 'Enterprises Ltd' }}</div>
+                        @endif
+                    </div>
 
                             <!-- ===== TITLE ===== -->
                             <div class="payslip-title">

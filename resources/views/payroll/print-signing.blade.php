@@ -102,31 +102,33 @@
 </head>
 <body>
 
-    <!-- Header -->
-    <div class="header">
-        @php
-            $logoPath = null;
-            $logoDataUri = null;
-            if (!empty($company->logo_path)) {
-                // Handles either a full/absolute path or a relative path stored from public/
-                $logoPath = str_starts_with($company->logo_path, '/')
-                    ? $company->logo_path
-                    : public_path(ltrim($company->logo_path, '/'));
+<!-- Header -->
+<div class="header">
+    @php
+        $logoDataUri = null;
 
-                if ($logoPath && file_exists($logoPath)) {
-                    $imageData = base64_encode(file_get_contents($logoPath));
-                    $mimeType = mime_content_type($logoPath) ?: 'image/png';
-                    $logoDataUri = 'data:' . $mimeType . ';base64,' . $imageData;
-                }
+        if (!empty($company->logo_path)) {
+            $path = public_path(ltrim($company->logo_path, '/'));
+            if (file_exists($path) && !is_dir($path)) {
+                $mime = mime_content_type($path) ?: 'image/png';
+                $logoDataUri = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($path));
             }
-        @endphp
-        @if($logoDataUri)
-        <div class="logo">
-            <img src="{{ $logoDataUri }}" alt="{{ $company->name ?? 'Company' }} logo">
-        </div>
-        @endif
+        }
 
-        <h1>FOR-SIGNING</h1>
+        if (!$logoDataUri && file_exists(public_path('images/logo.png'))) {
+            $path = public_path('images/logo.png');
+            $mime = mime_content_type($path) ?: 'image/png';
+            $logoDataUri = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($path));
+        }
+    @endphp
+
+    @if($logoDataUri)
+    <div class="logo">
+        <img src="{{ $logoDataUri }}" alt="{{ $company->name ?? 'Company' }} logo">
+    </div>
+    @endif
+
+    <h1>FOR-SIGNING</h1>
 
         <div class="info">
             <div><strong>Company:</strong> {{ $company->name ?? 'N/A' }}</div>
