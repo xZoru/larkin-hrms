@@ -7,7 +7,7 @@ use App\Models\Company;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
-
+use Spatie\Permission\Models\Permission; 
 class UserController extends Controller
 {
     public function index(Request $request)
@@ -18,7 +18,7 @@ class UserController extends Controller
         
         $query = User::with(['roles', 'companies']);
         
-        // ✅ If Super Admin, show ALL users (no company filter)
+        //  If Super Admin, show ALL users (no company filter)
         if (!$user->isSuperAdmin()) {
             $query->whereHas('companies', function($q) use ($companyId) {
                 $q->where('company_id', $companyId);
@@ -56,7 +56,7 @@ class UserController extends Controller
         $roles = Role::all();
         $allCompanies = Company::where('is_active', true)->get();
         
-        // ✅ Counts for Super Admin should show ALL users
+        //   Counts for Super Admin should show ALL users
         $totalUsers = $user->isSuperAdmin() 
             ? User::count() 
             : User::whereHas('companies', function($q) use ($companyId) {
@@ -84,9 +84,10 @@ class UserController extends Controller
     public function create()
     {
         $roles = Role::all();
+        $permissions = Permission::all(); //   Fetch all permissions for user forms
         $companies = Company::where('is_active', true)->get();
         
-        return view('users.create', compact('roles', 'companies'));
+        return view('users.create', compact('roles', 'permissions', 'companies'));
     }
 
     public function store(Request $request)
@@ -98,7 +99,8 @@ class UserController extends Controller
             'user_type' => 'required|in:national,expatriate,all',
             'companies' => 'required|array|min:1',
             'companies.*' => 'exists:companies,id',
-            'roles' => 'array',
+            'roles' => 'nullable|array',
+            'permissions' => 'nullable|array', //   Validate permissions array
         ]);
         
         $user = User::create([
@@ -109,7 +111,7 @@ class UserController extends Controller
             'is_active' => $request->has('is_active'),
         ]);
         
-        // ✅ Attach companies
+        //   Attach companies
         $companies = $request->companies;
         $defaultCompany = $request->default_company ?? $companies[0];
         
@@ -122,6 +124,11 @@ class UserController extends Controller
         if ($request->roles) {
             $user->syncRoles($request->roles);
         }
+
+        //   Assign direct permissions
+        if ($request->permissions) {
+            $user->syncPermissions($request->permissions);
+        }
         
         return redirect()->route('users.index')
             ->with('success', 'User created successfully.');
@@ -130,7 +137,7 @@ class UserController extends Controller
     public function show(User $user)
     {
         $this->authorizeUser($user);
-        $user->load(['roles', 'companies']);
+        $user->load(['roles', 'permissions', 'companies']);
         return view('users.show', compact('user'));
     }
 
@@ -139,7 +146,10 @@ class UserController extends Controller
         $this->authorizeUser($user);
         
         $roles = Role::all();
+        $permissions = Permission::all(); //   Fetch available permissions
         $userRoles = $user->roles->pluck('id')->toArray();
+        $userPermissions = $user->permissions->pluck('id')->toArray(); //   Fetch user's active direct permissions
+        
         $companies = Company::where('is_active', true)->get();
         $userCompanies = $user->companies->pluck('id')->toArray();
         $defaultCompany = $user->companies()->wherePivot('is_default', true)->first();
@@ -147,7 +157,9 @@ class UserController extends Controller
         return view('users.edit', compact(
             'user', 
             'roles', 
+            'permissions',
             'userRoles', 
+            'userPermissions',
             'companies', 
             'userCompanies',
             'defaultCompany'
@@ -165,7 +177,8 @@ class UserController extends Controller
             'user_type' => 'required|in:national,expatriate,all',
             'companies' => 'required|array|min:1',
             'companies.*' => 'exists:companies,id',
-            'roles' => 'array',
+            'roles' => 'nullable|array',
+            'permissions' => 'nullable|array', //   Validate permissions array
         ]);
         
         $user->update([
@@ -179,7 +192,7 @@ class UserController extends Controller
             $user->update(['password' => Hash::make($request->password)]);
         }
         
-        // ✅ Sync companies
+        //   Sync companies
         $companies = $request->companies;
         $defaultCompany = $request->default_company ?? $companies[0];
         
@@ -189,9 +202,11 @@ class UserController extends Controller
         }
         $user->companies()->sync($syncData);
         
-        if ($request->roles) {
-            $user->syncRoles($request->roles);
-        }
+        //   Sync roles
+        $user->syncRoles($request->roles ?? []);
+
+        //   Sync direct permissions
+        $user->syncPermissions($request->permissions ?? []);
         
         return redirect()->route('users.index')
             ->with('success', 'User updated successfully.');
@@ -230,17 +245,17 @@ class UserController extends Controller
             ->with('success', "User {$status} successfully.");
     }
 
-private function authorizeUser($user)
-{
-    // Super Admin can access any user
-    if (auth()->user()->isSuperAdmin()) {
-        return;
+    private function authorizeUser($user)
+    {
+        // Super Admin can access any user
+        if (auth()->user()->isSuperAdmin()) {
+            return;
+        }
+        
+        // Non-Super Admin must belong to the same company
+        $companyId = auth()->user()->company_id;
+        if (!$user->belongsToCompany($companyId)) {
+            abort(403, 'Unauthorized access to this user.');
+        }
     }
-    
-    // Non-Super Admin must belong to the same company
-    $companyId = auth()->user()->company_id;
-    if (!$user->belongsToCompany($companyId)) {
-        abort(403, 'Unauthorized access to this user.');
-    }
-}
 }

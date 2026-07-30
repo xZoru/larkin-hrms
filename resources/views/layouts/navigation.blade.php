@@ -10,7 +10,7 @@
 
     <!-- Navigation Links -->
     <nav class="sidebar-nav">
-        <!-- Dashboard -->
+        <!-- Dashboard (Visible to all authenticated users) -->
         <div class="nav-section">
             <a href="{{ route('dashboard') }}" class="sidebar-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                 <i class="fas fa-th-large"></i>
@@ -19,6 +19,7 @@
         </div>
 
         <!-- Management Dropdown -->
+        @if(auth()->user()->isSuperAdmin() || auth()->user()->hasAnyPermission(['view-departments', 'view-company-bank-details', 'view-tax-tables', 'view-holidays']))
         <div class="nav-section">
             <div class="sidebar-dropdown" x-data="{ open: {{ request()->routeIs('departments.*') || request()->routeIs('tax-tables.*') || request()->routeIs('holidays.*') || request()->routeIs('company-bank-details.*') ? 'true' : 'false' }} }">
                 <button @click="open = !open" class="sidebar-link" :class="{ 'active': open }">
@@ -27,41 +28,57 @@
                     <i class="fas fa-chevron-down dropdown-arrow" :class="{ 'rotated': open }"></i>
                 </button>
                 <div x-show="open" x-collapse class="sidebar-submenu">
+                    @can('view-departments')
                     <a href="{{ route('departments.index') }}" class="sidebar-link submenu-link {{ request()->routeIs('departments.*') ? 'active-sub' : '' }}">
                         <i class="fas fa-sitemap"></i>
                         <span>Departments</span>
                     </a>
+                    @endcan
+
                     @if(auth()->user()->isSuperAdmin())
                     <a href="{{ route('users.index') }}" class="sidebar-link submenu-link {{ request()->routeIs('users.*') ? 'active-sub' : '' }}">
                         <i class="fas fa-user-cog"></i>
                         <span>User Management</span>
                     </a>
                     @endif
+
+                    @can('view-company-bank-details')
                     <a href="{{ route('company-bank-details.index') }}" class="sidebar-link submenu-link {{ request()->routeIs('company-bank-details.*') ? 'active-sub' : '' }}">
                         <i class="fas fa-university"></i>
                         <span>Company Bank Details</span>
                     </a>
+                    @endcan
+
+                    @can('view-tax-tables')
                     <a href="{{ route('tax-tables.index') }}" class="sidebar-link submenu-link {{ request()->routeIs('tax-tables.*') ? 'active-sub' : '' }}">
                         <i class="fas fa-calculator"></i>
                         <span>Tax Tables</span>
                     </a>
+                    @endcan
+
+                    @can('view-holidays')
                     <a href="{{ route('holidays.index') }}" class="sidebar-link submenu-link {{ request()->routeIs('holidays.*') ? 'active-sub' : '' }}">
                         <i class="fas fa-calendar-day"></i>
                         <span>Holidays</span>
                     </a>
+                    @endcan
                 </div>
             </div>
         </div>
+        @endif
 
         <!-- Employees -->
+        @can('view-employees')
         <div class="nav-section">
             <a href="{{ route('employees.index') }}" class="sidebar-link {{ request()->routeIs('employees.*') ? 'active' : '' }}">
                 <i class="fas fa-users"></i>
                 <span>Employees</span>
             </a>
         </div>
+        @endcan
 
-        <!-- Attendance Dropdown - Visible to ALL users -->
+        <!-- Attendance Dropdown -->
+        @can('view-attendance')
         <div class="nav-section">
             <div class="sidebar-dropdown" x-data="{ open: {{ request()->routeIs('attendance.*') ? 'true' : 'false' }} }">
                 <button @click="open = !open" class="sidebar-link" :class="{ 'active': open }">
@@ -81,8 +98,10 @@
                 </div>
             </div>
         </div>
+        @endcan
 
-        <!-- Payroll Dropdown - Visible to ALL authenticated users -->
+        <!-- Payroll Dropdown -->
+        @can('view-payroll')
         <div class="nav-section">
             <div class="sidebar-dropdown" x-data="{ open: {{ request()->routeIs('payroll.*') || request()->routeIs('aba.*') ? 'true' : 'false' }} }">
                 <button @click="open = !open" class="sidebar-link" :class="{ 'active': open }">
@@ -114,8 +133,10 @@
                 </div>
             </div>
         </div>
+        @endcan
 
-        <!-- Loan Dropdown - Visible to ALL users -->
+        <!-- Loan Dropdown -->
+        @can('view-loans')
         <div class="nav-section">
             <div class="sidebar-dropdown" x-data="{ open: {{ request()->routeIs('loan-requests.*') ? 'true' : 'false' }} }">
                 <button @click="open = !open" class="sidebar-link" :class="{ 'active': open }">
@@ -131,8 +152,10 @@
                 </div>
             </div>
         </div>
+        @endcan
 
-        <!-- Reports Dropdown - Visible to ALL users -->
+        <!-- Reports Dropdown -->
+        @can('view-reports')
         <div class="nav-section">
             <div class="sidebar-dropdown" x-data="{ open: {{ request()->routeIs('reports.*') ? 'true' : 'false' }} }">
                 <button @click="open = !open" class="sidebar-link" :class="{ 'active': open }">
@@ -160,22 +183,27 @@
                 </div>
             </div>
         </div>
+        @endcan
 
         <!-- Leave Management -->
+        @can('view-leave')
         <div class="nav-section">
             <a href="{{ route('leave.index') }}" class="sidebar-link {{ request()->routeIs('leave.*') ? 'active' : '' }}">
                 <i class="fas fa-calendar-alt"></i>
                 <span>Leave Management</span>
             </a>
         </div>
+        @endcan
 
         <!-- Backup -->
+        @can('view-backups')
         <div class="nav-section">
             <a href="{{ route('backup.index') }}" class="sidebar-link {{ request()->routeIs('backup.*') ? 'active' : '' }}">
                 <i class="fas fa-database"></i>
                 <span>Backup</span>
             </a>
         </div>
+        @endcan
     </nav>
 
     <!-- Footer Section (Company Switcher + User) -->
@@ -184,7 +212,6 @@
         <div class="sidebar-company" x-data="{ open: false }">
             <button @click="open = !open" class="company-selector" type="button">
                 <i class="fas fa-building"></i>
-                {{-- 🌟 Updated to use our new smart name helper method --}}
                 <span id="currentCompanyName">{{ auth()->user()->getCurrentCompanyName() }}</span>
                 <i class="fas fa-chevron-down" :class="{ 'rotated': open }"></i>
             </button>
@@ -193,8 +220,6 @@
                 @click.away="open = false" 
                 class="company-dropdown">
                 @php
-                    //  If Super Admin, fetch all companies from the database.
-                    // Otherwise, pull only the limited companies explicitly assigned to the user profile.
                     $dropdownCompanies = auth()->user()->isSuperAdmin()
                         ? \App\Models\Company::where('is_active', true)->orderBy('name')->get()
                         : auth()->user()->companies;
@@ -207,7 +232,6 @@
                     class="company-item {{ auth()->user()->getCurrentCompanyId() == $company->id ? 'active' : '' }}" 
                     @click.prevent="open = false; switchCompany({{ $company->id }}, '{{ $companyName }}')">
                         {{ $company->name }}
-                        {{--  Wrap pivot check in an if-statement so it doesn't crash on Super Admins --}}
                         @if(!auth()->user()->isSuperAdmin() && $company->pivot?->is_default)
                             <span class="text-xs text-blue-400 ml-1">(Default)</span>
                         @endif
@@ -253,7 +277,6 @@
 
 <script>
     function switchCompany(companyId, companyName) {
-        // ✅ FIX: Use the full URL with the parameter
         const url = '{{ route("company.switch", ":company") }}'.replace(':company', companyId);
         
         fetch(url, {
@@ -269,7 +292,6 @@
         .then(data => {
             if (data.success) {
                 document.getElementById('currentCompanyName').textContent = companyName;
-                // Reload the page to refresh data
                 window.location.reload();
             } else {
                 alert('Failed to switch company: ' + data.message);

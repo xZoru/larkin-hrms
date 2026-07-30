@@ -293,6 +293,22 @@
                         <div class="help-text">Assign one or more roles to this user.</div>
                     </div>
 
+                    <!-- Direct User Permissions -->
+                    <div class="full-width">
+                        <label class="form-label">Tab & Feature Permissions</label>
+                        <div class="grid grid-cols-2 gap-2 mt-2 p-3 border border-gray-200 rounded-lg bg-gray-50">
+                            @foreach($permissions as $permission)
+                                <div class="checkbox-group">
+                                    <input type="checkbox" name="permissions[]" value="{{ $permission->name }}" 
+                                        id="perm_{{ $permission->id }}"
+                                        @checked((is_array(old('permissions')) && in_array($permission->name, old('permissions'))) || (isset($userPermissions) && in_array($permission->id, $userPermissions)))>
+                                    <label for="perm_{{ $permission->id }}">{{ ucwords(str_replace('-', ' ', $permission->name)) }}</label>
+                                </div>
+                            @endforeach
+                        </div>
+                        <div class="help-text">Check specific tabs/features this user can view in the sidebar.</div>
+                    </div>
+
                     <!-- Active Status -->
                     <div class="full-width">
                         <div class="checkbox-group">
