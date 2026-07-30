@@ -153,7 +153,10 @@ class ABAGeneratorService
         // 4. Trailer / Footer Record (Type 7)
         $lines[] = $this->formatTrailerRecord($transactionCount, $totalAmount);
 
-        // 5. Mandatory Strict 132-Character Validation Check
+        // 5. Mandatory Strict 132-Character Validation Check (BSP bank format)
+        //    Standard CEMTEX/ABA records are 120 characters, but BSP's generator
+        //    requires every record to be padded out to 132 characters. If any
+        //    line does not match, stop generation rather than emit an invalid file.
         foreach ($lines as $index => $line) {
             $length = strlen($line);
             if ($length !== 132) {
@@ -164,7 +167,7 @@ class ABAGeneratorService
                 };
 
                 throw new \Exception(
-                    "ABA File Generation Error: {$lineType} must be exactly 132 characters long. Current length is {$length}."
+                    "ABA File Generation Error: {$lineType} must be exactly 132 characters long (BSP format). Current length is {$length}."
                 );
             }
         }
@@ -175,7 +178,7 @@ class ABAGeneratorService
 
     /**
      * Format Tracer Reference
-     * Output: 088-950000007009276416LARKIN ENTERPRIS00000000 (46 chars)
+     * Output: 088-950000007009 LARKIN ENTERPRISES LIMITED  (42 chars: BSB 7 + Account 9 + Remitter Name 26)
      */
     private function formatTracerReference($company, $bankDetails)
     {
@@ -185,22 +188,21 @@ class ABAGeneratorService
         $bsb = str_pad($bsb, 6, '0', STR_PAD_LEFT);
         $bsbFormatted = substr($bsb, 0, 3) . '-' . substr($bsb, 3, 3);
         
-        // Get Account Number (15 digits)
+        // Get Account Number (9 digits per ABA spec)
         $account = $bankDetails['account_number'] ?? $company->bank_account_number ?? '7009276416';
         $account = preg_replace('/[^0-9]/', '', $account);
-        $account = str_pad(substr($account, 0, 15), 15, '0', STR_PAD_LEFT);
+        $account = str_pad(substr($account, 0, 9), 9, '0', STR_PAD_LEFT);
         
         $companyName = $company->name ?? 'LARKIN ENTERPRISES LIMITED';
         $companyName = strtoupper($companyName);
-        $companyName = str_pad(substr($companyName, 0, 16), 16, ' ');
+        $companyName = str_pad(substr($companyName, 0, 26), 26, ' ');
         
-        $padding = str_repeat('0', 8);
-        
-        return $bsbFormatted . $account . $companyName . $padding;
+        // BSB(7) + Account(9) + Remitter Name(26) = 42 characters total.
+        return $bsbFormatted . $account . $companyName;
     }
 
     /**
-     * Record Type 0: Descriptive Header Record (Exact length: 132 characters)
+     * Record Type 0: Descriptive Header Record (Exact length: 132 characters, BSP format)
      */
     private function formatHeader($company, $bankDetails)
     {
@@ -227,17 +229,17 @@ class ABAGeneratorService
         
         $date = $bankDetails['payment_date'] ?? now()->format('Y-m-d');
         $dateObj = \Carbon\Carbon::parse($date);
-        $line .= $dateObj->format('Ymd');                                                       // Processing Date YYYYMMDD (8)
+        $line .= $dateObj->format('dmy');                                                       // Processing Date DDMMYY (6)
         
-        // 1 + 17 + 2 + 3 + 7 + 26 + 6 + 12 + 8 = 82 characters.
-        // Requires exactly 50 trailing spaces to reach 132 characters total.
-        $line .= str_repeat(' ', 50);                                                           // Trailing padding (50)
+        // 1 + 17 + 2 + 3 + 7 + 26 + 6 + 12 + 6 = 80 characters.
+        // Requires exactly 52 trailing spaces to reach 132 characters total (BSP format).
+        $line .= str_repeat(' ', 52);                                                           // Trailing padding (52)
         
         return str_pad(substr($line, 0, 132), 132, ' ', STR_PAD_RIGHT);
     }
 
     /**
-     * Record Type 1: Payment Detail Record (Exact length: 132 characters)
+     * Record Type 1: Payment Detail Record (Exact length: 132 characters, BSP format)
      */
     private function formatDetailRecord($bankAccount, $employee, $amount, $paymentType, $debitDescription, $tracerReference, $payroll, $isManual = false)
     {
@@ -255,11 +257,11 @@ class ABAGeneratorService
         $bsbFormatted = substr($bsb, 0, 3) . '-' . substr($bsb, 3, 3);
         $line .= str_pad($bsbFormatted, 7, '-', STR_PAD_RIGHT);                                 // BSB Number (7)
         
-        // Account Number (15 digits)
+        // Account Number (9 digits per ABA spec)
         $accountNumber = $bankAccount->account_number ?? '';
         $accountNumber = preg_replace('/[^0-9]/', '', $accountNumber);
-        $accountNumber = substr($accountNumber, 0, 15);
-        $line .= str_pad($accountNumber, 15, '0', STR_PAD_LEFT);                                // Account Number (15)
+        $accountNumber = substr($accountNumber, 0, 9);
+        $line .= str_pad($accountNumber, 9, '0', STR_PAD_LEFT);                                 // Account Number (9)
         
         $line .= ' ';                                                                           // Indicator (1)
         $line .= '53';                                                                          // Transaction Code (2)
@@ -267,29 +269,29 @@ class ABAGeneratorService
         $amountCents = round($amount * 100);
         $line .= str_pad($amountCents, 10, '0', STR_PAD_LEFT);                                 // Amount (10)
         
-        // Employee / Payee Name (32 chars)
+        // Employee / Payee Name (30 chars)
         if ($isManual && isset($bankAccount->details)) {
             $accountName = $bankAccount->details['account_name'] ?? 'MANUAL ENTRY';
         } else {
             $accountName = $bankAccount->account_name ?? $employee->full_name ?? '';
         }
-        $accountName = strtoupper(substr($accountName, 0, 32));
-        $line .= str_pad($accountName, 32, ' ', STR_PAD_RIGHT);                                // Account Name (32)
+        $accountName = strtoupper(substr($accountName, 0, 30));
+        $line .= str_pad($accountName, 30, ' ', STR_PAD_RIGHT);                                // Account Name (30)
         
-        // Description (18 chars)
+        // Lodgement Reference (18 chars)
         $fortnightRef = 'FN' . $payroll->fortnight_number;
         $description = strtoupper(substr($fortnightRef, 0, 18));
         $line .= str_pad($description, 18, ' ', STR_PAD_RIGHT);                                // Description / Reference (18)
         
-        // Full 46-character Tracer Reference
-        $line .= $tracerReference;                                                             // Tracer Reference (46)
+        // Trace BSB(7) + Trace Account(9) + Remitter Name(26)
+        $line .= $tracerReference;                                                             // Tracer Reference (42)
         
-        // 1 + 7 + 15 + 1 + 2 + 10 + 32 + 18 + 46 = 132 characters total.
+        // 1 + 7 + 9 + 1 + 2 + 10 + 30 + 18 + 42 = 120 characters, +12 filler = 132 (BSP format).
         return str_pad(substr($line, 0, 132), 132, ' ', STR_PAD_RIGHT);
     }
 
     /**
-     * Record Type 1: Balancing / Contra Record (Exact length: 132 characters)
+     * Record Type 1: Balancing / Contra Record (Exact length: 132 characters, BSP format)
      */
     private function formatTracerRecord($company, $bankDetails, $totalAmount, $tracerReference, $payroll)
     {
@@ -304,11 +306,11 @@ class ABAGeneratorService
         $bsbFormatted = substr($bsb, 0, 3) . '-' . substr($bsb, 3, 3);
         $line .= str_pad($bsbFormatted, 7, '-', STR_PAD_RIGHT);                                 // BSB Number (7)
         
-        // Tracer Account
+        // Tracer Account (9 digits per ABA spec)
         $account = $bankDetails['account_number'] ?? $company->bank_account_number ?? '7009276416';
         $account = preg_replace('/[^0-9]/', '', $account);
-        $account = substr($account, 0, 15);
-        $line .= str_pad($account, 15, '0', STR_PAD_LEFT);                                     // Account Number (15)
+        $account = substr($account, 0, 9);
+        $line .= str_pad($account, 9, '0', STR_PAD_LEFT);                                      // Account Number (9)
         
         $line .= ' ';                                                                           // Indicator (1)
         $line .= '13';                                                                          // Transaction Code - Contra (2)
@@ -316,10 +318,10 @@ class ABAGeneratorService
         $totalAmountCents = round($totalAmount * 100);
         $line .= str_pad($totalAmountCents, 10, '0', STR_PAD_LEFT);                             // Amount (10)
         
-        // Company Name
+        // Company Name (30 chars)
         $userName = $bankDetails['account_name'] ?? $company->name ?? 'LARKIN ENTERPRISES LIMITED';
         $userName = strtoupper($userName);
-        $line .= str_pad(substr($userName, 0, 32), 32, ' ', STR_PAD_RIGHT);                    // Company Name (32)
+        $line .= str_pad(substr($userName, 0, 30), 30, ' ', STR_PAD_RIGHT);                    // Company Name (30)
         
         // Description
         $fortnightRef = 'FN' . $payroll->fortnight_number;
@@ -327,15 +329,15 @@ class ABAGeneratorService
         $tracerRef = strtoupper(substr($tracerRef, 0, 18));
         $line .= str_pad($tracerRef, 18, ' ', STR_PAD_RIGHT);                                  // Reference (18)
         
-        // Tracer Reference
-        $line .= $tracerReference;                                                             // Tracer Reference (46)
+        // Trace BSB(7) + Trace Account(9) + Remitter Name(26)
+        $line .= $tracerReference;                                                             // Tracer Reference (42)
         
-        // 1 + 7 + 15 + 1 + 2 + 10 + 32 + 18 + 46 = 132 characters total.
+        // 1 + 7 + 9 + 1 + 2 + 10 + 30 + 18 + 42 = 120 characters, +12 filler = 132 (BSP format).
         return str_pad(substr($line, 0, 132), 132, ' ', STR_PAD_RIGHT);
     }
 
     /**
-     * Record Type 7: File Trailer / Footer Record (Exact length: 132 characters)
+     * Record Type 7: File Trailer / Footer Record (Exact length: 132 characters, BSP format)
      */
     private function formatTrailerRecord($transactionCount, $totalAmount)
     {
@@ -353,7 +355,7 @@ class ABAGeneratorService
         $line .= str_pad($transactionCount, 6, '0', STR_PAD_LEFT);                             // Item Count (6)
         
         // 1 + 7 + 12 + 10 + 10 + 10 + 24 + 6 = 80 characters.
-        // Requires exactly 52 trailing spaces to reach 132 characters total.
+        // Requires exactly 52 trailing spaces to reach 132 characters total (BSP format).
         $line .= str_repeat(' ', 52);                                                           // Trailing padding (52)
         
         return str_pad(substr($line, 0, 132), 132, ' ', STR_PAD_RIGHT);
