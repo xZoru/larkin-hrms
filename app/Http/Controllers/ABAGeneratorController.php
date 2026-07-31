@@ -166,6 +166,16 @@ class ABAGeneratorController extends Controller
             $payrollItems = $batch->payroll->items
                 ->filter(fn ($item) => (float) $item->net_pay > 0)
                 ->filter(function($item) {
+                    $details = $item->details ?? [];
+                    $isManualEntry = is_array($details)
+                        && ($details['type'] ?? null) === 'manual_entry';
+
+                    if ($isManualEntry) {
+                        return filled($details['bsb'] ?? null)
+                            && filled($details['account_number'] ?? null)
+                            && filled($details['account_name'] ?? null);
+                    }
+
                     return $item->employee
                         && $item->employee->bankAccounts
                             ->where('is_active', true)

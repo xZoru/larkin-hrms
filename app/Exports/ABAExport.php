@@ -53,30 +53,47 @@ class ABAExport implements FromCollection, WithTitle, ShouldAutoSize, WithEvents
         
         // Data rows
         foreach ($this->payrollItems as $item) {
-            $employee = $item->employee;
-            $bankAccount = $employee->bankAccounts
-                ->where('is_active', true)
-                ->sortBy([
-                    ['is_preferred', 'desc'],
-                    ['priority', 'asc'],
-                ])
-                ->first();
+            $details = $item->details ?? [];
+            $isManualEntry = is_array($details)
+                && ($details['type'] ?? null) === 'manual_entry';
 
-            if (!$bankAccount) {
-                continue;
+            if ($isManualEntry) {
+                $bsb = $details['bsb'] ?? '';
+                $accountNumber = $details['account_number'] ?? '';
+                $accountName = $details['account_name'] ?? 'MANUAL ENTRY';
+                $description = $details['description'] ?? 'MANUAL PAYMENT';
+            } else {
+                $employee = $item->employee;
+                $bankAccount = $employee?->bankAccounts
+                    ->where('is_active', true)
+                    ->sortBy([
+                        ['is_preferred', 'desc'],
+                        ['priority', 'asc'],
+                    ])
+                    ->first();
+
+                if (!$bankAccount) {
+                    continue;
+                }
+
+                $bsb = $bankAccount->bsb_code ?? '';
+                $accountNumber = $bankAccount->account_number ?? '';
+                $accountName = $bankAccount->account_name ?? $employee->full_name;
+                $description = $metadata['debit_description']
+                    ?? 'FN' . ($this->batch->payroll?->fortnight_number ?? '');
             }
-            
-            $bsb = $bankAccount->bsb_code ?? '';
+
+            $bsb = preg_replace('/[^0-9]/', '', $bsb);
             if ($bsb && strlen($bsb) >= 6) {
                 $bsb = substr($bsb, 0, 3) . '-' . substr($bsb, 3, 3);
             }
             
             $data[] = [
                 $bsb,
-                $bankAccount->account_number ?? '',
+                $accountNumber,
                 number_format($item->net_pay, 2),
-                strtoupper($bankAccount->account_name ?? $employee->full_name),
-                $metadata['debit_description'] ?? 'FN' . ($this->batch->payroll?->fortnight_number ?? ''),
+                strtoupper($accountName),
+                strtoupper($description),
             ];
         }
 
