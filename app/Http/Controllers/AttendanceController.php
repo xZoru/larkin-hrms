@@ -330,6 +330,55 @@ public function summaryBulkUpdate(Request $request)
         $fortnight = $request->fortnight;
         $attendanceData = $request->attendance ?? [];
         $publicHolidays = $this->getPublicHolidays($companyId);
+
+        $action = $request->input('action');
+        if (in_array($action, ['unlock', 'reset'], true)) {
+            $targetEmployeeId = (int) $request->input('target_employee_id');
+            $employee = Employee::where('id', $targetEmployeeId)
+                ->where('company_id', $companyId)
+                ->whereIn('employee_type', $allowedTypes)
+                ->first();
+
+            if (!$employee || !$user->canViewEmployee($employee)) {
+                return redirect()->route('attendance.summary', [
+                    'fortnight' => $fortnight,
+                    'generated' => 1,
+                ])->with('error', 'You are not authorized to manage this employee.');
+            }
+
+            if ($action === 'unlock') {
+                $updated = AttendanceLog::where('employee_id', $employee->id)
+                    ->where('fortnight_number', $fortnight)
+                    ->where('timesheet_status', 'Locked')
+                    ->update([
+                        'timesheet_status' => 'Draft',
+                        'locked_at' => null,
+                        'locked_by' => null,
+                    ]);
+
+                $message = $updated > 0
+                    ? "Timesheet unlocked for {$employee->full_name}."
+                    : "No locked timesheet was found for {$employee->full_name}.";
+            } else {
+                DB::transaction(function () use ($employee, $fortnight) {
+                    AttendanceLog::where('employee_id', $employee->id)
+                        ->where('fortnight_number', $fortnight)
+                        ->delete();
+
+                    AttendanceSummary::where('employee_id', $employee->id)
+                        ->where('fortnight_number', $fortnight)
+                        ->delete();
+                });
+
+                $message = "Attendance reset for {$employee->full_name}.";
+            }
+
+            return redirect()->route('attendance.summary', [
+                'fortnight' => $fortnight,
+                'generated' => 1,
+            ])->with('success', $message);
+        }
+
         $employeeIds = collect(array_keys($attendanceData))->map(fn ($id) => (int) $id);
 
         $employees = Employee::where('company_id', $companyId)
