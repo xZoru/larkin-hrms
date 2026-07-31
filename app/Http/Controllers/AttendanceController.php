@@ -56,7 +56,9 @@ class AttendanceController extends Controller
         $employees = Employee::where('company_id', $companyId)
             ->where('status', 'Active')
             ->whereIn('employee_type', $allowedTypes)
+            ->orderBy('employee_number')
             ->orderBy('last_name')
+            ->orderBy('first_name')
             ->get();
 
         // Get selected employee data
@@ -271,6 +273,10 @@ class AttendanceController extends Controller
         $employees = Employee::where('company_id', $companyId)
             ->where('status', 'Active')
             ->whereIn('employee_type', $allowedTypes)
+            ->whereHas('attendanceLogs', function ($query) use ($fortnight) {
+                $query->where('fortnight_number', $fortnight)
+                    ->where('hours_worked', '>', 0);
+            })
             ->orderBy('last_name')
             ->orderBy('first_name')
             ->get();

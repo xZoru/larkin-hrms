@@ -261,6 +261,14 @@
         outline: none;
         box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
     }
+    .employee-picker {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+    }
+    .employee-search {
+        min-width: 220px;
+    }
     .status-text {
         font-size: 13px;
         color: #64748b;
@@ -469,14 +477,22 @@
                         </select>
 
                         <!-- Employee Selector -->
-                        <select id="employee_selector" class="employee-selector">
-                            <option value="">Select Employee</option>
-                            @foreach($employees as $emp)
-                                <option value="{{ $emp->id }}" {{ request('employee_id') == $emp->id ? 'selected' : '' }}>
-                                    {{ $emp->employee_number }} - {{ $emp->full_name }}
-                                </option>
-                            @endforeach
-                        </select>
+                        <div class="employee-picker">
+                            <input
+                                id="employee_search"
+                                type="search"
+                                class="employee-selector employee-search"
+                                placeholder="Search employee number or name"
+                                aria-label="Search employees">
+                            <select id="employee_selector" class="employee-selector" aria-label="Select employee">
+                                <option value="">Select Employee</option>
+                                @foreach($employees as $emp)
+                                    <option value="{{ $emp->id }}" {{ request('employee_id') == $emp->id ? 'selected' : '' }}>
+                                        {{ $emp->employee_number }} - {{ $emp->full_name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
                         
                         <!-- Status Badge -->
                         @php
@@ -791,6 +807,41 @@
                     url.searchParams.delete('employee_id');
                 }
                 window.location.href = url.toString();
+            });
+        }
+
+        // Filter the employee list by employee number or name without changing
+        // the selected employee until the user chooses an option.
+        const employeeSearch = document.getElementById('employee_search');
+        if (employeeSearch && employeeSelector) {
+            employeeSearch.addEventListener('input', function() {
+                const query = this.value.trim().toLowerCase();
+
+                Array.from(employeeSelector.options).forEach(function(option, index) {
+                    if (index === 0) {
+                        option.hidden = false;
+                        return;
+                    }
+
+                    option.hidden = query !== '' && !option.text.toLowerCase().includes(query);
+                });
+            });
+
+            employeeSearch.addEventListener('keydown', function(event) {
+                if (event.key !== 'Enter') {
+                    return;
+                }
+
+                const firstMatch = Array.from(employeeSelector.options)
+                    .find(function(option, index) {
+                        return index > 0 && !option.hidden;
+                    });
+
+                if (firstMatch) {
+                    event.preventDefault();
+                    employeeSelector.value = firstMatch.value;
+                    employeeSelector.dispatchEvent(new Event('change'));
+                }
             });
         }
 
