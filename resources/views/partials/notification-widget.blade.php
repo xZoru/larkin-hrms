@@ -49,7 +49,7 @@
                     <div class="text-sm text-gray-600">
                         {{ $documentLabel }} expires in <span class="font-semibold {{ $isUrgent ? 'text-red-600' : 'text-yellow-600' }}">{{ $days }}</span> days
                         <span class="text-xs text-gray-400">
-                            ({{ \Carbon\Carbon::parse($notification->expiry_date)->format('d M Y') }})
+                            ({{ \Carbon\Carbon::parse($notification->expiry_date)->format('d/m/y') }})
                         </span>
                     </div>
                 </div>

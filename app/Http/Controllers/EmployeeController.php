@@ -65,7 +65,11 @@ class EmployeeController extends Controller
                 return $query->where('status', $request->status);
             });
 
-        $employees = $query->paginate(20);
+        $employees = $query
+            ->orderBy('employee_number')
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->paginate(20);
 
         $positions = $this->getPositionSuggestions($companyId);
 

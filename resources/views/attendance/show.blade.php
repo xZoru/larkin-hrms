@@ -55,7 +55,7 @@
                                 <tbody class="divide-y divide-gray-200">
                                     @foreach($logs as $log)
                                     <tr class="hover:bg-gray-50">
-                                        <td class="px-4 py-3 font-medium">{{ $log->date->format('M d, Y') }}</td>
+                                        <td class="px-4 py-3 font-medium">{{ $log->date->format('d/m/y') }}</td>
                                         <td class="px-4 py-3 text-center">{{ $log->time_in ? \Carbon\Carbon::parse($log->time_in)->format('H:i') : '-' }}</td>
                                         <td class="px-4 py-3 text-center">{{ $log->time_out ? \Carbon\Carbon::parse($log->time_out)->format('H:i') : '-' }}</td>
                                         <td class="px-4 py-3 text-center font-semibold">{{ number_format($log->hours_worked, 1) }}</td>

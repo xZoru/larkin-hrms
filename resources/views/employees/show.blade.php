@@ -93,7 +93,7 @@
         <i class="fas fa-exclamation-triangle me-2"></i>
         <strong>Expiring Documents:</strong>
         @foreach($expiringDocs as $type => $date)
-            <span class="ms-2">{{ ucfirst(str_replace('_', ' ', $type)) }}: {{ $date->format('d M Y') }}</span>
+            <span class="ms-2">{{ ucfirst(str_replace('_', ' ', $type)) }}: {{ $date->format('d/m/y') }}</span>
         @endforeach
     </div>
     @endif
@@ -119,7 +119,7 @@
                 </div>
                 <div class="col-md-3">
                     <label class="text-muted small text-uppercase" style="font-size: 10px;">Date of Birth</label>
-                    <p class="fw-semibold mb-0">{{ $employee->date_of_birth?->format('d M Y') ?? 'N/A' }}</p>
+                    <p class="fw-semibold mb-0">{{ $employee->date_of_birth?->format('d/m/y') ?? 'N/A' }}</p>
                     <small class="text-muted">Age: {{ $employee->age ?? 'N/A' }}</small>
                 </div>
                 <div class="col-md-3">
@@ -128,16 +128,16 @@
                 </div>
                 <div class="col-md-3">
                     <label class="text-muted small text-uppercase" style="font-size: 10px;">Joining Date</label>
-                    <p class="fw-semibold mb-0">{{ $employee->joining_date?->format('d M Y') ?? 'N/A' }}</p>
+                    <p class="fw-semibold mb-0">{{ $employee->joining_date?->format('d/m/y') ?? 'N/A' }}</p>
                 </div>
                 <div class="col-md-3">
                     <label class="text-muted small text-uppercase" style="font-size: 10px;">End Date</label>
-                    <p class="fw-semibold mb-0">{{ $employee->end_date?->format('d M Y') ?? 'N/A' }}</p>
+                    <p class="fw-semibold mb-0">{{ $employee->end_date?->format('d/m/y') ?? 'N/A' }}</p>
                 </div>
                 @if($employee->employee_type == 'Expatriate')
                 <div class="col-md-3">
                     <label class="text-muted small text-uppercase" style="font-size: 10px;">Deployment Date</label>
-                    <p class="fw-semibold mb-0">{{ $employee->deployment_date?->format('d M Y') ?? 'N/A' }}</p>
+                    <p class="fw-semibold mb-0">{{ $employee->deployment_date?->format('d/m/y') ?? 'N/A' }}</p>
                 </div>
                 @endif
                 <div class="col-md-3">
@@ -240,7 +240,7 @@
                                     {{ $loan->status }}
                                 </span>
                             </td>
-                            <td class="text-center small text-muted">{{ $loan->created_at->format('M d, Y') }}</td>
+                            <td class="text-center small text-muted">{{ $loan->created_at->format('d/m/y') }}</td>
                         </tr>
                         @endforeach
                     </tbody>
@@ -318,21 +318,21 @@
                     <label class="text-muted small text-uppercase" style="font-size: 10px;">Passport</label>
                     <p class="fw-semibold mb-0">{{ $employee->passport_number ?? 'N/A' }}</p>
                     @if($employee->passport_expiry)
-                        <small class="text-muted">Expires: {{ $employee->passport_expiry->format('d M Y') }}</small>
+                        <small class="text-muted">Expires: {{ $employee->passport_expiry->format('d/m/y') }}</small>
                     @endif
                 </div>
                 <div class="col-md-4">
                     <label class="text-muted small text-uppercase" style="font-size: 10px;">Work Permit</label>
                     <p class="fw-semibold mb-0">{{ $employee->work_permit_number ?? 'N/A' }}</p>
                     @if($employee->work_permit_expiry)
-                        <small class="text-muted">Expires: {{ $employee->work_permit_expiry->format('d M Y') }}</small>
+                        <small class="text-muted">Expires: {{ $employee->work_permit_expiry->format('d/m/y') }}</small>
                     @endif
                 </div>
                 <div class="col-md-4">
                     <label class="text-muted small text-uppercase" style="font-size: 10px;">Visa</label>
                     <p class="fw-semibold mb-0">{{ $employee->visa_number ?? 'N/A' }}</p>
                     @if($employee->visa_expiry)
-                        <small class="text-muted">Expires: {{ $employee->visa_expiry->format('d M Y') }}</small>
+                        <small class="text-muted">Expires: {{ $employee->visa_expiry->format('d/m/y') }}</small>
                     @endif
                 </div>
             </div>

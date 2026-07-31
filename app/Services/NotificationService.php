@@ -44,7 +44,7 @@ class NotificationService
                 'passport',
                 $employee->passport_expiry,
                 'Passport Expiring Soon',
-                'Passport for ' . $employee->full_name . ' expires on ' . Carbon::parse($employee->passport_expiry)->format('d M Y')
+                'Passport for ' . $employee->full_name . ' expires on ' . Carbon::parse($employee->passport_expiry)->format('d/m/y')
             );
         }
         
@@ -55,7 +55,7 @@ class NotificationService
                 'visa',
                 $employee->visa_expiry,
                 'Visa Expiring Soon',
-                'Visa for ' . $employee->full_name . ' expires on ' . Carbon::parse($employee->visa_expiry)->format('d M Y')
+                'Visa for ' . $employee->full_name . ' expires on ' . Carbon::parse($employee->visa_expiry)->format('d/m/y')
             );
         }
         
@@ -66,7 +66,7 @@ class NotificationService
                 'work_permit',
                 $employee->work_permit_expiry,
                 'Work Permit Expiring Soon',
-                'Work Permit for ' . $employee->full_name . ' expires on ' . Carbon::parse($employee->work_permit_expiry)->format('d M Y')
+                'Work Permit for ' . $employee->full_name . ' expires on ' . Carbon::parse($employee->work_permit_expiry)->format('d/m/y')
             );
         }
         

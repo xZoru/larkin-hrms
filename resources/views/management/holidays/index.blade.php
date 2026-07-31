@@ -338,7 +338,7 @@
                         @forelse($holidays as $holiday)
                         <tr>
                             <td class="holiday-name">{{ $holiday->name }}</td>
-                            <td class="holiday-date">{{ $holiday->date->format('M d, Y') }}</td>
+                            <td class="holiday-date">{{ $holiday->date->format('d/m/y') }}</td>
                             <td class="holiday-desc">{{ $holiday->description ?? '-' }}</td>
                             <td class="text-center">
                                 @if($holiday->is_recurring)
@@ -410,7 +410,7 @@
             <div>
                 @foreach($upcomingHolidays as $holiday)
                     <span class="upcoming-tag">
-                        {{ $holiday->date->format('M d') }} - {{ $holiday->name }}
+                        {{ $holiday->date->format('d/m/y') }} - {{ $holiday->name }}
                     </span>
                 @endforeach
             </div>

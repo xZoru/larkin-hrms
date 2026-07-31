@@ -123,7 +123,7 @@
                                     </span>
                                 @endif
                                 <span class="text-xs text-gray-400">
-                                    ({{ $date->format('d M Y') }})
+                                    ({{ $date->format('d/m/y') }})
                                 </span>
                             </div>
                         </div>

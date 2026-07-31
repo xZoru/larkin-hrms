@@ -569,7 +569,7 @@
                                     @endphp
                                     <span class="badge-status {{ $statusDisplay }}">{{ $loan->status }}</span>
                                 </td>
-                                <td style="font-size: 12px; color: #64748b;">{{ $loan->created_at->format('M d, Y') }}</td>
+                                <td style="font-size: 12px; color: #64748b;">{{ $loan->created_at->format('d/m/y') }}</td>
                                 <td>
                                     <div class="flex items-center justify-center gap-1">
                                         @if($loan->canBeApproved())

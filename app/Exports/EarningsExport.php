@@ -69,7 +69,7 @@ class EarningsExport implements FromCollection, WithHeadings, WithMapping, WithS
         foreach ($this->fortnightData as $fn) {
             $rows->push([
                 $fn->fortnight_number,
-                Carbon::parse($fn->period_start)->format('d M') . ' - ' . Carbon::parse($fn->period_end)->format('d M'),
+                Carbon::parse($fn->period_start)->format('d/m/y') . ' - ' . Carbon::parse($fn->period_end)->format('d/m/y'),
                 $fn->total_employees,
                 number_format($fn->total_gross, 2),
                 number_format($fn->total_tax, 2),

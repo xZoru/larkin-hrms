@@ -248,7 +248,7 @@
                             <div class="payslip-title">
                                 <span class="label">Payslip:</span>
                                 FN{{ $payroll->fortnight_number }}
-                                | {{ $payroll->period_start->format('Y-m-d') }} - {{ $payroll->period_end->format('Y-m-d') }}
+                                | {{ $payroll->period_start->format('d/m/y') }} - {{ $payroll->period_end->format('d/m/y') }}
                             </div>
 
                             <div class="payslip-card">

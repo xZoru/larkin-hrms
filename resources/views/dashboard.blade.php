@@ -185,7 +185,7 @@
                     @forelse($recentLeaveRequests ?? [] as $leave)
                         <div class="list-item">
                             <span class="name">{{ $leave->employee->full_name ?? 'N/A' }}</span>
-                            <span class="meta">{{ \Carbon\Carbon::parse($leave->start_date)->format('d M') }} - {{ \Carbon\Carbon::parse($leave->end_date)->format('d M') }}</span>
+                            <span class="meta">{{ \Carbon\Carbon::parse($leave->start_date)->format('d/m/y') }} - {{ \Carbon\Carbon::parse($leave->end_date)->format('d/m/y') }}</span>
                         </div>
                     @empty
                         <div class="empty-state">No pending requests</div>
@@ -208,7 +208,7 @@
                     @if($nextPayroll)
                         <div class="list-item">
                             <span class="name">Fortnight {{ $nextPayroll->fortnight_number }}</span>
-                            <span class="meta">{{ \Carbon\Carbon::parse($nextPayroll->period_end)->format('d M') }}</span>
+                            <span class="meta">{{ \Carbon\Carbon::parse($nextPayroll->period_end)->format('d/m/y') }}</span>
                         </div>
                         <div class="list-item">
                             <span class="name">Employees</span>

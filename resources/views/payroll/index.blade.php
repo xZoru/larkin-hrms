@@ -330,7 +330,7 @@
                             <option value="{{ $fn }}">
                                 {{ $fn }}
                                 @if($period)
-                                    ({{ \Carbon\Carbon::parse($period['start'])->format('d M') }} - {{ \Carbon\Carbon::parse($period['end'])->format('d M') }})
+                                    ({{ \Carbon\Carbon::parse($period['start'])->format('d/m/y') }} - {{ \Carbon\Carbon::parse($period['end'])->format('d/m/y') }})
                                 @endif
                             </option>
                         @endforeach
@@ -377,12 +377,12 @@
                         <tr>
                             <td>
                                 <div class="payroll-code">P-{{ $payroll->company->code ?? 'LKP' }}-{{ str_pad($payroll->id, 5, '0', STR_PAD_LEFT) }}</div>
-                                <div class="date-created">{{ $payroll->created_at->format('M d, Y H:i') }}</div>
+                                <div class="date-created">{{ $payroll->created_at->format('d/m/y H:i') }}</div>
                             </td>
                             <td class="fortnight">{{ $payroll->fortnight_number }}</td>
                             <td>
                                 <div style="font-size: 12px; color: #64748b;">
-                                    {{ $payroll->period_start->format('M d') }} - {{ $payroll->period_end->format('M d, Y') }}
+                                    {{ $payroll->period_start->format('d/m/y') }} - {{ $payroll->period_end->format('d/m/y') }}
                                 </div>
                             </td>
                             <td class="created-by">{{ $payroll->createdBy->name ?? 'Super Admin' }}</td>

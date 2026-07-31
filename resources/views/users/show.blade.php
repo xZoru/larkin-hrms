@@ -194,17 +194,17 @@
                 </div>
                 <div class="detail-item">
                     <div class="label">Created At</div>
-                    <div class="value">{{ $user->created_at->format('d M Y H:i:s') }}</div>
+                    <div class="value">{{ $user->created_at->format('d/m/y H:i:s') }}</div>
                 </div>
                 <div class="detail-item">
                     <div class="label">Last Updated</div>
-                    <div class="value">{{ $user->updated_at->format('d M Y H:i:s') }}</div>
+                    <div class="value">{{ $user->updated_at->format('d/m/y H:i:s') }}</div>
                 </div>
                 <div class="detail-item">
                     <div class="label">Email Verified</div>
                     <div class="value">
                         @if($user->email_verified_at)
-                            {{ $user->email_verified_at->format('d M Y') }}
+                            {{ $user->email_verified_at->format('d/m/y') }}
                         @else
                             <span class="text-yellow-600">Not verified</span>
                         @endif

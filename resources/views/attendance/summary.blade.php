@@ -590,7 +590,7 @@
                             <option value="{{ $fn }}" {{ $fn == $fortnight ? 'selected' : '' }}>
                                 {{ $fn }} — 
                                 @if($p)
-                                    {{ $p['start']->format('M d, Y') }} to {{ $p['end']->format('M d, Y') }}
+                                    {{ $p['start']->format('d/m/y') }} to {{ $p['end']->format('d/m/y') }}
                                 @endif
                             </option>
                         @endforeach
@@ -625,7 +625,7 @@
                                 {{ $fortnight }}
                             </span>
                             <span class="fortnight-range">
-                                {{ $period['start']->format('M d, Y') }} → {{ $period['end']->format('M d, Y') }}
+                                {{ $period['start']->format('d/m/y') }} → {{ $period['end']->format('d/m/y') }}
                             </span>
                             <span class="employee-count">
                                 <i class="fas fa-users mr-1"></i> {{ $employees->count() }} employee(s)
@@ -729,7 +729,7 @@
                                                         min="0"
                                                         max="24"
                                                         placeholder=""
-                                                        title="Enter hours for {{ $date->format('M d, Y') }}"
+                                                        title="Enter hours for {{ $date->format('d/m/y') }}"
                                                         {{ $isLocked ? 'disabled' : '' }}>
                                                     <input type="hidden" 
                                                         name="attendance[{{ $employee->id }}][{{ $dateKey }}][type]" 

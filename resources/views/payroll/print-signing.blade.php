@@ -133,8 +133,8 @@
         <div class="info">
             <div><strong>Company:</strong> {{ $company->name ?? 'N/A' }}</div>
             <div><strong>Fortnight:</strong> {{ $payroll->fortnight_number }}</div>
-            <div><strong>Date Range:</strong> {{ $payroll->period_start->format('M d, Y') }} - {{ $payroll->period_end->format('M d, Y') }}</div>
-            <div><strong>Date Generated:</strong> {{ $generated_date->format('M d, Y') }}</div>
+            <div><strong>Date Range:</strong> {{ $payroll->period_start->format('d/m/y') }} - {{ $payroll->period_end->format('d/m/y') }}</div>
+            <div><strong>Date Generated:</strong> {{ $generated_date->format('d/m/y') }}</div>
         </div>
     </div>
 

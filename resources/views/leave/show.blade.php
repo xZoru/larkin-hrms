@@ -105,11 +105,11 @@
                 </div>
                 <div class="detail-item">
                     <span class="label">Start Date</span>
-                    <div class="value">{{ $leaveRequest->start_date->format('d M Y') }}</div>
+                    <div class="value">{{ $leaveRequest->start_date->format('d/m/y') }}</div>
                 </div>
                 <div class="detail-item">
                     <span class="label">End Date</span>
-                    <div class="value">{{ $leaveRequest->end_date->format('d M Y') }}</div>
+                    <div class="value">{{ $leaveRequest->end_date->format('d/m/y') }}</div>
                 </div>
                 <div class="detail-item">
                     <span class="label">Days Requested</span>
@@ -132,7 +132,7 @@
                 <div class="detail-item" style="grid-column: 1 / -1;">
                     <span class="label">Approved By</span>
                     <div class="value">{{ $leaveRequest->approver->name ?? 'N/A' }}</div>
-                    <div class="text-sm text-gray-500">{{ $leaveRequest->approved_date ? $leaveRequest->approved_date->format('d M Y') : 'N/A' }}</div>
+                    <div class="text-sm text-gray-500">{{ $leaveRequest->approved_date ? $leaveRequest->approved_date->format('d/m/y') : 'N/A' }}</div>
                 </div>
                 @endif
                 @if($leaveRequest->status == 'Rejected' && $leaveRequest->rejection_reason)

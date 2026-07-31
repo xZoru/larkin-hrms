@@ -578,7 +578,7 @@
                         <span class="value">{{ $selectedFortnight ?? 'Not Selected' }}</span>
                         @if($period)
                             <span class="text-gray-500 mx-2">|</span>
-                            <span class="value">{{ \Carbon\Carbon::parse($period['start'])->format('d M Y') }} - {{ \Carbon\Carbon::parse($period['end'])->format('d M Y') }}</span>
+                            <span class="value">{{ \Carbon\Carbon::parse($period['start'])->format('d/m/y') }} - {{ \Carbon\Carbon::parse($period['end'])->format('d/m/y') }}</span>
                             <span class="text-gray-500 mx-2">|</span>
                             <span class="value">{{ $payrollItems->count() ?? 0 }} employees</span>
                         @endif
@@ -607,7 +607,7 @@
                                 <option value="{{ $fn }}" {{ $fn == $selectedFortnight ? 'selected' : '' }}>
                                     {{ $fn }}
                                     @if($period)
-                                        ({{ \Carbon\Carbon::parse($period['start'])->format('d M Y') }} - {{ \Carbon\Carbon::parse($period['end'])->format('d M Y') }})
+                                        ({{ \Carbon\Carbon::parse($period['start'])->format('d/m/y') }} - {{ \Carbon\Carbon::parse($period['end'])->format('d/m/y') }})
                                     @endif
                                 </option>
                             @endforeach

@@ -461,7 +461,7 @@
                     <div>
                         <div class="pay-period-label">Current Pay Period</div>
                         <div class="pay-period-value">{{ $fortnight }}</div>
-                        <div class="pay-period-range">{{ $period['start']->format('Y-m-d') }} → {{ $period['end']->format('Y-m-d') }}</div>
+                        <div class="pay-period-range">{{ $period['start']->format('d/m/y') }} → {{ $period['end']->format('d/m/y') }}</div>
                     </div>
                     <div class="flex flex-wrap items-center gap-4 mt-2 sm:mt-0">
                         <!-- Fortnight Selector -->
@@ -470,7 +470,7 @@
                                 @php $p = $fortnightPeriods[$fn] ?? null; @endphp
                                 @if($p)
                                     <option value="{{ $fn }}" {{ $fn == $fortnight ? 'selected' : '' }}>
-                                        {{ $fn }} ({{ $p['start']->format('M-d') }} - {{ $p['end']->format('M-d') }})
+                                        {{ $fn }} ({{ $p['start']->format('d/m/y') }} - {{ $p['end']->format('d/m/y') }})
                                     </option>
                                 @endif
                             @endforeach
@@ -597,7 +597,7 @@
                                         @endphp
                                         <tr class="{{ $isWeekend ? 'weekend-row' : '' }} {{ $rowDisabled ? 'disabled-row' : '' }}">
                                             <td>
-                                                <div class="date-cell">{{ $date->format('Y-m-d') }}</div>
+                                                <div class="date-cell">{{ $date->format('d/m/y') }}</div>
                                                 <div class="day-cell">
                                                     {{ $date->format('l') }}
                                                     @if(isset($holidayDates[$dateKey]) && $holidayDates[$dateKey])
@@ -673,7 +673,7 @@
                                         @endphp
                                         <tr class="{{ $isWeekend ? 'weekend-row' : '' }} {{ $rowDisabled ? 'disabled-row' : '' }}">
                                             <td>
-                                                <div class="date-cell">{{ $date->format('Y-m-d') }}</div>
+                                                <div class="date-cell">{{ $date->format('d/m/y') }}</div>
                                                 <div class="day-cell">
                                                     {{ $date->format('l') }}
                                                     @if(isset($holidayDates[$dateKey]) && $holidayDates[$dateKey])

@@ -277,6 +277,7 @@ class AttendanceController extends Controller
                 $query->where('fortnight_number', $fortnight)
                     ->where('hours_worked', '>', 0);
             })
+            ->orderBy('employee_number')
             ->orderBy('last_name')
             ->orderBy('first_name')
             ->get();

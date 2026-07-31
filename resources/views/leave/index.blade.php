@@ -347,8 +347,8 @@
                                 <span class="text-sm">{{ $request->leave_type ?? 'Annual' }}</span>
                             </td>
                             <td>
-                                <div class="text-sm">{{ $request->start_date->format('d M Y') }}</div>
-                                <div class="text-xs text-gray-500">to {{ $request->end_date->format('d M Y') }}</div>
+                                <div class="text-sm">{{ $request->start_date->format('d/m/y') }}</div>
+                                <div class="text-xs text-gray-500">to {{ $request->end_date->format('d/m/y') }}</div>
                             </td>
                             <td class="text-center font-medium">{{ number_format($request->days_requested, 1) }}</td>
                             <td>

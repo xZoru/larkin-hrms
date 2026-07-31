@@ -55,7 +55,7 @@
                             <td class="px-4 py-3 text-right">{{ $tax->max_amount ? 'K ' . number_format($tax->max_amount, 2) : '∞' }}</td>
                             <td class="px-4 py-3 text-right font-medium">{{ number_format($tax->tax_rate, 2) }}%</td>
                             <td class="px-4 py-3 text-right">K {{ number_format($tax->fixed_tax, 2) }}</td>
-                            <td class="px-4 py-3 text-center text-sm">{{ $tax->effective_date->format('M d, Y') }}</td>
+                            <td class="px-4 py-3 text-center text-sm">{{ $tax->effective_date->format('d/m/y') }}</td>
                             <td class="px-4 py-3 text-center">
                                 <span class="px-2 py-1 rounded-full text-xs font-medium {{ $tax->is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600' }}">
                                     {{ $tax->is_active ? 'Active' : 'Inactive' }}

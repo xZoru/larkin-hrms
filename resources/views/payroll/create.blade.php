@@ -256,7 +256,7 @@
                             @endphp
                             @if($p)
                                 <option value="{{ $fn }}" {{ $isCurrent ? 'selected' : '' }}>
-                                    {{ $fn }} ({{ $p['start']->format('M-d-Y') }} - {{ $p['end']->format('M-d-Y') }})
+                                    {{ $fn }} ({{ $p['start']->format('d/m/y') }} - {{ $p['end']->format('d/m/y') }})
                                 </option>
                             @endif
                         @endforeach
@@ -281,7 +281,7 @@
                     <div class="stat-label" style="color: #6b7280;">Fortnight</div>
                 </div>
                 <div class="stat-box" style="background: #f8fafc; border: 1px solid #e5e7eb;">
-                    <div class="stat-value" style="color: #1a1f36; font-size: 16px;">{{ $period['start']->format('M d, Y') }} - {{ $period['end']->format('M d, Y') }}</div>
+                    <div class="stat-value" style="color: #1a1f36; font-size: 16px;">{{ $period['start']->format('d/m/y') }} - {{ $period['end']->format('d/m/y') }}</div>
                     <div class="stat-label" style="color: #6b7280;">Period</div>
                 </div>
                 <div class="stat-box" style="background: #f8fafc; border: 1px solid #e5e7eb;">
