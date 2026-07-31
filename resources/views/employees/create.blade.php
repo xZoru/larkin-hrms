@@ -151,7 +151,7 @@
                                         id="date_of_birth"
                                         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 @error('date_of_birth') border-red-500 @enderror" 
                                         value="{{ old('date_of_birth') }}"
-                                        placeholder="DD/MM/YYYY">
+                                        placeholder="DD/MM/YY">
                                     @error('date_of_birth') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
@@ -182,7 +182,7 @@
                                     required 
                                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 @error('joining_date') border-red-500 @enderror" 
                                     value="{{ old('joining_date') }}"
-                                    placeholder="DD/MM/YYYY">
+                                    placeholder="DD/MM/YY">
                                 @error('joining_date') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                             </div>
                             <div>
@@ -582,7 +582,7 @@
                 flatpickr("#date_of_birth", {
                     dateFormat: "Y-m-d", // Submitted to backend: 1998-11-11
                     altInput: true,
-                    altFormat: "d/m/Y",  // Displayed to user: 11/11/1998
+                    altFormat: "d/m/y",  // Displayed to user: 11/11/98
                     allowInput: true,
                     maxDate: "today"
                 });
@@ -591,7 +591,7 @@
                 flatpickr("#joining_date, #end_date, #deployment_date", {
                     dateFormat: "Y-m-d", // Submitted to backend: 2024-05-28
                     altInput: true,
-                    altFormat: "d/m/Y",  // Displayed to user: 28/05/2024
+                    altFormat: "d/m/y",  // Displayed to user: 28/05/24
                     allowInput: true
                 });
             }

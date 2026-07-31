@@ -23,7 +23,7 @@ class EmployeeController extends Controller
 
     private function getPositionSuggestions($companyId = null)
     {
-        return Employee::query()
+        return Employee::query()->active()
             ->when($companyId, function ($query) use ($companyId) {
                 $query->where('company_id', $companyId);
             })
@@ -202,7 +202,7 @@ class EmployeeController extends Controller
         }
 
         if ($request->hasFile('photo')) {
-            $data['photo_path'] = $request->file('photo')->store('employees/photos', 'public');
+            $data['photo_path'] = $request->file('photo')->store('employees/photos', config('filesystems.employee_media_disk'));
         }
 
         // Employees without bank details must be paid in cash. Enforce this here
@@ -365,9 +365,9 @@ class EmployeeController extends Controller
 
         if ($request->hasFile('photo')) {
             if ($employee->photo_path) {
-                Storage::disk('public')->delete($employee->photo_path);
+                Storage::disk(config('filesystems.employee_media_disk'))->delete($employee->photo_path);
             }
-            $data['photo_path'] = $request->file('photo')->store('employees/photos', 'public');
+            $data['photo_path'] = $request->file('photo')->store('employees/photos', config('filesystems.employee_media_disk'));
         }
 
         $employee->update($data);
@@ -438,12 +438,31 @@ class EmployeeController extends Controller
         }
         
         if ($employee->photo_path) {
-            Storage::disk('public')->delete($employee->photo_path);
+            Storage::disk(config('filesystems.employee_media_disk'))->delete($employee->photo_path);
         }
         $employee->delete();
 
         return redirect()->route('employees.index')
             ->with('success', 'Employee deleted successfully.');
+    }
+
+    /** Return an employee photo without requiring a public storage symlink. */
+    public function photo(Employee $employee)
+    {
+        $user = auth()->user();
+
+        if (!$user->isSuperAdmin() && !$user->canViewEmployee($employee)) {
+            abort(403, 'You are not authorized to view this employee photo.');
+        }
+
+        abort_unless(
+            $employee->photo_path && Storage::disk(config('filesystems.employee_media_disk'))->exists($employee->photo_path),
+            404
+        );
+
+        return Storage::disk(config('filesystems.employee_media_disk'))->response($employee->photo_path, null, [
+            'Cache-Control' => 'private, max-age=86400',
+        ]);
     }
 
     public function uploadDocument(Request $request, Employee $employee)
@@ -498,6 +517,7 @@ class EmployeeController extends Controller
         $allowedTypes = $user->getAllowedEmployeeTypes();
         
         $employees = Employee::where('company_id', $companyId)
+            ->active()
             ->whereIn('employee_type', $allowedTypes)
             ->where(function($query) {
                 $query->where('passport_expiry', '<=', now()->addDays(90))

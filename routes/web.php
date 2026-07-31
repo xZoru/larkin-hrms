@@ -64,6 +64,7 @@ Route::prefix('aba')->name('aba.')->middleware(['auth'])->group(function () {
 });
 // ============ EMPLOYEE ROUTES ============
 Route::middleware(['auth', 'company.access'])->group(function () {
+    Route::get('employees/{employee}/photo', [EmployeeController::class, 'photo'])->name('employees.photo');
     Route::resource('employees', EmployeeController::class);
     Route::post('employees/{employee}/documents', [EmployeeController::class, 'uploadDocument'])->name('employees.upload-document');
     Route::get('employees/expiring-documents', [EmployeeController::class, 'getExpiringDocuments'])->name('employees.expiring-documents');

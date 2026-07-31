@@ -31,6 +31,7 @@ class AttendanceController extends Controller
         if ($selectedEmployeeId) {
             $employee = Employee::where('id', $selectedEmployeeId)
                 ->where('company_id', $companyId)
+                ->active()
                 ->whereIn('employee_type', $allowedTypes)
                 ->first();
             
@@ -142,6 +143,7 @@ class AttendanceController extends Controller
 
         $employee = Employee::where('id', $employeeId)
             ->where('company_id', $companyId)
+            ->active()
             ->first();
 
         if (!$employee || !$user->canViewEmployee($employee)) {
@@ -350,6 +352,7 @@ public function summaryBulkUpdate(Request $request)
             $returnToTimesheet = $request->input('redirect_to') === 'timesheet';
             $employee = Employee::where('id', $targetEmployeeId)
                 ->where('company_id', $companyId)
+                ->active()
                 ->whereIn('employee_type', $allowedTypes)
                 ->first();
 
@@ -402,6 +405,7 @@ public function summaryBulkUpdate(Request $request)
         $employeeIds = collect(array_keys($attendanceData))->map(fn ($id) => (int) $id);
 
         $employees = Employee::where('company_id', $companyId)
+            ->active()
             ->whereIn('employee_type', $allowedTypes)
             ->whereIn('id', $employeeIds)
             ->get()
@@ -534,7 +538,7 @@ public function summaryBulkUpdate(Request $request)
         // Check if employee is allowed
         $user = auth()->user();
         $employee = Employee::find($request->employee_id);
-        if (!$user->canViewEmployee($employee)) {
+        if (!$employee || $employee->status !== 'Active' || !$user->canViewEmployee($employee)) {
             return redirect()->route('attendance.index')
                 ->with('error', 'You are not authorized to manage this employee.');
         }
@@ -642,10 +646,13 @@ public function summaryBulkUpdate(Request $request)
 
             $totalHours += $hours;
 
-            if ($log->is_sunday) {
-                $sundayHours += $hours;
-            } elseif ($log->is_holiday) {
+            // Holiday work is still normal work, with an additional holiday
+            // premium. Count it in both buckets so it is paid correctly.
+            if ($log->is_holiday) {
                 $holidayHours += $hours;
+                $regularHours += $hours;
+            } elseif ($log->is_sunday) {
+                $sundayHours += $hours;
             } else {
                 $regularHours += $hours;
             }

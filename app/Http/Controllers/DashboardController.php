@@ -20,11 +20,13 @@ class DashboardController extends Controller
         
         // Stat data - filtered by user type
         $totalEmployees = Employee::where('company_id', $companyId)
+            ->active()
             ->whereIn('employee_type', $allowedTypes)
             ->count();
         
         $pendingLeaves = LeaveRequest::whereHas('employee', function($q) use ($companyId, $allowedTypes) {
             $q->where('company_id', $companyId)
+              ->active()
               ->whereIn('employee_type', $allowedTypes);
         })->where('status', 'Pending')->count();
         
@@ -39,6 +41,7 @@ class DashboardController extends Controller
         
         // Recent data - filtered by user type
         $recentEmployees = Employee::where('company_id', $companyId)
+            ->active()
             ->whereIn('employee_type', $allowedTypes)
             ->orderBy('created_at', 'desc')
             ->limit(5)
@@ -46,6 +49,7 @@ class DashboardController extends Controller
         
         $recentLeaveRequests = LeaveRequest::whereHas('employee', function($q) use ($companyId, $allowedTypes) {
             $q->where('company_id', $companyId)
+              ->active()
               ->whereIn('employee_type', $allowedTypes);
         })->where('status', 'Pending')
           ->orderBy('created_at', 'desc')

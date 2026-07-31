@@ -9,7 +9,7 @@
             <div class="d-flex align-items-center">
                 <div class="me-3">
                     @if($employee->photo_path)
-                        <img src="{{ Storage::url($employee->photo_path) }}" class="rounded-circle" style="width: 56px; height: 56px; object-fit: cover;">
+                        <img src="{{ $employee->photo_url }}" class="rounded-circle" style="width: 56px; height: 56px; object-fit: cover;">
                     @else
                         <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold" style="width: 56px; height: 56px; font-size: 22px; background: #6366f1;">
                             {{ substr($employee->full_name, 0, 1) }}

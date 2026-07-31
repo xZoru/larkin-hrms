@@ -68,7 +68,8 @@ class LoanRequestController extends Controller
             try {
                 // Verify employee exists and is allowed
                 $employee = Employee::find($loanData['employee_id']);
-                if (!$employee || !in_array($employee->employee_type, $allowedTypes)) {
+                if (!$employee || $employee->company_id !== $companyId || $employee->status !== 'Active'
+                    || !in_array($employee->employee_type, $allowedTypes)) {
                     $errors[] = "Employee ID: {$loanData['employee_id']} - Not authorized";
                     continue;
                 }
@@ -156,7 +157,7 @@ class LoanRequestController extends Controller
         // Verify employee is allowed
         $user = auth()->user();
         $employee = Employee::find($request->employee_id);
-        if (!$user->canViewEmployee($employee)) {
+        if (!$employee || $employee->status !== 'Active' || !$user->canViewEmployee($employee)) {
             return back()->with('error', 'You are not authorized to create a loan for this employee.');
         }
 
@@ -276,6 +277,7 @@ class LoanRequestController extends Controller
         $allowedTypes = $user->getAllowedEmployeeTypes();
         
         $employees = Employee::where('company_id', $companyId)
+            ->active()
             ->whereIn('employee_type', $allowedTypes)
             ->where(function($query) use ($search) {
                 $query->where('employee_number', 'LIKE', "%{$search}%")
@@ -328,7 +330,8 @@ class LoanRequestController extends Controller
         foreach ($request->loans as $loanData) {
             try {
                 $employee = Employee::find($loanData['employee_id']);
-                if (!$employee || !in_array($employee->employee_type, $allowedTypes)) {
+                if (!$employee || $employee->company_id !== $companyId || $employee->status !== 'Active'
+                    || !in_array($employee->employee_type, $allowedTypes)) {
                     $errors[] = "Employee ID: {$loanData['employee_id']} - Not authorized";
                     continue;
                 }

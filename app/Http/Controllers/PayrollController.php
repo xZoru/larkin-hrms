@@ -103,6 +103,7 @@ class PayrollController extends Controller
 
         $employees = Employee::where('company_id', $companyId)
             ->whereIn('id', $request->employee_ids)
+            ->active()
             ->whereIn('employee_type', $allowedTypes)
             ->with(['attendanceSummaries' => function($query) use ($fortnight) {
                 $query->where('fortnight_number', $fortnight);

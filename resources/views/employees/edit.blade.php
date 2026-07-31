@@ -376,7 +376,7 @@
                                 <div class="photo-upload-area">
                                     <div class="flex flex-col items-center">
                                         @if($employee->photo_path)
-                                            <img src="{{ Storage::url($employee->photo_path) }}" class="h-24 w-24 rounded-full object-cover mb-3">
+                                            <img src="{{ $employee->photo_url }}" class="h-24 w-24 rounded-full object-cover mb-3">
                                         @else
                                             <div class="h-20 w-20 rounded-full bg-gray-200 flex items-center justify-center mb-3">
                                                 <svg class="h-10 w-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -447,8 +447,8 @@
                                             id="date_of_birth"
                                             required 
                                             class="flatpickr-input form-input @error('date_of_birth') border-red-500 @enderror" 
-                                            value="{{ old('date_of_birth', $employee->date_of_birth?->format('d/m/Y')) }}"
-                                            placeholder="DD/MM/YYYY">
+                                            value="{{ old('date_of_birth', $employee->date_of_birth?->format('Y-m-d')) }}"
+                                            placeholder="DD/MM/YY">
                                         @error('date_of_birth') <p class="form-error">{{ $message }}</p> @enderror
                                     </div>
                                     <div class="form-group">
@@ -548,8 +548,8 @@
                                     id="joining_date"
                                     required 
                                     class="flatpickr-input form-input @error('joining_date') border-red-500 @enderror" 
-                                    value="{{ old('joining_date', $employee->joining_date?->format('d/m/Y')) }}"
-                                    placeholder="DD/MM/YYYY">
+                                    value="{{ old('joining_date', $employee->joining_date?->format('Y-m-d')) }}"
+                                    placeholder="DD/MM/YY">
                                 @error('joining_date') <p class="form-error">{{ $message }}</p> @enderror
                             </div>
                                 <div class="form-group">
@@ -558,8 +558,8 @@
                                         name="end_date" 
                                         id="end_date"
                                         class="flatpickr-input form-input" 
-                                        value="{{ old('end_date', $employee->end_date?->format('d/m/Y')) }}"
-                                        placeholder="DD/MM/YYYY">
+                                        value="{{ old('end_date', $employee->end_date?->format('Y-m-d')) }}"
+                                        placeholder="DD/MM/YY">
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Deployment Date</label>
@@ -567,8 +567,8 @@
                                         name="deployment_date" 
                                         id="deployment_date"
                                         class="flatpickr-input form-input" 
-                                        value="{{ old('deployment_date', $employee->deployment_date?->format('d/m/Y')) }}"
-                                        placeholder="DD/MM/YYYY">
+                                        value="{{ old('deployment_date', $employee->deployment_date?->format('Y-m-d')) }}"
+                                        placeholder="DD/MM/YY">
                                 </div>
                                 <div class="section-title mt-4">NASFUND Details</div>
                                 <div class="form-group">
@@ -1089,8 +1089,8 @@
                                         name="passport_expiry" 
                                         id="passport_expiry"
                                         class="flatpickr-input form-input" 
-                                        value="{{ old('passport_expiry', $employee->passport_expiry?->format('d/m/Y')) }}"
-                                        placeholder="DD/MM/YYYY">
+                                        value="{{ old('passport_expiry', $employee->passport_expiry?->format('Y-m-d')) }}"
+                                        placeholder="DD/MM/YY">
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Work Permit Number</label>
@@ -1102,8 +1102,8 @@
                                         name="work_permit_expiry" 
                                         id="work_permit_expiry"
                                         class="flatpickr-input form-input" 
-                                        value="{{ old('work_permit_expiry', $employee->work_permit_expiry?->format('d/m/Y')) }}"
-                                        placeholder="DD/MM/YYYY">
+                                        value="{{ old('work_permit_expiry', $employee->work_permit_expiry?->format('Y-m-d')) }}"
+                                        placeholder="DD/MM/YY">
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Visa Number</label>
@@ -1115,8 +1115,8 @@
                                     name="visa_expiry" 
                                     id="visa_expiry"
                                     class="flatpickr-input form-input" 
-                                    value="{{ old('visa_expiry', $employee->visa_expiry?->format('d/m/Y')) }}"
-                                    placeholder="DD/MM/YYYY">
+                                    value="{{ old('visa_expiry', $employee->visa_expiry?->format('Y-m-d')) }}"
+                                    placeholder="DD/MM/YY">
                             </div>
                             </div>
                         </div>
@@ -1295,18 +1295,18 @@
                 // ============ FLATPKR DATE PICKER ============
         document.addEventListener('DOMContentLoaded', function() {
             flatpickr(".flatpickr-input", {
-                dateFormat: "d/m/Y",
+                dateFormat: "Y-m-d",
                 allowInput: true,
                 altInput: true,
-                altFormat: "d/m/Y",
+                altFormat: "d/m/y",
             });
 
             flatpickr("#date_of_birth", {
-                dateFormat: "d/m/Y",
+                dateFormat: "Y-m-d",
                 allowInput: true,
                 maxDate: new Date(),
                 altInput: true,
-                altFormat: "d/m/Y",
+                altFormat: "d/m/y",
             });
         });
     })();

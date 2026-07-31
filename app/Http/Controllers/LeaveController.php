@@ -22,6 +22,7 @@ class LeaveController extends Controller
         
         $query = LeaveRequest::whereHas('employee', function($q) use ($companyId, $allowedTypes) {
             $q->where('company_id', $companyId)
+              ->active()
               ->whereIn('employee_type', $allowedTypes);
         })->with(['employee', 'approver']);
         
@@ -92,7 +93,7 @@ class LeaveController extends Controller
 
         // Verify employee is allowed
         $employee = Employee::find($request->employee_id);
-        if (!$user->canViewEmployee($employee)) {
+        if (!$employee || $employee->status !== 'Active' || !$user->canViewEmployee($employee)) {
             return back()->with('error', 'You are not authorized to create a leave request for this employee.');
         }
 
@@ -404,7 +405,7 @@ class LeaveController extends Controller
         
         $user = auth()->user();
         $employee = Employee::find($request->employee_id);
-        if (!$user->canViewEmployee($employee)) {
+        if (!$employee || $employee->status !== 'Active' || !$user->canViewEmployee($employee)) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
         

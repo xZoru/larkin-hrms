@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Position;
+use Illuminate\Database\Eloquent\Builder;
 
 class Employee extends Model
 {
@@ -77,6 +78,27 @@ class Employee extends Model
         'base_salary' => 'decimal:2',
         'allowance' => 'decimal:2',
     ];
+
+    /**
+     * The employee index is the only screen that intentionally includes
+     * inactive records. Use this scope for operational employee lists.
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('status', 'Active');
+    }
+
+    /**
+     * Serve uploaded photos through the application instead of relying on a
+     * public/storage symlink or the APP_URL value. This works on Laravel Cloud
+     * as well as local installations.
+     */
+    public function getPhotoUrlAttribute(): ?string
+    {
+        return $this->photo_path
+            ? route('employees.photo', $this, absolute: false)
+            : null;
+    }
 
     public function position()
     {

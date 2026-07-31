@@ -387,7 +387,7 @@
                             <td class="text-center">
                                 @if($employee->photo_path)
                                     <div class="avatar">
-                                        <img src="{{ Storage::url($employee->photo_path) }}" alt="{{ $employee->full_name }}">
+                                        <img src="{{ $employee->photo_url }}" alt="{{ $employee->full_name }}">
                                     </div>
                                 @else
                                     <div class="avatar" style="background: #6366f1;">

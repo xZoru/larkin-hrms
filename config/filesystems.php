@@ -15,6 +15,10 @@ return [
 
     'default' => env('FILESYSTEM_DISK', 'local'),
 
+    // Employee photos use the local public disk in development. Set this to
+    // "s3" on Laravel Cloud to keep uploads durable across deployments.
+    'employee_media_disk' => env('EMPLOYEE_MEDIA_DISK', 'public'),
+
     /*
     |--------------------------------------------------------------------------
     | Filesystem Disks

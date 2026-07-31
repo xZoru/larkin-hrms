@@ -14,7 +14,7 @@ class NotificationService
      */
     public function checkExpiries($companyId = null)
     {
-        $query = Employee::with(['company']);
+        $query = Employee::active()->with(['company']);
         
         if ($companyId) {
             $query->where('company_id', $companyId);
@@ -132,7 +132,7 @@ class NotificationService
      */
     public function getActiveNotifications($companyId)
     {
-        $employeeIds = Employee::where('company_id', $companyId)->pluck('id');
+        $employeeIds = Employee::where('company_id', $companyId)->active()->pluck('id');
         
         return Notification::whereIn('employee_id', $employeeIds)
             ->where('is_read', false)
@@ -147,7 +147,7 @@ class NotificationService
      */
     public function getNotificationCount($companyId)
     {
-        $employeeIds = Employee::where('company_id', $companyId)->pluck('id');
+        $employeeIds = Employee::where('company_id', $companyId)->active()->pluck('id');
         
         return Notification::whereIn('employee_id', $employeeIds)
             ->where('is_read', false)
@@ -159,7 +159,7 @@ class NotificationService
      */
     public function getUrgentNotifications($companyId)
     {
-        $employeeIds = Employee::where('company_id', $companyId)->pluck('id');
+        $employeeIds = Employee::where('company_id', $companyId)->active()->pluck('id');
         
         return Notification::whereIn('employee_id', $employeeIds)
             ->where('is_read', false)
