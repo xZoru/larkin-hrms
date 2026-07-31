@@ -682,27 +682,20 @@ public function summaryBulkUpdate(Request $request)
             }
         }
 
-        $baseLimit = $employee?->fortnight_hours
+        $regularLimit = $employee?->fortnight_hours
             ?? ($employee?->company?->regular_hours ?? 84);
 
-        // A holiday credit still reduces the "regular" bucket (e.g. one
-        // holiday: 84 -> 76), but it does NOT lower the point at which
-        // overtime kicks in. The credited holiday hours absorb worked-hour
-        // overflow up to the original cap; only hours worked beyond the
-        // original 84/144-hour cap become overtime.
-        $reducedLimit = max(0, $baseLimit - $holidayHours);
+        // A holiday credit consumes part of the employee's 84/144-hour
+        // entitlement. For example, one holiday reduces an 84-hour cap to 76.
+        // Overtime triggers off THIS reduced cap: once worked hours exceed
+        // it, the excess is overtime rather than being absorbed into the
+        // holiday bucket.
+        $regularLimit = max(0, $regularLimit - $holidayHours);
 
         $overtimeHours = 0;
-        if ($regularHours > $baseLimit) {
-            // Worked past the original cap entirely: regular caps at the
-            // reduced limit, holiday credit absorbs the middle band, and
-            // anything past the original cap is overtime.
-            $overtimeHours = $regularHours - $baseLimit;
-            $regularHours = $reducedLimit;
-        } elseif ($regularHours > $reducedLimit) {
-            // Worked past the reduced limit but still within the original
-            // cap: the holiday credit covers the gap, so no overtime yet.
-            $regularHours = $reducedLimit;
+        if ($regularHours > $regularLimit) {
+            $overtimeHours = $regularHours - $regularLimit;
+            $regularHours = $regularLimit;
         }
 
         $totalHours += $holidayHours;
