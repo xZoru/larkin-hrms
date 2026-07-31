@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Employee;
+use App\Models\User;
 use App\Models\AttendanceLog;
 use App\Models\AttendanceSummary;
 use App\Models\Holiday;
@@ -124,6 +125,21 @@ class AttendanceController extends Controller
 
         // Check if employee is allowed
         $user = auth()->user();
+        if ($action === 'finalize') {
+            return redirect()->route('attendance.index', [
+                'fortnight' => $fortnight,
+                'employee_id' => $employeeId,
+            ])->with('error', 'Finalizing timesheets is no longer available.');
+        }
+
+        $permission = $action === 'lock' ? 'lock-attendance' : 'save-attendance';
+        if (!$this->hasAttendancePermission($user, $permission)) {
+            return redirect()->route('attendance.index', [
+                'fortnight' => $fortnight,
+                'employee_id' => $employeeId,
+            ])->with('error', 'You do not have permission to perform this attendance action.');
+        }
+
         $employee = Employee::where('id', $employeeId)
             ->where('company_id', $companyId)
             ->first();
@@ -209,19 +225,10 @@ class AttendanceController extends Controller
                 'fortnight_number' => $fortnight,
             ];
 
-            // Only change status if NOT Final
-            if ($currentStatus !== 'Final') {
-                if ($action === 'finalize') {
-                    $updateData['timesheet_status'] = 'Final';
-                    $updateData['finalized_at'] = now();
-                    $updateData['finalized_by'] = auth()->id();
-                }
-
-                if ($action === 'lock') {
-                    $updateData['timesheet_status'] = 'Locked';
-                    $updateData['locked_at'] = now();
-                    $updateData['locked_by'] = auth()->id();
-                }
+            if ($action === 'lock') {
+                $updateData['timesheet_status'] = 'Locked';
+                $updateData['locked_at'] = now();
+                $updateData['locked_by'] = auth()->id();
             }
 
             // If Save - keep existing status
@@ -243,7 +250,6 @@ class AttendanceController extends Controller
 
         $messages = [
             'save' => ' Timesheet saved successfully!',
-            'finalize' => 'Timesheet FINALIZED! You can still edit hours but status cannot be changed.',
             'lock' => ' Timesheet LOCKED! No further edits allowed.',
         ];
 
@@ -332,6 +338,13 @@ public function summaryBulkUpdate(Request $request)
         $publicHolidays = $this->getPublicHolidays($companyId);
 
         $action = $request->input('action');
+        $requiredPermission = $action === 'unlock'
+            ? 'unlock-attendance'
+            : 'save-attendance';
+        if (!$this->hasAttendancePermission($user, $requiredPermission)) {
+            return redirect()->back()->with('error', 'You do not have permission to perform this attendance action.');
+        }
+
         if (in_array($action, ['unlock', 'reset'], true)) {
             $targetEmployeeId = (int) $request->input('target_employee_id');
             $returnToTimesheet = $request->input('redirect_to') === 'timesheet';
@@ -591,6 +604,11 @@ public function summaryBulkUpdate(Request $request)
     }
 
     // ============ UPDATE SUMMARY ============
+    private function hasAttendancePermission(User $user, string $permission): bool
+    {
+        return $user->isSuperAdmin() || $user->can($permission);
+    }
+
     private function updateSummary($employeeId, $fortnight)
     {
         $logs = AttendanceLog::where('employee_id', $employeeId)

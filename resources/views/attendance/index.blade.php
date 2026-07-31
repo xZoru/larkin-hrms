@@ -524,7 +524,7 @@
                         </div>
                     </div>
                     <div class="mt-3 flex flex-wrap gap-2">
-                        @if(($timesheetStatus ?? 'Draft') === 'Locked')
+                        @if(($timesheetStatus ?? 'Draft') === 'Locked' && (auth()->user()->isSuperAdmin() || auth()->user()->can('unlock-attendance')))
                             <form method="POST" action="{{ route('attendance.summary.bulk-update') }}">
                                 @csrf
                                 <input type="hidden" name="fortnight" value="{{ $fortnight }}">
@@ -780,25 +780,29 @@
                                 <span class="text-sm text-red-600 font-bold">🔒 LOCKED - No edits allowed</span>
                             @elseif($timesheetStatus == 'Final')
                                 <span class="text-sm text-amber-600 font-bold">⚠️ FINALIZED - You can edit hours</span>
+                                @if(auth()->user()->isSuperAdmin() || auth()->user()->can('save-attendance'))
                                 <button type="submit" name="action" value="save" class="btn-save">
                                     💾 Save
                                 </button>
+                                @endif
+                                @if(auth()->user()->isSuperAdmin() || auth()->user()->can('lock-attendance'))
                                 <button type="submit" name="action" value="lock" class="btn-lock"
-                                        onclick="return confirm('🔒 Lock this timesheet?\n\nNo further edits or changes will be allowed.')">
+                                    onclick="return confirm('🔒 Lock this timesheet?\n\nNo further edits or changes will be allowed.')">
                                     🔒 Lock
                                 </button>
+                                @endif
                             @else
+                                @if(auth()->user()->isSuperAdmin() || auth()->user()->can('save-attendance'))
                                 <button type="submit" name="action" value="save" class="btn-save">
                                     💾 Save
                                 </button>
-                                <button type="submit" name="action" value="finalize" class="btn-finalize" 
-                                        onclick="return confirm('⚠️ Finalize this timesheet?\n\nYou can still edit hours but the status cannot be changed.')">
-                                    ✅ Finalize
-                                </button>
+                                @endif
+                                @if(auth()->user()->isSuperAdmin() || auth()->user()->can('lock-attendance'))
                                 <button type="submit" name="action" value="lock" class="btn-lock"
-                                        onclick="return confirm('🔒 Lock this timesheet?\n\nNo further edits or changes will be allowed.')">
+                                    onclick="return confirm('🔒 Lock this timesheet?\n\nNo further edits or changes will be allowed.')">
                                     🔒 Lock
                                 </button>
+                                @endif
                             @endif
                         </div>
                     </div>
