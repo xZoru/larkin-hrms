@@ -205,6 +205,13 @@ class EmployeeController extends Controller
             $data['photo_path'] = $request->file('photo')->store('employees/photos', 'public');
         }
 
+        // Employees without bank details must be paid in cash. Enforce this here
+        // as well as in the form, so a modified or scripted request cannot leave
+        // the database defaulted to Bank Transfer.
+        if ($request->input('bank_toggle') !== 'on') {
+            $data['payment_method'] = 'Cash';
+        }
+
         $employee = Employee::create($data);
 
         if ($request->input('bank_toggle') == 'on') {

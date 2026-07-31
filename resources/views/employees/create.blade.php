@@ -395,6 +395,7 @@
                         </div>
 
                         <input type="hidden" name="bank_toggle" id="bank_toggle_hidden" value="off">
+                        <input type="hidden" name="payment_method" id="payment_method_hidden" value="Cash">
 
                         <div id="bankDetailsContainer" style="display: none;">
                             @for($i = 0; $i < 2; $i++)
@@ -507,11 +508,15 @@
             const bankOffLabel = document.getElementById('bankToggleLabel');
             const bankOnLabel = document.getElementById('bankToggleLabelOn');
             const bankHiddenInput = document.getElementById('bank_toggle_hidden');
+            const paymentMethodInput = document.getElementById('payment_method_hidden');
             const bankInputs = bankContainer ? bankContainer.querySelectorAll('input:not([name*="preferred_account"])') : [];
 
             function toggleBankFields(show) {
                 if (bankHiddenInput) {
                     bankHiddenInput.value = show ? 'on' : 'off';
+                }
+                if (paymentMethodInput) {
+                    paymentMethodInput.value = show ? 'Bank Transfer' : 'Cash';
                 }
                 
                 if (show) {

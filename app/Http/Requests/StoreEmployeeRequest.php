@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreEmployeeRequest extends FormRequest
 {
@@ -20,7 +21,10 @@ class StoreEmployeeRequest extends FormRequest
             'extension_name' => 'nullable|string|max:255',
             'company_id' => 'required|exists:companies,id',
             'department_name' => 'required|string|max:255',
-            'employee_number' => 'nullable|unique:employees,employee_number',
+            'employee_number' => [
+                'nullable',
+                Rule::unique('employees', 'employee_number')->whereNull('deleted_at'),
+            ],
             'gender' => 'required|in:Male,Female,Other',
             'marital_status' => 'nullable|in:Single,Married,Divorced,Widowed',
             'employee_type' => 'required|in:National,Expatriate',
