@@ -462,7 +462,18 @@ public function summary(Request $request)
             ->first();
         
         if ($payroll) {
-            $payrollItems = $payroll->items()->with('employee')->get();
+            // Manual ABA entries are payment instructions, not employee payroll
+            // rows, so keep them out of the employee-facing payroll summary.
+            $payrollItems = $payroll->items()
+                ->with('employee')
+                ->get()
+                ->reject(function ($item) {
+                    $details = $item->details ?? [];
+
+                    return is_array($details)
+                        && ($details['type'] ?? null) === 'manual_entry';
+                })
+                ->values();
             
             // Add FN Rate to each item
             $payrollItems->each(function ($item) {
