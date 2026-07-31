@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\ABAExport;
 use App\Models\Company;
 use App\Models\Payroll;
 use App\Models\ABABatch;
@@ -10,7 +11,10 @@ use App\Models\PayrollItem;
 use App\Models\BankAccount;
 use App\Services\ABAGeneratorService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Maatwebsite\Excel\Excel as ExcelWriter;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ABAGeneratorController extends Controller
 {
@@ -149,20 +153,23 @@ class ABAGeneratorController extends Controller
     public function exportExcel($id)
     {
         try {
-            $batch = ABABatch::findOrFail($id);
+            $batch = ABABatch::with([
+                'company',
+                'payroll.items.employee.bankAccounts',
+            ])->findOrFail($id);
+
+            if (!$batch->payroll) {
+                return redirect()->back()
+                    ->with('error', 'This ABA batch is not linked to a payroll and cannot be exported.');
+            }
             
-            $payrollItems = $batch->payroll->items()
-                ->with(['employee.bankAccounts' => function($query) {
-                    $query->where('is_active', true)
-                        ->orderBy('is_preferred', 'desc')
-                        ->orderBy('priority', 'asc');
-                }])
-                ->where('net_pay', '>', 0)
-                ->get()
+            $payrollItems = $batch->payroll->items
+                ->filter(fn ($item) => (float) $item->net_pay > 0)
                 ->filter(function($item) {
-                    return $item->employee && 
-                        $item->employee->bankAccounts && 
-                        $item->employee->bankAccounts->isNotEmpty();
+                    return $item->employee
+                        && $item->employee->bankAccounts
+                            ->where('is_active', true)
+                            ->isNotEmpty();
                 });
 
             if ($payrollItems->isEmpty()) {
@@ -170,69 +177,23 @@ class ABAGeneratorController extends Controller
                     ->with('error', 'No employees with valid bank details found for this payroll.');
             }
 
-            $companyName = $batch->account_name ?? 'Company Name';
-            
-            $content = [];
-            $content[] = ['Company Name:', $companyName];
-            $content[] = ['Type of Payment:', $batch->metadata['payment_type'] ?? 'SALARY'];
-            
-            $date = isset($batch->metadata['payment_date']) 
-                ? date('n/j/Y', strtotime($batch->metadata['payment_date'])) 
-                : date('n/j/Y');
-            $content[] = ['Date:', $date];
-            
-            $bsb = $batch->bsb_number ?? '';
-            if ($bsb && strlen($bsb) >= 6) {
-                $bsb = substr($bsb, 0, 3) . '-' . substr($bsb, 3, 3);
-            }
-            $content[] = ['Company BSB:', $bsb];
-            $content[] = ['Company Account:', $batch->account_number ?? ''];
-            $content[] = ['Total Amount:', number_format($batch->total_amount, 2)];
-            $content[] = ['Debit Description:', $batch->metadata['debit_description'] ?? 'PAYROLL'];
-            
-            $content[] = [];
-            $content[] = ['BSB', 'Account Number', 'Amount', 'Account Name', 'Description'];
-            
-            foreach ($payrollItems as $item) {
-                $employee = $item->employee;
-                $bankAccount = $employee->bankAccounts()->where('is_active', true)->first();
-                
-                $bsb = $bankAccount->bsb_code ?? '';
-                $bsb = preg_replace('/[^0-9]/', '', $bsb);
-                if (strlen($bsb) >= 6) {
-                    $bsb = substr($bsb, 0, 3) . '-' . substr($bsb, 3, 3);
-                }
-                
-                $content[] = [
-                    $bsb,
-                    $bankAccount->account_number ?? '',
-                    number_format($item->net_pay, 2),
-                    strtoupper($bankAccount->account_name ?? $employee->full_name),
-                    $batch->metadata['debit_description'] ?? 'FN' . ($batch->payroll->fortnight_number ?? ''),
-                ];
-            }
-            
-            $content[] = [];
-            $content[] = ['', 'TOTAL:', number_format($batch->total_amount, 2), '', ''];
+            $filename = 'ABA_' . $batch->batch_number . '_' . now()->format('Ymd') . '.xlsx';
 
-            $filename = 'ABA_' . $batch->batch_number . '_' . date('Ymd') . '.csv';
+            return Excel::download(
+                new ABAExport($batch, $payrollItems),
+                $filename,
+                ExcelWriter::XLSX
+            );
             
-            $handle = fopen('php://temp', 'w+');
-            foreach ($content as $row) {
-                fputcsv($handle, $row);
-            }
-            rewind($handle);
-            $csvContent = stream_get_contents($handle);
-            fclose($handle);
-
-            return response($csvContent, 200, [
-                'Content-Type' => 'text/csv',
-                'Content-Disposition' => "attachment; filename={$filename}",
+        } catch (\Throwable $e) {
+            Log::error('ABA Excel export failed.', [
+                'aba_batch_id' => $id,
+                'user_id' => auth()->id(),
+                'exception' => $e,
             ]);
-            
-        } catch (\Exception $e) {
+
             return redirect()->back()
-                ->with('error', 'Failed to export: ' . $e->getMessage());
+                ->with('error', 'Unable to export this ABA batch. Please contact an administrator.');
         }
     }
     
