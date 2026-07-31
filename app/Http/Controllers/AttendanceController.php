@@ -667,6 +667,12 @@ public function summaryBulkUpdate(Request $request)
             $regularLimit = $employee?->fortnight_hours
                 ?? ($employee?->company?->regular_hours ?? 84);
 
+            // Holiday work is displayed and paid separately, but it still uses
+            // part of the employee's 84/144-hour fortnight entitlement. For
+            // example: an 84-hour employee with 8 holiday hours can have at
+            // most 76 regular hours; additional normal work is overtime.
+            $regularLimit = max(0, $regularLimit - $holidayHours);
+
             $overtimeHours = 0;
             if ($regularHours > $regularLimit) {
                 $overtimeHours = $regularHours - $regularLimit;
