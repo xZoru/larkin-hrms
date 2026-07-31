@@ -523,6 +523,30 @@
                             <span class="status-badge status-draft">{{ $timesheetStatus ?? 'Draft' }}</span>
                         </div>
                     </div>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        @if(($timesheetStatus ?? 'Draft') === 'Locked')
+                            <form method="POST" action="{{ route('attendance.summary.bulk-update') }}">
+                                @csrf
+                                <input type="hidden" name="fortnight" value="{{ $fortnight }}">
+                                <input type="hidden" name="target_employee_id" value="{{ $selectedEmployee->id }}">
+                                <input type="hidden" name="redirect_to" value="timesheet">
+                                <button type="submit" name="action" value="unlock" class="btn-secondary"
+                                    onclick="return confirm('Unlock this employee\'s timesheet for the selected fortnight?');">
+                                    <i class="fas fa-unlock"></i> Unlock Timesheet
+                                </button>
+                            </form>
+                        @endif
+                        <form method="POST" action="{{ route('attendance.summary.bulk-update') }}">
+                            @csrf
+                            <input type="hidden" name="fortnight" value="{{ $fortnight }}">
+                            <input type="hidden" name="target_employee_id" value="{{ $selectedEmployee->id }}">
+                            <input type="hidden" name="redirect_to" value="timesheet">
+                            <button type="submit" name="action" value="reset" class="btn-secondary" style="color: #b91c1c;"
+                                onclick="return confirm('Reset all attendance hours for this employee in the selected fortnight? This cannot be undone.');">
+                                <i class="fas fa-undo"></i> Reset Attendance
+                            </button>
+                        </form>
+                    </div>
                 </div>
 
                 <!-- ============ TIMESHEET TABLE - 2 WEEKS SPLIT ============ -->

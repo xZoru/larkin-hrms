@@ -334,16 +334,18 @@ public function summaryBulkUpdate(Request $request)
         $action = $request->input('action');
         if (in_array($action, ['unlock', 'reset'], true)) {
             $targetEmployeeId = (int) $request->input('target_employee_id');
+            $returnToTimesheet = $request->input('redirect_to') === 'timesheet';
             $employee = Employee::where('id', $targetEmployeeId)
                 ->where('company_id', $companyId)
                 ->whereIn('employee_type', $allowedTypes)
                 ->first();
 
             if (!$employee || !$user->canViewEmployee($employee)) {
-                return redirect()->route('attendance.summary', [
-                    'fortnight' => $fortnight,
-                    'generated' => 1,
-                ])->with('error', 'You are not authorized to manage this employee.');
+                return $returnToTimesheet
+                    ? redirect()->route('attendance.index', ['fortnight' => $fortnight])
+                        ->with('error', 'You are not authorized to manage this employee.')
+                    : redirect()->route('attendance.summary', ['fortnight' => $fortnight, 'generated' => 1])
+                        ->with('error', 'You are not authorized to manage this employee.');
             }
 
             if ($action === 'unlock') {
@@ -373,10 +375,15 @@ public function summaryBulkUpdate(Request $request)
                 $message = "Attendance reset for {$employee->full_name}.";
             }
 
-            return redirect()->route('attendance.summary', [
-                'fortnight' => $fortnight,
-                'generated' => 1,
-            ])->with('success', $message);
+            return $returnToTimesheet
+                ? redirect()->route('attendance.index', [
+                    'fortnight' => $fortnight,
+                    'employee_id' => $employee->id,
+                ])->with('success', $message)
+                : redirect()->route('attendance.summary', [
+                    'fortnight' => $fortnight,
+                    'generated' => 1,
+                ])->with('success', $message);
         }
 
         $employeeIds = collect(array_keys($attendanceData))->map(fn ($id) => (int) $id);
@@ -786,6 +793,11 @@ public function summaryBulkUpdate(Request $request)
         $employees = Employee::where('company_id', $companyId)
             ->where('status', 'Active')
             ->whereIn('employee_type', $allowedTypes)
+            ->whereHas('attendanceLogs', function ($query) use ($fortnight) {
+                $query->where('fortnight_number', $fortnight)
+                    ->where('hours_worked', '>', 0);
+            })
+            ->orderBy('employee_number')
             ->orderBy('last_name')
             ->orderBy('first_name')
             ->get();

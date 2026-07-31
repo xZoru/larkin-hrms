@@ -615,7 +615,6 @@
             <form id="summaryForm" method="POST" action="{{ route('attendance.summary.bulk-update') }}">
                 @csrf
                 <input type="hidden" name="fortnight" value="{{ $fortnight }}">
-                <input type="hidden" name="target_employee_id" id="target_employee_id" value="">
 
                 <div class="summary-card">
                     <!-- Actions Bar -->
@@ -656,7 +655,6 @@
                                     <tr>
                                         <th class="employee-cell" style="width:80px;">EMP. NO.</th>
                                         <th class="employee-cell name" style="width:140px; text-align:left;">EMPLOYEE NAME</th>
-                                        <th class="employee-cell" style="width:115px;">ACTIONS</th>
                                         <th class="summary-col reg">REG</th>
                                         <th class="summary-col ot">OT Hrs.(1.5)</th>
                                         <th class="summary-col sun">Sun OT.(2.0)</th>
@@ -705,29 +703,6 @@
                                             <!-- Employee Name -->
                                             <td class="employee-cell name" title="{{ $employee->full_name }}">
                                                 {{ $employee->full_name }}
-                                            </td>
-
-                                            <td class="employee-cell">
-                                                @if($isLocked)
-                                                    <button type="submit"
-                                                        name="action"
-                                                        value="unlock"
-                                                        form="summaryForm"
-                                                        class="btn-secondary"
-                                                        style="padding: 5px 8px; font-size: 11px;"
-                                                        onclick="document.getElementById('target_employee_id').value='{{ $employee->id }}'; return confirm('Unlock this employee\'s timesheet for the selected fortnight?');">
-                                                        <i class="fas fa-unlock"></i> Unlock
-                                                    </button>
-                                                @endif
-                                                <button type="submit"
-                                                    name="action"
-                                                    value="reset"
-                                                    form="summaryForm"
-                                                    class="btn-secondary"
-                                                    style="padding: 5px 8px; font-size: 11px; margin-top: 4px; color: #b91c1c;"
-                                                    onclick="document.getElementById('target_employee_id').value='{{ $employee->id }}'; return confirm('Reset all attendance hours for this employee in the selected fortnight? This cannot be undone.');">
-                                                    <i class="fas fa-undo"></i> Reset
-                                                </button>
                                             </td>
 
                                             <!-- Summary Columns (REG, OT, Sun, Hol) -->
