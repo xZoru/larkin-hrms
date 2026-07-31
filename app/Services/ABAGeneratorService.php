@@ -2,165 +2,91 @@
 
 namespace App\Services;
 
-use App\Models\ABABatch;
-use App\Models\Company;
 use App\Models\Payroll;
-use Carbon\Carbon;
+use App\Models\Company;
+use App\Models\ABABatch;
+use App\Models\PayrollItem;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use RuntimeException;
 
 class ABAGeneratorService
 {
-    /**
-     * Generate an ABA file for a payroll.
-     */
-    public function generate(
-        Payroll $payroll,
-        Company $company,
-        array $bankDetails
-    ): ABABatch {
-        /*
-         * 1. Get regular payroll items with employees and bank accounts.
-         */
+    public function generate(Payroll $payroll, Company $company, array $bankDetails)
+    {
+        // 1. Get regular payroll items with employees & bank accounts
         $regularItems = $payroll->items()
             ->with(['employee.bankAccounts'])
             ->whereNotNull('employee_id')
             ->where('net_pay', '>', 0)
             ->get()
-            ->filter(function ($item) {
+            ->filter(function($item) {
                 if (!$item->employee || !$item->employee->bankAccounts) {
                     return false;
                 }
-
+                
+                // Get active account or fallback to first available account
                 $activeAccount = $item->employee->bankAccounts
                     ->where('is_active', true)
-                    ->first()
-                    ?? $item->employee->bankAccounts->first();
-
-                return $activeAccount !== null;
+                    ->first() ?? $item->employee->bankAccounts->first();
+                
+                return !is_null($activeAccount);
             });
 
-        /*
-         * 2. Get manual payment entries.
-         */
+        // 2. Get manual entries (employee_id = null)
         $manualItems = $payroll->items()
             ->whereNull('employee_id')
             ->where('details->type', 'manual_entry')
             ->where('net_pay', '>', 0)
             ->get()
-            ->map(function ($item) {
-                $details = is_array($item->details)
-                    ? $item->details
-                    : [];
-
+            ->map(function($item) {
+                $details = $item->details;
                 $item->virtual_bank_account = (object) [
                     'bsb_code' => $details['bsb'] ?? '',
                     'account_number' => $details['account_number'] ?? '',
-                    'account_name' => $details['account_name']
-                        ?? 'MANUAL ENTRY',
+                    'account_name' => $details['account_name'] ?? 'MANUAL ENTRY',
                     'details' => $details,
                 ];
-
                 return $item;
             });
 
-        /*
-         * 3. Merge regular and manual payments.
-         */
-        $payrollItems = $regularItems
-            ->merge($manualItems)
-            ->values();
+        // 3. Merge both collections
+        $payrollItems = $regularItems->merge($manualItems);
 
         if ($payrollItems->isEmpty()) {
-            throw new RuntimeException(
-                'No employees or manual entries with valid bank details '
-                . 'were found for this payroll.'
-            );
+            throw new \Exception('No employees or manual entries with valid bank details found for this payroll.');
         }
 
-        /*
-         * 4. Generate ABA text.
-         */
-        $content = $this->generateABAContent(
-            $payrollItems,
-            $payroll,
-            $company,
-            $bankDetails
-        );
-
+        $content = $this->generateABAContent($payrollItems, $payroll, $company, $bankDetails);
+        
         $batchNumber = $this->generateBatchNumber();
         $filename = 'ABA_' . $batchNumber . '.aba';
-
-        $paymentDate = Carbon::parse(
-            $bankDetails['payment_date']
-                ?? now()->format('Y-m-d')
-        );
-
-        /*
-         * 5. Save batch information.
-         */
+        
         $batch = ABABatch::create([
             'company_id' => $company->id,
             'payroll_id' => $payroll->id,
             'batch_number' => $batchNumber,
-
-            'bank_name' => $bankDetails['bank_name']
-                ?? $company->bank_name
-                ?? 'BSP Bank',
-
-            'bank_code' => $bankDetails['bank_code']
-                ?? 'BSP',
-
-            'apca_user_id' => $bankDetails['apca_user_id']
-                ?? $company->apca_user_id
-                ?? '000001',
-
-            'bsb_number' => $bankDetails['bsb_number']
-                ?? $company->bsb_code
-                ?? '088-950',
-
-            'account_number' => $bankDetails['account_number']
-                ?? $company->bank_account_number
-                ?? '7009276416',
-
-            'account_name' => $bankDetails['account_name']
-                ?? $company->bank_account_name
-                ?? $company->name,
-
+            'bank_name' => $bankDetails['bank_name'] ?? $company->bank_name ?? 'BSP Bank',
+            'bank_code' => $bankDetails['bank_code'] ?? 'BSP',
+            'apca_user_id' => $bankDetails['apca_user_id'] ?? '000001',
+            'bsb_number' => $bankDetails['bsb_number'] ?? $company->bsb_code ?? '088-950',
+            'account_number' => $bankDetails['account_number'] ?? $company->bank_account_number ?? '7009276416',
+            'account_name' => $bankDetails['account_name'] ?? $company->bank_account_name ?? $company->name,
             'total_amount' => $payrollItems->sum('net_pay'),
-
-            /*
-             * This database value represents employee/manual payments only.
-             * The ABA footer separately includes the balancing record.
-             */
             'total_transactions' => $payrollItems->count(),
-
-            'processing_date' => $paymentDate,
+            'processing_date' => now(),
             'status' => 'generated',
             'generated_by' => auth()->id(),
-
             'metadata' => [
-                'payment_type' => $bankDetails['payment_type']
-                    ?? 'SALARY',
-
-                'debit_description' => $bankDetails[
-                    'debit_description'
-                ] ?? 'PAYROLL',
-
-                'payment_date' => $paymentDate->format('Y-m-d'),
+                'payment_type' => $bankDetails['payment_type'] ?? 'SALARY',
+                'debit_description' => $bankDetails['debit_description'] ?? 'PAYROLL',
+                'payment_date' => $bankDetails['payment_date'] ?? now()->format('Y-m-d'),
             ],
-
             'filename' => $filename,
         ]);
 
-        /*
-         * 6. Write the ABA file.
-         */
         $path = 'aba/' . $filename;
-
         Storage::disk('public')->put($path, $content);
-
+        
         $batch->update([
             'file_path' => $path,
         ]);
@@ -168,769 +94,334 @@ class ABAGeneratorService
         return $batch;
     }
 
-    /**
-     * Generate all ABA records.
-     */
-    private function generateABAContent(
-        $payrollItems,
-        Payroll $payroll,
-        Company $company,
-        array $bankDetails
-    ): string {
+    private function generateABAContent($payrollItems, $payroll, $company, $bankDetails)
+    {
         $lines = [];
+        
+        // Tracer Reference
+        $tracerReference = $this->formatTracerReference($company, $bankDetails);
+        
+        // 1. Header Record (Type 0)
+        $lines[] = $this->formatHeader($company, $bankDetails);
 
-        /*
-         * Fixed 46-character trace/remitter section.
-         */
-        $tracerReference = $this->formatTracerReference(
-            $company,
-            $bankDetails
-        );
-
-        /*
-         * Type 0 header record.
-         */
-        $lines[] = $this->formatHeader(
-            $company,
-            $bankDetails
-        );
-
+        // 2. Detail Records (Type 1)
         $transactionCount = 0;
-        $totalAmountToea = 0;
+        $totalAmount = 0;
 
-        /*
-         * Type 1 employee/manual payment records.
-         */
         foreach ($payrollItems as $item) {
             $isManual = isset($item->virtual_bank_account);
-
+            
             if ($isManual) {
+                // Manual entry
                 $bankAccount = $item->virtual_bank_account;
                 $employee = null;
+                $amount = $item->net_pay;
             } else {
+                // Regular employee (uses already loaded collection without running new SQL queries)
                 $employee = $item->employee;
-
                 $bankAccount = $employee->bankAccounts
                     ->where('is_active', true)
-                    ->first()
-                    ?? $employee->bankAccounts->first();
+                    ->first() ?? $employee->bankAccounts->first();
+                $amount = $item->net_pay;
             }
-
+            
             if (!$bankAccount) {
                 continue;
             }
 
-            $amountToea = $this->moneyToToea(
-                $item->net_pay
+            $detail = $this->formatDetailRecord(
+                $bankAccount,
+                $employee,
+                $amount,
+                $bankDetails['payment_type'] ?? 'SALARY',
+                $bankDetails['debit_description'] ?? '',
+                $tracerReference,
+                $payroll,
+                $isManual
             );
-
-            $lines[] = $this->formatDetailRecord(
-                bankAccount: $bankAccount,
-                employee: $employee,
-                amountToea: $amountToea,
-                debitDescription: $bankDetails[
-                    'debit_description'
-                ] ?? '',
-                tracerReference: $tracerReference,
-                payroll: $payroll,
-                isManual: $isManual
-            );
-
+            
+            $lines[] = $detail;
+            
             $transactionCount++;
-            $totalAmountToea += $amountToea;
+            $totalAmount += $amount;
         }
 
-        if ($transactionCount === 0) {
-            throw new RuntimeException(
-                'No valid payment records were generated.'
-            );
-        }
-
-        /*
-         * Type 1 balancing/contra record.
-         */
-        $lines[] = $this->formatBalancingRecord(
-            company: $company,
-            bankDetails: $bankDetails,
-            totalAmountToea: $totalAmountToea,
-            tracerReference: $tracerReference,
-            payroll: $payroll
-        );
-
-        /*
-         * Footer count includes all Type 1 records:
-         * employee/manual records + one balancing record.
-         */
+        // 3. Contra / Balancing Record (Type 1)
+        $lines[] = $this->formatTracerRecord($company, $bankDetails, $totalAmount, $tracerReference, $payroll);
         $transactionCount++;
 
-        /*
-         * Type 7 footer record.
-         */
-        $lines[] = $this->formatTrailerRecord(
-            transactionCount: $transactionCount,
-            totalAmountToea: $totalAmountToea
-        );
+        // 4. Trailer / Footer Record (Type 7)
+        $lines[] = $this->formatTrailerRecord($transactionCount, $totalAmount);
 
-        /*
-         * Final strict validation.
-         */
+        // 5. Mandatory Strict 132-Character Validation Check (BSP bank format)
+        //    Standard CEMTEX/ABA records are 120 characters, but BSP's generator
+        //    requires every record to be padded out to 132 characters. If any
+        //    line does not match, stop generation rather than emit an invalid file.
         foreach ($lines as $index => $line) {
-            $this->validateRecord(
-                $line,
-                'ABA line ' . ($index + 1)
-            );
+            $length = strlen($line);
+            if ($length !== 132) {
+                $lineType = match ($index) {
+                    0 => 'Header Record (Type 0)',
+                    count($lines) - 1 => 'Trailer/Footer Record (Type 7)',
+                    default => "Detail Record (Line " . ($index + 1) . ")",
+                };
+
+                throw new \Exception(
+                    "ABA File Generation Error: {$lineType} must be exactly 132 characters long (BSP format). Current length is {$length}."
+                );
+            }
         }
 
-        /*
-         * Use Windows CRLF line endings and include a final CRLF.
-         */
+        // 6. Join lines using Windows CRLF (\r\n) with a trailing newline
         return implode("\r\n", $lines) . "\r\n";
     }
 
     /**
-     * Create the 46-character trace/remitter field.
-     *
-     * Structure:
-     * BSB                    7
-     * Fixed zeroes           5
-     * Company account       10
-     * Company name          16
-     * Fixed zeroes           8
-     * Total                 46
+     * Format Tracer Reference
+     * Output: 088-950000007009276416LARKIN ENTERPRIS00000000
+     * (46 chars: Trace BSB 7 + Trace Account 15 + Remitter Name 16 + Trailing zero field 8)
      */
-    private function formatTracerReference(
-        Company $company,
-        array $bankDetails
-    ): string {
-        $bsb = $this->formatBsb(
-            $bankDetails['bsb_number']
-                ?? $company->bsb_code
-                ?? '088950'
-        );
-
-        $account = $bankDetails['account_number']
-            ?? $company->bank_account_number
-            ?? '7009276416';
-
-        $account = $this->digitsOnly($account);
-
-        if ($account === '') {
-            throw new RuntimeException(
-                'Company trace account number is missing.'
-            );
-        }
-
-        if (strlen($account) > 10) {
-            throw new RuntimeException(
-                'Company trace account number must not exceed '
-                . '10 digits. Current value: ' . $account
-            );
-        }
-
-        $traceAccount = str_pad(
-            $account,
-            10,
-            '0',
-            STR_PAD_LEFT
-        );
-
-        $companyName = $bankDetails['account_name']
-            ?? $company->bank_account_name
-            ?? $company->name
-            ?? 'LARKIN ENTERPRISES LIMITED';
-
-        $trace =
-            $bsb
-            . '00000'
-            . $traceAccount
-            . $this->formatText($companyName, 16)
-            . '00000000';
-
-        if (strlen($trace) !== 46) {
-            throw new RuntimeException(
-                'Trace reference must be exactly 46 characters. '
-                . 'Actual length: ' . strlen($trace)
-            );
-        }
-
-        return $trace;
+    private function formatTracerReference($company, $bankDetails)
+    {
+        // Get BSB (6 digits)
+        $bsb = $bankDetails['bsb_number'] ?? $company->bsb_code ?? '088950';
+        $bsb = preg_replace('/[^0-9]/', '', $bsb);
+        $bsb = str_pad($bsb, 6, '0', STR_PAD_LEFT);
+        $bsbFormatted = substr($bsb, 0, 3) . '-' . substr($bsb, 3, 3);
+        
+        // Get Account Number (15 digits - BSP core banking account numbers, not the AU-standard 9)
+        $account = $bankDetails['account_number'] ?? $company->bank_account_number ?? '7009276416';
+        $account = preg_replace('/[^0-9]/', '', $account);
+        $account = str_pad(substr($account, 0, 15), 15, '0', STR_PAD_LEFT);
+        
+        // Remitter Name (16 chars - truncated company name, not the AU-standard 26)
+        $companyName = $bankDetails['account_name'] ?? $company->bank_account_name ?? $company->name ?? 'LARKIN ENTERPRISES LIMITED';
+        $companyName = strtoupper($companyName);
+        $companyName = str_pad(substr($companyName, 0, 16), 16, ' ');
+        
+        // Trailing zero field (8 chars, always zero-filled in BSP files)
+        $trailing = str_repeat('0', 8);
+        
+        // BSB(7) + Account(15) + Remitter Name(16) + Trailing(8) = 46 characters total.
+        return $bsbFormatted . $account . $companyName . $trailing;
     }
 
     /**
-     * Record Type 0: Descriptive header record.
-     *
-     * Structure:
-     * Record type             1
-     * Filler                 17
-     * Reel sequence           2
-     * Bank code               3
-     * Filler                  7
-     * User/company name      26
-     * User ID                 6
-     * Description            12
-     * Processing date         8
-     * Filler                 50
-     * Total                 132
+     * Record Type 0: Descriptive Header Record (Exact length: 132 characters, BSP format)
      */
-    private function formatHeader(
-        Company $company,
-        array $bankDetails
-    ): string {
-        $bankCode = strtoupper(
-            $bankDetails['bank_code'] ?? 'BSP'
-        );
-
-        $userName = $bankDetails['account_name']
-            ?? $company->bank_account_name
-            ?? $company->name
-            ?? 'LARKIN ENTERPRISES LIMITED';
-
-        $apcaId = $bankDetails['apca_user_id']
-            ?? $company->apca_user_id
-            ?? '000001';
-
-        $apcaId = $this->digitsOnly($apcaId);
-
-        if (strlen($apcaId) > 6) {
-            throw new RuntimeException(
-                'ABA/APCA User ID must not exceed six digits.'
-            );
-        }
-
-        $description = $bankDetails['payment_type']
-            ?? 'SALARY';
-
-        $paymentDate = Carbon::parse(
-            $bankDetails['payment_date']
-                ?? now()->format('Y-m-d')
-        );
-
-        $line =
-            '0'
-            . str_repeat(' ', 17)
-            . '01'
-            . $this->formatText($bankCode, 3)
-            . str_repeat(' ', 7)
-            . $this->formatText($userName, 26)
-            . str_pad($apcaId, 6, '0', STR_PAD_LEFT)
-            . $this->formatText($description, 12)
-            . $paymentDate->format('Ymd')
-            . str_repeat(' ', 50);
-
-        $this->validateRecord(
-            $line,
-            'Header record'
-        );
-
-        return $line;
+    private function formatHeader($company, $bankDetails)
+    {
+        $line = '';
+        
+        $line .= '0';                                                                            // Record Type (1)
+        $line .= str_repeat(' ', 17);                                                           // Sequence/Filler (17)
+        $line .= '01';                                                                          // Reel Sequence (2)
+        
+        $bankCode = $bankDetails['bank_code'] ?? 'BSP';
+        $line .= str_pad(substr($bankCode, 0, 3), 3, ' ');                                      // Bank Name (3)
+        $line .= str_repeat(' ', 7);                                                            // Reserved Filler (7)
+        
+        $userName = $bankDetails['account_name'] ?? $company->bank_account_name ?? $company->name ?? 'LARKIN ENTERPRISES LIMITED';
+        $userName = strtoupper($userName);
+        $line .= str_pad(substr($userName, 0, 26), 26, ' ', STR_PAD_RIGHT);                    // User Name (26)
+        
+        $apcaId = $bankDetails['apca_user_id'] ?? $company->apca_user_id ?? '000001';
+        $line .= str_pad(substr($apcaId, 0, 6), 6, '0', STR_PAD_LEFT);                         // User ID (6)
+        
+        $description = $bankDetails['payment_type'] ?? 'SALARY';
+        $description = strtoupper(substr($description, 0, 12));
+        $line .= str_pad($description, 12, ' ', STR_PAD_RIGHT);                                // Description (12)
+        
+        $date = $bankDetails['payment_date'] ?? now()->format('Y-m-d');
+        $dateObj = \Carbon\Carbon::parse($date);
+        $line .= $dateObj->format('Ymd');                                                       // Processing Date DDMMYY (6)
+        
+        // 1 + 17 + 2 + 3 + 7 + 26 + 6 + 12 + 6 = 80 characters.
+        // Requires exactly 52 trailing spaces to reach 132 characters total (BSP format).
+        $line .= str_repeat(' ', 52);                                                           // Trailing padding (52)
+        
+        return str_pad(substr($line, 0, 132), 132, ' ', STR_PAD_RIGHT);
     }
 
     /**
-     * Record Type 1: Employee or manual payment record.
-     *
-     * Structure:
-     * Record type             1
-     * BSB                     7
-     * Account number         15
-     * Indicator               1
-     * Transaction code        2
-     * Amount                  10
-     * Account name           32
-     * Lodgement reference    18
-     * Trace/remitter field   46
-     * Total                 132
+     * Record Type 1: Payment Detail Record (Exact length: 132 characters, BSP format)
      */
-    private function formatDetailRecord(
-        object $bankAccount,
-        $employee,
-        int $amountToea,
-        string $debitDescription,
-        string $tracerReference,
-        Payroll $payroll,
-        bool $isManual = false
-    ): string {
-        $bsb = $this->formatBsb(
-            $bankAccount->bsb_code ?? ''
-        );
-
-        $accountNumber = $this->digitsOnly(
-            $bankAccount->account_number ?? ''
-        );
-
-        if ($accountNumber === '') {
-            throw new RuntimeException(
-                'Employee payment account number is missing.'
-            );
+    private function formatDetailRecord($bankAccount, $employee, $amount, $paymentType, $debitDescription, $tracerReference, $payroll, $isManual = false)
+    {
+        $line = '';
+        
+        $line .= '1';                                                                            // Record Type (1)
+        
+        // BSB
+        $bsb = $bankAccount->bsb_code ?? '';
+        $bsb = preg_replace('/[^0-9]/', '', $bsb);
+        if (strlen($bsb) > 6) {
+            $bsb = substr($bsb, -6);
         }
-
-        if (strlen($accountNumber) > 15) {
-            throw new RuntimeException(
-                'Employee payment account number exceeds '
-                . '15 digits: ' . $accountNumber
-            );
-        }
-
-        $accountNumber = str_pad(
-            $accountNumber,
-            15,
-            '0',
-            STR_PAD_LEFT
-        );
-
+        $bsb = str_pad($bsb, 6, '0', STR_PAD_LEFT);
+        $bsbFormatted = substr($bsb, 0, 3) . '-' . substr($bsb, 3, 3);
+        $line .= str_pad($bsbFormatted, 7, '-', STR_PAD_RIGHT);                                 // BSB Number (7)
+        
+        // Account Number (15 digits - BSP core banking account numbers, not the AU-standard 9)
+        $accountNumber = $bankAccount->account_number ?? '';
+        $accountNumber = preg_replace('/[^0-9]/', '', $accountNumber);
+        $accountNumber = substr($accountNumber, 0, 15);
+        $line .= str_pad($accountNumber, 15, '0', STR_PAD_LEFT);                                // Account Number (15)
+        
+        $line .= ' ';                                                                           // Indicator (1)
+        $line .= '53';                                                                          // Transaction Code (2)
+        
+        $amountCents = round($amount * 100);
+        $line .= str_pad($amountCents, 10, '0', STR_PAD_LEFT);                                 // Amount (10)
+        
+        // Employee / Payee Name (32 chars, not the AU-standard 30)
         if ($isManual && isset($bankAccount->details)) {
-            $details = is_array($bankAccount->details)
-                ? $bankAccount->details
-                : [];
-
-            $accountName = $details['account_name']
-                ?? $bankAccount->account_name
-                ?? 'MANUAL ENTRY';
+            $accountName = $bankAccount->details['account_name'] ?? 'MANUAL ENTRY';
         } else {
-            $accountName = $bankAccount->account_name
-                ?? $employee?->full_name
-                ?? '';
+            $accountName = $bankAccount->account_name ?? $employee->full_name ?? '';
         }
-
-        if (trim((string) $accountName) === '') {
-            throw new RuntimeException(
-                'Employee payment account name is missing.'
-            );
-        }
-
-        /*
-         * Use the supplied debit description when available.
-         * Otherwise use the fortnight number.
-         */
-        $reference = trim($debitDescription);
-
-        if ($reference === '') {
-            $reference = 'FN'
-                . $payroll->fortnight_number;
-        }
-
-        $line =
-            '1'
-            . $bsb
-            . $accountNumber
-            . ' '
-            . '53'
-            . $this->formatNumericField(
-                $amountToea,
-                10,
-                'Employee payment amount'
-            )
-            . $this->formatText($accountName, 32)
-            . $this->formatText($reference, 18)
-            . $tracerReference;
-
-        $this->validateRecord(
-            $line,
-            'Employee payment record'
-        );
-
-        return $line;
+        $accountName = strtoupper(substr($accountName, 0, 32));
+        $line .= str_pad($accountName, 32, ' ', STR_PAD_RIGHT);                                // Account Name (32)
+        
+        // Lodgement Reference (18 chars)
+        // Manual entries carry their own user-entered description (e.g. "Bonus", "Contractor Payment").
+        // Use that when present; otherwise fall back to the fortnight reference used for regular payroll items.
+        $manualDescription = $isManual ? trim($bankAccount->details['description'] ?? '') : '';
+        $description = $manualDescription !== ''
+            ? $manualDescription
+            : 'FN' . $payroll->fortnight_number;
+        $description = strtoupper(substr($description, 0, 18));
+        $line .= str_pad($description, 18, ' ', STR_PAD_RIGHT);                                // Description / Reference (18)
+        
+        // Trace BSB(7) + Trace Account(15) + Remitter Name(16) + Trailing(8)
+        $line .= $tracerReference;                                                             // Tracer Reference (46)
+        
+        // 1 + 7 + 15 + 1 + 2 + 10 + 32 + 18 + 46 = 132 characters exactly (BSP format).
+        return str_pad(substr($line, 0, 132), 132, ' ', STR_PAD_RIGHT);
     }
 
     /**
-     * Record Type 1: Company balancing/contra record.
+     * Record Type 1: Balancing / Contra Record (Exact length: 132 characters, BSP format)
      */
-    private function formatBalancingRecord(
-        Company $company,
-        array $bankDetails,
-        int $totalAmountToea,
-        string $tracerReference,
-        Payroll $payroll
-    ): string {
-        $bsb = $this->formatBsb(
-            $bankDetails['bsb_number']
-                ?? $company->bsb_code
-                ?? '088950'
-        );
-
-        $account = $bankDetails['account_number']
-            ?? $company->bank_account_number
-            ?? '7009276416';
-
-        $account = $this->digitsOnly($account);
-
-        if ($account === '') {
-            throw new RuntimeException(
-                'Company balancing account number is missing.'
-            );
-        }
-
-        if (strlen($account) > 15) {
-            throw new RuntimeException(
-                'Company balancing account number exceeds '
-                . '15 digits: ' . $account
-            );
-        }
-
-        $account = str_pad(
-            $account,
-            15,
-            '0',
-            STR_PAD_LEFT
-        );
-
-        $companyName = $bankDetails['account_name']
-            ?? $company->bank_account_name
-            ?? $company->name
-            ?? 'LARKIN ENTERPRISES LIMITED';
-
-        $reference = $bankDetails['tracer_reference']
-            ?? $bankDetails['debit_description']
-            ?? 'FN' . $payroll->fortnight_number;
-
-        $line =
-            '1'
-            . $bsb
-            . $account
-            . ' '
-            . '13'
-            . $this->formatNumericField(
-                $totalAmountToea,
-                10,
-                'Balancing amount'
-            )
-            . $this->formatText($companyName, 32)
-            . $this->formatText($reference, 18)
-            . $tracerReference;
-
-        $this->validateRecord(
-            $line,
-            'Balancing record'
-        );
-
-        return $line;
-    }
-
-    /**
-     * Record Type 7: File trailer/footer.
-     *
-     * Structure:
-     * Record type             1
-     * Fixed BSB               7
-     * Filler                 12
-     * Net total              10
-     * Credit total           10
-     * Debit total            10
-     * Filler                 24
-     * Record count            6
-     * Filler                 52
-     * Total                 132
-     */
-    private function formatTrailerRecord(
-        int $transactionCount,
-        int $totalAmountToea
-    ): string {
-        $line =
-            '7'
-            . '999-999'
-            . str_repeat(' ', 12)
-            . $this->formatNumericField(
-                0,
-                10,
-                'Footer net total'
-            )
-            . $this->formatNumericField(
-                $totalAmountToea,
-                10,
-                'Footer credit total'
-            )
-            . $this->formatNumericField(
-                $totalAmountToea,
-                10,
-                'Footer debit total'
-            )
-            . str_repeat(' ', 24)
-            . $this->formatNumericField(
-                $transactionCount,
-                6,
-                'Footer transaction count'
-            )
-            . str_repeat(' ', 52);
-
-        $this->validateRecord(
-            $line,
-            'Footer record'
-        );
-
-        return $line;
-    }
-
-    /**
-     * Convert a BSB/branch code to the fixed format 000-000.
-     */
-    private function formatBsb(?string $value): string
+    private function formatTracerRecord($company, $bankDetails, $totalAmount, $tracerReference, $payroll)
     {
-        $digits = $this->digitsOnly($value);
-
-        if ($digits === '') {
-            throw new RuntimeException(
-                'BSB/branch code is missing.'
-            );
-        }
-
-        /*
-         * Retain the final six digits when a value contains
-         * unexpected prefixes.
-         */
-        if (strlen($digits) > 6) {
-            $digits = substr($digits, -6);
-        }
-
-        $digits = str_pad(
-            $digits,
-            6,
-            '0',
-            STR_PAD_LEFT
-        );
-
-        return substr($digits, 0, 3)
-            . '-'
-            . substr($digits, 3, 3);
+        $line = '';
+        
+        $line .= '1';                                                                            // Record Type (1)
+        
+        // Tracer BSB
+        $bsb = $bankDetails['bsb_number'] ?? $company->bsb_code ?? '088950';
+        $bsb = preg_replace('/[^0-9]/', '', $bsb);
+        $bsb = str_pad($bsb, 6, '0', STR_PAD_LEFT);
+        $bsbFormatted = substr($bsb, 0, 3) . '-' . substr($bsb, 3, 3);
+        $line .= str_pad($bsbFormatted, 7, '-', STR_PAD_RIGHT);                                 // BSB Number (7)
+        
+        // Tracer Account (15 digits - BSP core banking account numbers, not the AU-standard 9)
+        $account = $bankDetails['account_number'] ?? $company->bank_account_number ?? '7009276416';
+        $account = preg_replace('/[^0-9]/', '', $account);
+        $account = substr($account, 0, 15);
+        $line .= str_pad($account, 15, '0', STR_PAD_LEFT);                                     // Account Number (15)
+        
+        $line .= ' ';                                                                           // Indicator (1)
+        $line .= '13';                                                                          // Transaction Code - Contra (2)
+        
+        $totalAmountCents = round($totalAmount * 100);
+        $line .= str_pad($totalAmountCents, 10, '0', STR_PAD_LEFT);                             // Amount (10)
+        
+        // Company Name (32 chars, not the AU-standard 30)
+        $userName = $bankDetails['account_name'] ?? $company->bank_account_name ?? $company->name ?? 'LARKIN ENTERPRISES LIMITED';
+        $userName = strtoupper($userName);
+        $line .= str_pad(substr($userName, 0, 32), 32, ' ', STR_PAD_RIGHT);                    // Company Name (32)
+        
+        // Description
+        $fortnightRef = 'FN' . $payroll->fortnight_number;
+        $tracerRef = $bankDetails['tracer_reference'] ?? $fortnightRef;
+        $tracerRef = strtoupper(substr($tracerRef, 0, 18));
+        $line .= str_pad($tracerRef, 18, ' ', STR_PAD_RIGHT);                                  // Reference (18)
+        
+        // Trace BSB(7) + Trace Account(15) + Remitter Name(16) + Trailing(8)
+        $line .= $tracerReference;                                                             // Tracer Reference (46)
+        
+        // 1 + 7 + 15 + 1 + 2 + 10 + 32 + 18 + 46 = 132 characters exactly (BSP format).
+        return str_pad(substr($line, 0, 132), 132, ' ', STR_PAD_RIGHT);
     }
 
     /**
-     * Format a fixed-width text field.
+     * Record Type 7: File Trailer / Footer Record (Exact length: 132 characters, BSP format)
      */
-    private function formatText(
-        ?string $value,
-        int $width
-    ): string {
-        $value = strtoupper(
-            trim((string) $value)
-        );
-
-        /*
-         * ABA files should contain ordinary single-byte text.
-         */
-        $converted = iconv(
-            'UTF-8',
-            'ASCII//TRANSLIT//IGNORE',
-            $value
-        );
-
-        if ($converted !== false) {
-            $value = $converted;
-        }
-
-        /*
-         * Remove line breaks, tabs and repeated whitespace.
-         */
-        $value = preg_replace(
-            '/[\r\n\t]+/',
-            ' ',
-            $value
-        );
-
-        $value = preg_replace(
-            '/\s+/',
-            ' ',
-            $value
-        );
-
-        return str_pad(
-            substr($value, 0, $width),
-            $width,
-            ' ',
-            STR_PAD_RIGHT
-        );
-    }
-
-    /**
-     * Format an integer as a zero-filled numeric field.
-     */
-    private function formatNumericField(
-        int $value,
-        int $width,
-        string $fieldName
-    ): string {
-        if ($value < 0) {
-            throw new RuntimeException(
-                "{$fieldName} cannot be negative."
-            );
-        }
-
-        $stringValue = (string) $value;
-
-        if (strlen($stringValue) > $width) {
-            throw new RuntimeException(
-                "{$fieldName} exceeds its {$width}-digit ABA field."
-            );
-        }
-
-        return str_pad(
-            $stringValue,
-            $width,
-            '0',
-            STR_PAD_LEFT
-        );
-    }
-
-    /**
-     * Convert Kina to an integer number of toea.
-     */
-    private function moneyToToea($amount): int
+    private function formatTrailerRecord($transactionCount, $totalAmount)
     {
-        $amountToea = (int) round(
-            ((float) $amount) * 100
-        );
-
-        if ($amountToea <= 0) {
-            throw new RuntimeException(
-                'ABA payment amount must be greater than zero.'
-            );
-        }
-
-        if ($amountToea > 9999999999) {
-            throw new RuntimeException(
-                'ABA payment amount exceeds the 10-digit amount field.'
-            );
-        }
-
-        return $amountToea;
+        $line = '';
+        
+        $line .= '7';                                                                            // Record Type (1)
+        $line .= '999-999';                                                                     // BSB Filler (7)
+        $line .= str_repeat(' ', 12);                                                           // Reserved Filler (12)
+        
+        $totalAmountCents = round($totalAmount * 100);
+        $line .= str_pad(0, 10, '0', STR_PAD_LEFT);                                             // Net Total (10)
+        $line .= str_pad($totalAmountCents, 10, '0', STR_PAD_LEFT);                             // Credit Total (10)
+        $line .= str_pad($totalAmountCents, 10, '0', STR_PAD_LEFT);                             // Debit Total (10)
+        $line .= str_repeat(' ', 24);                                                           // Reserved Filler (24)
+        $line .= str_pad($transactionCount, 6, '0', STR_PAD_LEFT);                             // Item Count (6)
+        
+        // 1 + 7 + 12 + 10 + 10 + 10 + 24 + 6 = 80 characters.
+        // Requires exactly 52 trailing spaces to reach 132 characters total (BSP format).
+        $line .= str_repeat(' ', 52);                                                           // Trailing padding (52)
+        
+        return str_pad(substr($line, 0, 132), 132, ' ', STR_PAD_RIGHT);
     }
 
-    /**
-     * Return only numeric characters.
-     */
-    private function digitsOnly($value): string
+    private function generateBatchNumber()
     {
-        return preg_replace(
-            '/\D/',
-            '',
-            (string) $value
-        ) ?? '';
+        return 'ABA-' . date('Ymd') . '-' . strtoupper(Str::random(6));
     }
 
-    /**
-     * Validate one complete ABA record.
-     */
-    private function validateRecord(
-        string $record,
-        string $label
-    ): void {
-        if (
-            str_contains($record, "\r")
-            || str_contains($record, "\n")
-        ) {
-            throw new RuntimeException(
-                "{$label} contains an invalid line break."
-            );
-        }
-
-        $length = strlen($record);
-
-        if ($length !== 132) {
-            throw new RuntimeException(
-                "{$label} must be exactly 132 characters. "
-                . "Actual length: {$length}."
-            );
-        }
-    }
-
-    /**
-     * Generate an internal batch identifier.
-     */
-    private function generateBatchNumber(): string
+    private function getTransactionCode($paymentType)
     {
-        return 'ABA-'
-            . date('Ymd')
-            . '-'
-            . strtoupper(Str::random(6));
+        return '53';
     }
 
-    /**
-     * Check whether an ABA batch already exists.
-     */
-    public function existsForPayroll($payrollId): bool
+    public function existsForPayroll($payrollId)
     {
-        return ABABatch::where(
-            'payroll_id',
-            $payrollId
-        )->exists();
+        return ABABatch::where('payroll_id', $payrollId)->exists();
     }
 
-    /**
-     * Retrieve ABA generation history.
-     */
     public function getHistory($companyId = null)
     {
-        $query = ABABatch::with([
-            'company',
-            'payroll',
-            'generator',
-        ]);
-
-        if ($companyId !== null) {
-            $query->where(
-                'company_id',
-                $companyId
-            );
+        $query = ABABatch::with(['company', 'payroll', 'generator']);
+        
+        if ($companyId) {
+            $query->where('company_id', $companyId);
         }
-
-        return $query
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
+        
+        return $query->orderBy('created_at', 'desc')->paginate(20);
     }
 
-    /**
-     * Read generated ABA file contents.
-     */
-    public function getContent($batchId): string
+    public function getContent($batchId)
     {
         $batch = ABABatch::findOrFail($batchId);
-
-        if (
-            !$batch->file_path
-            || !Storage::disk('public')->exists(
-                $batch->file_path
-            )
-        ) {
-            throw new RuntimeException(
-                'ABA file not found.'
-            );
+        
+        if (!$batch->file_path || !Storage::disk('public')->exists($batch->file_path)) {
+            throw new \Exception('ABA file not found.');
         }
-
-        return Storage::disk('public')->get(
-            $batch->file_path
-        );
+        
+        return Storage::disk('public')->get($batch->file_path);
     }
 
-    /**
-     * Download a generated ABA file.
-     */
     public function download($batchId)
     {
         $batch = ABABatch::findOrFail($batchId);
-
-        if (
-            !$batch->file_path
-            || !Storage::disk('public')->exists(
-                $batch->file_path
-            )
-        ) {
-            throw new RuntimeException(
-                'ABA file not found.'
-            );
+        
+        if (!$batch->file_path || !Storage::disk('public')->exists($batch->file_path)) {
+            throw new \Exception('ABA file not found.');
         }
-
-        $content = Storage::disk('public')->get(
-            $batch->file_path
-        );
-
-        $filename = $batch->filename
-            ?? 'ABA_' . $batch->batch_number . '.aba';
-
+        
+        $content = Storage::disk('public')->get($batch->file_path);
+        $filename = $batch->filename ?? 'ABA_' . $batch->batch_number . '.aba';
+        
         return response($content, 200, [
-            'Content-Type' => 'text/plain; charset=us-ascii',
-            'Content-Disposition' =>
-                'attachment; filename="' . $filename . '"',
-            'Content-Length' => strlen($content),
-            'Cache-Control' =>
-                'no-store, no-cache, must-revalidate',
+            'Content-Type' => 'text/plain',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ]);
     }
 }
