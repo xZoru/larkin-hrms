@@ -290,6 +290,13 @@ class AttendanceController extends Controller
             ->orderBy('first_name')
             ->get();
 
+        // Summaries are persisted, while holidays can be added or changed
+        // later. Recalculate before display so the 84/144 cap and automatic
+        // holiday credits always reflect the current holiday configuration.
+        $employees->each(function (Employee $employee) use ($fortnight) {
+            $this->updateSummary($employee->id, $fortnight);
+        });
+
         $attendanceLogs = AttendanceLog::whereIn('employee_id', $employees->pluck('id'))
             ->where('fortnight_number', $fortnight)
             ->get()
@@ -630,11 +637,30 @@ public function summaryBulkUpdate(Request $request)
             $summary->period_end = $dates->last();
         }
 
+        $employee = Employee::find($employeeId);
+        $nonWorkTypes = ['Annual Leave', 'Leave Without Pay', 'Absent'];
+        $period = $this->getFortnightPeriod($fortnight);
+        $holidayDates = collect($this->getPublicHolidays($employee?->company_id))
+            ->filter(fn ($date) => Carbon::parse($date)->betweenIncluded($period['start'], $period['end']));
+        $workedDates = $logs
+            ->filter(function ($log) use ($nonWorkTypes) {
+                return !in_array($log->attendance_type ?? 'Work', $nonWorkTypes, true)
+                    && (float) $log->hours_worked > 0;
+            })
+            ->pluck('date')
+            ->map(fn ($date) => $date->format('Y-m-d'));
+
+        // Credit a holiday only when the employee worked strictly before or
+        // after that specific holiday. Work on the holiday date alone does
+        // not create the automatic 8-hour holiday credit.
+        $holidayHours = $holidayDates
+            ->filter(function ($holidayDate) use ($workedDates) {
+                return $workedDates->contains(fn ($workedDate) => $workedDate < $holidayDate || $workedDate > $holidayDate);
+            })
+            ->count() * 8;
         $regularHours = 0;
         $sundayHours = 0;
-        $holidayHours = 0;
         $totalHours = 0;
-        $nonWorkTypes = ['Annual Leave', 'Leave Without Pay', 'Absent'];
 
         foreach ($logs as $log) {
             $hours = $log->hours_worked;
@@ -646,39 +672,30 @@ public function summaryBulkUpdate(Request $request)
 
             $totalHours += $hours;
 
-            if ($log->is_holiday) {
-                $holidayHours += $hours;
-            } elseif ($log->is_sunday) {
+            // Holiday credits are calculated above. Work actually performed on
+            // a holiday joins the regular-hour pool and only becomes OT after
+            // the reduced 84/144-hour cap is exceeded.
+            if ($log->is_sunday && !$log->is_holiday) {
                 $sundayHours += $hours;
             } else {
                 $regularHours += $hours;
             }
         }
 
-        $employee = Employee::find($employeeId);
-        if ($employee && $employee->isExpatriate()) {
-            // Expatriate time is always paid at the normal rate. Holidays and
-            // Sundays do not attract a premium, and there is no overtime cap.
-            $regularHours = $totalHours;
-            $overtimeHours = 0;
-            $sundayHours = 0;
-            $holidayHours = 0;
-        } else {
-            $regularLimit = $employee?->fortnight_hours
-                ?? ($employee?->company?->regular_hours ?? 84);
+        $regularLimit = $employee?->fortnight_hours
+            ?? ($employee?->company?->regular_hours ?? 84);
 
-            // Holiday work is displayed and paid separately, but it still uses
-            // part of the employee's 84/144-hour fortnight entitlement. For
-            // example: an 84-hour employee with 8 holiday hours can have at
-            // most 76 regular hours; additional normal work is overtime.
-            $regularLimit = max(0, $regularLimit - $holidayHours);
+        // A holiday credit consumes part of the employee's 84/144-hour
+        // entitlement. For example, one holiday reduces an 84-hour cap to 76.
+        $regularLimit = max(0, $regularLimit - $holidayHours);
 
-            $overtimeHours = 0;
-            if ($regularHours > $regularLimit) {
-                $overtimeHours = $regularHours - $regularLimit;
-                $regularHours = $regularLimit;
-            }
+        $overtimeHours = 0;
+        if ($regularHours > $regularLimit) {
+            $overtimeHours = $regularHours - $regularLimit;
+            $regularHours = $regularLimit;
         }
+
+        $totalHours += $holidayHours;
 
         $summary->regular_hours = $regularHours;
         $summary->overtime_hours = $overtimeHours;
@@ -698,7 +715,7 @@ public function summaryBulkUpdate(Request $request)
     public function getCurrentFortnight()
     {
         $year = date('y');
-        $start = Carbon::createFromDate(date('Y') - 1, 12, 25);
+        $start = Carbon::createFromDate(date('Y') - 1, 12, 25)->startOfDay();
         $daysSinceStart = $start->diffInDays(now()) + 1;
         $fortnight = ceil($daysSinceStart / 14);
         return $year . str_pad($fortnight, 2, '0', STR_PAD_LEFT);
@@ -718,8 +735,14 @@ public function summaryBulkUpdate(Request $request)
         $year = (int)substr($fortnight, 0, 2);
         $week = (int)substr($fortnight, 2);
         $fullYear = 2000 + $year;
-        $start = Carbon::createFromDate($fullYear - 1, 12, 25)->addDays(($week - 1) * 14);
-        $end = $start->copy()->addDays(13);
+        // startOfDay() is required here: Carbon::createFromDate() only overrides
+        // the Y/M/D and silently keeps the current server time-of-day. Without
+        // resetting to midnight, a holiday landing on day 1 of the fortnight
+        // would fail the betweenIncluded() check below (its 00:00:00 timestamp
+        // would be "before" a start that carries e.g. 14:35:00), causing the
+        // holiday credit to be silently dropped.
+        $start = Carbon::createFromDate($fullYear - 1, 12, 25)->addDays(($week - 1) * 14)->startOfDay();
+        $end = $start->copy()->addDays(13)->endOfDay();
         return ['start' => $start, 'end' => $end];
     }
 
