@@ -638,26 +638,37 @@ public function summaryBulkUpdate(Request $request)
         }
 
         $employee = Employee::find($employeeId);
+        $isExpatriate = $employee?->isExpatriate() ?? false;
         $nonWorkTypes = ['Annual Leave', 'Leave Without Pay', 'Absent'];
         $period = $this->getFortnightPeriod($fortnight);
-        $holidayDates = collect($this->getPublicHolidays($employee?->company_id))
-            ->filter(fn ($date) => Carbon::parse($date)->betweenIncluded($period['start'], $period['end']));
-        $workedDates = $logs
-            ->filter(function ($log) use ($nonWorkTypes) {
-                return !in_array($log->attendance_type ?? 'Work', $nonWorkTypes, true)
-                    && (float) $log->hours_worked > 0;
-            })
-            ->pluck('date')
-            ->map(fn ($date) => $date->format('Y-m-d'));
 
-        // Credit a holiday only when the employee worked strictly before or
-        // after that specific holiday. Work on the holiday date alone does
-        // not create the automatic 8-hour holiday credit.
-        $holidayHours = $holidayDates
-            ->filter(function ($holidayDate) use ($workedDates) {
-                return $workedDates->contains(fn ($workedDate) => $workedDate < $holidayDate || $workedDate > $holidayDate);
-            })
-            ->count() * 8;
+        // Expatriate employees are exempt from the holiday-credit / cap-
+        // reduction logic entirely: their schedule already accounts for
+        // holidays via generateExpatriateSchedule, so holidayHours stays 0
+        // and the regular-hour cap is never reduced for them.
+        if ($isExpatriate) {
+            $holidayHours = 0;
+        } else {
+            $holidayDates = collect($this->getPublicHolidays($employee?->company_id))
+                ->filter(fn ($date) => Carbon::parse($date)->betweenIncluded($period['start'], $period['end']));
+            $workedDates = $logs
+                ->filter(function ($log) use ($nonWorkTypes) {
+                    return !in_array($log->attendance_type ?? 'Work', $nonWorkTypes, true)
+                        && (float) $log->hours_worked > 0;
+                })
+                ->pluck('date')
+                ->map(fn ($date) => $date->format('Y-m-d'));
+
+            // Credit a holiday only when the employee worked strictly before or
+            // after that specific holiday. Work on the holiday date alone does
+            // not create the automatic 8-hour holiday credit.
+            $holidayHours = $holidayDates
+                ->filter(function ($holidayDate) use ($workedDates) {
+                    return $workedDates->contains(fn ($workedDate) => $workedDate < $holidayDate || $workedDate > $holidayDate);
+                })
+                ->count() * 8;
+        }
+
         $regularHours = 0;
         $sundayHours = 0;
         $totalHours = 0;
@@ -674,7 +685,9 @@ public function summaryBulkUpdate(Request $request)
 
             // Holiday credits are calculated above. Work actually performed on
             // a holiday joins the regular-hour pool and only becomes OT after
-            // the reduced 84/144-hour cap is exceeded.
+            // the reduced 84/144-hour cap is exceeded. For expatriates,
+            // $isExpatriate is true so is_holiday is simply ignored here since
+            // holidayHours is forced to 0 above.
             if ($log->is_sunday && !$log->is_holiday) {
                 $sundayHours += $hours;
             } else {
