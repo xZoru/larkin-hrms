@@ -229,7 +229,7 @@ class ABAGeneratorService
         
         $date = $bankDetails['payment_date'] ?? now()->format('Y-m-d');
         $dateObj = \Carbon\Carbon::parse($date);
-        $line .= $dateObj->format('ymd');                                                       // Processing Date DDMMYY (6)
+        $line .= $dateObj->format('Ymd');                                                       // Processing Date DDMMYY (6)
         
         // 1 + 17 + 2 + 3 + 7 + 26 + 6 + 12 + 6 = 80 characters.
         // Requires exactly 52 trailing spaces to reach 132 characters total (BSP format).
