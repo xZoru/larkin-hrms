@@ -193,7 +193,7 @@ class ABAGeneratorService
         $account = preg_replace('/[^0-9]/', '', $account);
         $account = str_pad(substr($account, 0, 9), 9, '0', STR_PAD_LEFT);
         
-        $companyName = $company->name ?? 'LARKIN ENTERPRISES LIMITED';
+        $companyName = $bankDetails['account_name'] ?? $company->bank_account_name ?? $company->name ?? 'LARKIN ENTERPRISES LIMITED';
         $companyName = strtoupper($companyName);
         $companyName = str_pad(substr($companyName, 0, 26), 26, ' ');
         
@@ -216,7 +216,7 @@ class ABAGeneratorService
         $line .= str_pad(substr($bankCode, 0, 3), 3, ' ');                                      // Bank Name (3)
         $line .= str_repeat(' ', 7);                                                            // Reserved Filler (7)
         
-        $userName = $bankDetails['account_name'] ?? $company->name ?? 'LARKIN ENTERPRISES LIMITED';
+        $userName = $bankDetails['account_name'] ?? $company->bank_account_name ?? $company->name ?? 'LARKIN ENTERPRISES LIMITED';
         $userName = strtoupper($userName);
         $line .= str_pad(substr($userName, 0, 26), 26, ' ', STR_PAD_RIGHT);                    // User Name (26)
         
@@ -319,7 +319,7 @@ class ABAGeneratorService
         $line .= str_pad($totalAmountCents, 10, '0', STR_PAD_LEFT);                             // Amount (10)
         
         // Company Name (30 chars)
-        $userName = $bankDetails['account_name'] ?? $company->name ?? 'LARKIN ENTERPRISES LIMITED';
+        $userName = $bankDetails['account_name'] ?? $company->bank_account_name ?? $company->name ?? 'LARKIN ENTERPRISES LIMITED';
         $userName = strtoupper($userName);
         $line .= str_pad(substr($userName, 0, 30), 30, ' ', STR_PAD_RIGHT);                    // Company Name (30)
         
