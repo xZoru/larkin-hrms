@@ -646,11 +646,8 @@ public function summaryBulkUpdate(Request $request)
 
             $totalHours += $hours;
 
-            // Holiday work is still normal work, with an additional holiday
-            // premium. Count it in both buckets so it is paid correctly.
             if ($log->is_holiday) {
                 $holidayHours += $hours;
-                $regularHours += $hours;
             } elseif ($log->is_sunday) {
                 $sundayHours += $hours;
             } else {
