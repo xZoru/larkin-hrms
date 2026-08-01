@@ -10,17 +10,20 @@
 <div class="py-6">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         <div class="bg-white shadow-sm rounded-lg p-6">
-            <form method="GET" action="{{ route('loan-management.index') }}" class="flex flex-col sm:flex-row gap-3 sm:items-end">
+            <form id="loanManagementFilter" method="GET" action="{{ route('loan-management.index') }}" class="flex flex-col sm:flex-row gap-3 sm:items-end">
                 <div class="flex-1">
-                    <label for="employee_id" class="block text-sm font-medium text-gray-700 mb-1">Employee</label>
-                    <select id="employee_id" name="employee_id" class="w-full rounded-md border-gray-300" onchange="this.form.submit()">
+                    <label for="loan_employee_search" class="block text-sm font-medium text-gray-700 mb-1">Employee</label>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <input id="loan_employee_search" type="search" class="w-full sm:w-1/2 rounded-md border-gray-300" placeholder="Search employee number or name" aria-label="Search employees">
+                        <select id="loan_employee_selector" name="employee_id" class="w-full sm:w-1/2 rounded-md border-gray-300" aria-label="Select employee">
                         <option value="">Select an employee</option>
                         @foreach($employees as $option)
                             <option value="{{ $option->id }}" @selected($employee?->id === $option->id)>
                                 {{ $option->employee_number }} — {{ $option->full_name }}
                             </option>
                         @endforeach
-                    </select>
+                        </select>
+                    </div>
                 </div>
                 <button type="submit" class="px-4 py-2 rounded-md bg-indigo-600 text-white">View history</button>
                 <a href="{{ route('loan-requests.index') }}" class="px-4 py-2 rounded-md border border-gray-300 text-center text-gray-700">Manage requests</a>
@@ -62,3 +65,43 @@
     </div>
 </div>
 @endsection
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const search = document.getElementById('loan_employee_search');
+    const selector = document.getElementById('loan_employee_selector');
+    const form = document.getElementById('loanManagementFilter');
+
+    if (!search || !selector || !form) return;
+
+    selector.addEventListener('change', function () {
+        form.submit();
+    });
+
+    search.addEventListener('input', function () {
+        const query = this.value.trim().toLowerCase();
+
+        Array.from(selector.options).forEach(function (option, index) {
+            if (index === 0) {
+                option.hidden = false;
+                return;
+            }
+
+            option.hidden = query !== '' && !option.text.toLowerCase().includes(query);
+        });
+    });
+
+    search.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter') return;
+
+        event.preventDefault();
+        const firstMatch = Array.from(selector.options)
+            .find((option, index) => index > 0 && !option.hidden);
+
+        if (firstMatch) {
+            selector.value = firstMatch.value;
+            form.submit();
+        }
+    });
+});
+</script>
