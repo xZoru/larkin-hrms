@@ -138,7 +138,7 @@
         <!-- Loan Dropdown -->
         @can('view-loans')
         <div class="nav-section">
-            <div class="sidebar-dropdown" x-data="{ open: {{ request()->routeIs('loan-requests.*') ? 'true' : 'false' }} }">
+            <div class="sidebar-dropdown" x-data="{ open: {{ request()->routeIs('loan-requests.*') || request()->routeIs('loan-management.*') ? 'true' : 'false' }} }">
                 <button @click="open = !open" class="sidebar-link" :class="{ 'active': open }">
                     <i class="fas fa-hand-holding-usd"></i>
                     <span>Loan</span>
@@ -148,6 +148,10 @@
                     <a href="{{ route('loan-requests.index') }}" class="sidebar-link submenu-link {{ request()->routeIs('loan-requests.index') ? 'active-sub' : '' }}">
                         <i class="fas fa-list"></i>
                         <span>Loan Request</span>
+                    </a>
+                    <a href="{{ route('loan-management.index') }}" class="sidebar-link submenu-link {{ request()->routeIs('loan-management.*') ? 'active-sub' : '' }}">
+                        <i class="fas fa-user-clock"></i>
+                        <span>Loan Management</span>
                     </a>
                 </div>
             </div>

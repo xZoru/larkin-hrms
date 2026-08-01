@@ -68,7 +68,7 @@ class PayrollController extends Controller
             ->get();
 
         $activeLoans = Loan::where('company_id', $companyId)
-            ->whereIn('status', ['Approved', 'Released'])
+            ->where('status', 'Released')
             ->where('remaining_balance', '>', 0)
             ->with('employee')
             ->get();
@@ -118,7 +118,7 @@ class PayrollController extends Controller
         $totalNet = 0;
 
         foreach ($employees as $employee) {
-            $payrollItem = $this->calculatePayrollItem($employee, $fortnight);
+            $payrollItem = $this->calculatePayrollItem($employee, $fortnight, $payroll->id);
             $payrollItem['payroll_id'] = $payroll->id;
             $payrollItem['employee_id'] = $employee->id;
             
@@ -147,7 +147,7 @@ class PayrollController extends Controller
     }
 
     // ============ CALCULATE PAYROLL ITEM ============
-    private function calculatePayrollItem($employee, $fortnight)
+    private function calculatePayrollItem($employee, $fortnight, $payrollId = null)
     {
         $summary = $employee->attendanceSummaries->first();
 
@@ -216,7 +216,7 @@ class PayrollController extends Controller
             $nasfundER = $grossPayBeforeTax * 0.084;
         }
 
-        $loanDeduction = $this->calculateLoanDeduction($employee);
+        $loanDeduction = $this->calculateLoanDeduction($employee, $payrollId);
         $otherDeductions = 0;
 
         // Gross Pay uses the REGULAR pay (which may be grossed up for expats)
@@ -376,10 +376,12 @@ class PayrollController extends Controller
 
 
     // ============ CALCULATE LOAN DEDUCTION ============
-    private function calculateLoanDeduction($employee)
+    private function calculateLoanDeduction($employee, $payrollId = null)
     {
         $activeLoans = Loan::where('employee_id', $employee->id)
-            ->whereIn('status', ['Approved', 'Released'])
+            // Approval authorizes the loan; release is the point at which it
+            // becomes payable and eligible for a payroll deduction.
+            ->where('status', 'Released')
             ->where('remaining_balance', '>', 0)
             ->get();
 
@@ -389,16 +391,9 @@ class PayrollController extends Controller
             $deduction = min($loan->deduction_per_cutoff, $loan->remaining_balance);
             $totalDeduction += $deduction;
             
-            $loan->remaining_balance -= $deduction;
-            
-            if ($loan->remaining_balance <= 0) {
-                $loan->status = 'Completed';
-            }
-            $loan->save();
-
             $loan->addPayment(
                 $deduction,
-                null,
+                $payrollId,
                 'Auto deduction from payroll'
             );
         }

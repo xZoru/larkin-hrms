@@ -12,6 +12,58 @@ use Illuminate\Validation\Rule;
 
 class LoanRequestController extends Controller
 {
+    /** Employee-focused loan balances and deduction history. */
+    public function management(Request $request)
+    {
+        $user = auth()->user();
+        $companyId = $user->getCurrentCompanyId();
+        $allowedTypes = $user->getAllowedEmployeeTypes();
+
+        $employees = Employee::where('company_id', $companyId)
+            ->active()
+            ->whereIn('employee_type', $allowedTypes)
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get(['id', 'employee_number', 'full_name']);
+
+        $employee = null;
+        $loans = collect();
+        $payments = collect();
+        $payrollDeductions = collect();
+
+        if ($request->filled('employee_id')) {
+            $employee = Employee::where('id', $request->integer('employee_id'))
+                ->where('company_id', $companyId)
+                ->active()
+                ->whereIn('employee_type', $allowedTypes)
+                ->firstOrFail();
+
+            $loans = Loan::where('company_id', $companyId)
+                ->where('employee_id', $employee->id)
+                ->with(['payments.payroll'])
+                ->latest()
+                ->get();
+
+            $payments = LoanPayment::whereHas('loan', function ($query) use ($companyId, $employee) {
+                $query->where('company_id', $companyId)
+                    ->where('employee_id', $employee->id);
+            })
+                ->with(['loan', 'payroll'])
+                ->latest()
+                ->get();
+
+            $payrollDeductions = $employee->payrollItems()
+                ->where('loan_deduction', '>', 0)
+                ->with('payroll')
+                ->latest()
+                ->get();
+        }
+
+        return view('loan-requests.management', compact(
+            'employees', 'employee', 'loans', 'payments', 'payrollDeductions'
+        ));
+    }
+
     public function index()
     {
         $user = auth()->user();

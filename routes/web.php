@@ -114,6 +114,7 @@ Route::middleware(['auth'])->group(function () {
 // ============ LOAN REQUESTS ROUTES ============
 Route::middleware(['auth'])->group(function () {
     // Main CRUD routes
+    Route::get('/loan-management', [LoanRequestController::class, 'management'])->name('loan-management.index');
     Route::get('/loan-requests', [LoanRequestController::class, 'index'])->name('loan-requests.index');
     Route::get('/loan-requests/create', [LoanRequestController::class, 'create'])->name('loan-requests.create');
     Route::post('/loan-requests', [LoanRequestController::class, 'store'])->name('loan-requests.store');

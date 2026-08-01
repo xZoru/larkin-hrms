@@ -70,20 +70,6 @@ class Loan extends Model
         return $this->hasMany(LoanPayment::class);
     }
 
-    // Accessors
-    public function getRemainingBalanceAttribute()
-    {
-        if ($this->payments->isEmpty()) {
-            return $this->amount;
-        }
-        return $this->amount - $this->payments->sum('amount');
-    }
-
-    public function getTotalPaidAttribute()
-    {
-        return $this->payments->sum('amount');
-    }
-
     public function getProgressPercentageAttribute()
     {
         if ($this->amount == 0) return 0;
@@ -145,7 +131,11 @@ class Loan extends Model
     // UPDATED: Add payment with optional processed_by parameter
     public function addPayment($amount, $payrollId = null, $notes = null, $processedBy = null)
     {
-        $balanceBefore = $this->remaining_balance;
+        $this->refresh();
+
+        $amount = (float) $amount;
+        $balanceBefore = (float) $this->remaining_balance;
+        $amount = min($amount, $balanceBefore);
         $balanceAfter = max(0, $balanceBefore - $amount);
 
         // If processed_by not provided, try auth()->id(), fallback to 1 (admin)
@@ -164,14 +154,12 @@ class Loan extends Model
             'notes' => $notes
         ]);
 
-        // Update payments_made count
-        $this->payments_made = $this->payments()->count();
-        $this->save();
-
-        // Update loan status if fully paid
-        if ($this->remaining_balance <= 0) {
-            $this->update(['status' => 'Completed']);
-        }
+        $this->update([
+            'remaining_balance' => $balanceAfter,
+            'total_paid' => (float) $this->total_paid + $amount,
+            'payments_made' => $this->payments()->count(),
+            'status' => $balanceAfter <= 0 ? 'Completed' : $this->status,
+        ]);
 
         return $payment;
     }
