@@ -11,6 +11,7 @@ class Holiday extends Model
 
     protected $fillable = [
         'company_id',
+        'is_global',
         'name',
         'date',
         'description',
@@ -22,6 +23,7 @@ class Holiday extends Model
         'date' => 'date',
         'is_recurring' => 'boolean',
         'is_active' => 'boolean',
+        'is_global' => 'boolean',
     ];
 
     public function company()
@@ -41,7 +43,10 @@ class Holiday extends Model
 
     public static function isHoliday($companyId, $date)
     {
-        return self::where('company_id', $companyId)
+        return self::where(function ($query) use ($companyId) {
+                $query->where('company_id', $companyId)
+                    ->orWhere('is_global', true);
+            })
             ->where('is_active', true)
             ->whereDate('date', $date)
             ->exists();
@@ -49,7 +54,10 @@ class Holiday extends Model
 
     public static function getHolidayName($companyId, $date)
     {
-        $holiday = self::where('company_id', $companyId)
+        $holiday = self::where(function ($query) use ($companyId) {
+                $query->where('company_id', $companyId)
+                    ->orWhere('is_global', true);
+            })
             ->where('is_active', true)
             ->whereDate('date', $date)
             ->first();

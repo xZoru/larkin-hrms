@@ -790,12 +790,17 @@ public function summaryBulkUpdate(Request $request)
             $companyId = auth()->user()->company_id;
         }
         
-        return Holiday::where('company_id', $companyId)
+        return Holiday::where(function ($query) use ($companyId) {
+                $query->where('company_id', $companyId)
+                    ->orWhere('is_global', true);
+            })
             ->where('is_active', true)
             ->pluck('date')
             ->map(function($date) {
                 return $date->format('Y-m-d');
             })
+            ->unique()
+            ->values()
             ->toArray();
     }
 

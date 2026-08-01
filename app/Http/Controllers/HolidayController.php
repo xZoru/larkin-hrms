@@ -97,6 +97,7 @@ class HolidayController extends Controller
             'date' => Carbon::parse($request->date),
             'description' => $request->description,
             'company_id' => $companyId,
+            'is_global' => true,
             'is_recurring' => $request->has('is_recurring'),
             'is_active' => $request->has('is_active'),
         ]);
@@ -154,6 +155,7 @@ class HolidayController extends Controller
             'name' => $request->name,
             'date' => Carbon::parse($request->date),
             'description' => $request->description,
+            'is_global' => true,
             'is_recurring' => $request->has('is_recurring'),
             'is_active' => $request->has('is_active'),
         ];
