@@ -417,6 +417,23 @@
                                         <button type="button" class="dropdown-item" onclick="printSigning('{{ $payroll->id }}')">
                                             <i class="fas fa-signature"></i> Print Signing
                                         </button>
+
+                                        <div class="dropdown-divider"></div>
+
+                                        <div class="dropdown-item" style="padding: 8px 16px; cursor: default;">
+                                            <form method="POST" action="{{ route('payroll.update-status', $payroll) }}" class="w-full d-flex align-items-center gap-2" style="width: 100%;">
+                                                @csrf
+                                                <i class="fas fa-toggle-on"></i>
+                                                <select name="status" onchange="this.form.submit()" 
+                                                        style="border: 1px solid #e2e8f0; border-radius: 6px; font-size: 12px; padding: 4px 6px; flex: 1;"
+                                                        onclick="event.stopPropagation()">
+                                                    <option value="Draft" {{ $payroll->status == 'Draft' ? 'selected' : '' }}>Draft</option>
+                                                    <option value="Approved" {{ $payroll->status == 'Approved' ? 'selected' : '' }}>Approved</option>
+                                                    <option value="Paid" {{ $payroll->status == 'Paid' ? 'selected' : '' }}>Paid</option>
+                                                    <option value="Locked" {{ $payroll->status == 'Locked' ? 'selected' : '' }}>Locked</option>
+                                                </select>
+                                            </form>
+                                        </div>
                                         
                                         <div class="dropdown-divider"></div>
                                         

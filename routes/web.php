@@ -109,6 +109,8 @@ Route::middleware(['auth'])->group(function () {
     ->name('payroll.calculate-tax');
     Route::get('/payroll/{payroll}/export-excel', [PayrollController::class, 'exportExcel'])
     ->name('payroll.export-excel');
+    Route::post('/payroll/{payroll}/update-status', [PayrollController::class, 'updateStatus'])
+    ->name('payroll.update-status');
 });
 
 // ============ LOAN REQUESTS ROUTES ============

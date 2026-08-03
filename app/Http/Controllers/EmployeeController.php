@@ -250,31 +250,42 @@ class EmployeeController extends Controller
     // Display the specified employee
     public function show(Employee $employee)
     {
-        $user = auth()->user();
-        
-        // Super Admin can view any employee
-        if (!$user->isSuperAdmin()) {
-            if (!$user->canViewEmployee($employee)) {
-                abort(403, 'You are not authorized to view this employee.');
-            }
-        }
-        
-        $employee->load(['company', 'department', 'position', 'bankAccounts', 'documents']);
-        
-        $expiringDocs = [];
-        if ($employee->employee_type === 'Expatriate') {
-            if ($employee->passport_expiry && $employee->passport_expiry <= now()->addDays(90)) {
-                $expiringDocs['passport'] = $employee->passport_expiry;
-            }
-            if ($employee->visa_expiry && $employee->visa_expiry <= now()->addDays(90)) {
-                $expiringDocs['visa'] = $employee->visa_expiry;
-            }
-            if ($employee->work_permit_expiry && $employee->work_permit_expiry <= now()->addDays(90)) {
-                $expiringDocs['work_permit'] = $employee->work_permit_expiry;
-            }
-        }
+    $user = auth()->user();
 
-        return view('employees.show', compact('employee', 'expiringDocs'));
+    if (!$user->isSuperAdmin()) {
+        if (!$user->canViewEmployee($employee)) {
+            abort(403, 'You are not authorized to view this employee.');
+        }
+    }
+
+    $employee->load(['company', 'department', 'position', 'bankAccounts', 'documents']);
+
+    // Earnings for finalized payroll runs (Approved, Paid, or Locked).
+    // Uses status rather than period_end so a manually-marked Paid payroll
+    // shows up immediately, even if its fortnight hasn't technically ended.
+    $pastEarnings = $employee->payrollItems()
+        ->with('payroll')
+        ->whereHas('payroll', function ($query) {
+            $query->whereIn('status', ['Approved', 'Paid', 'Locked']);
+        })
+        ->get()
+        ->sortByDesc(fn ($item) => $item->payroll->period_end)
+        ->values();
+
+    $expiringDocs = [];
+    if ($employee->employee_type === 'Expatriate') {
+        if ($employee->passport_expiry && $employee->passport_expiry <= now()->addDays(90)) {
+            $expiringDocs['passport'] = $employee->passport_expiry;
+        }
+        if ($employee->visa_expiry && $employee->visa_expiry <= now()->addDays(90)) {
+            $expiringDocs['visa'] = $employee->visa_expiry;
+        }
+        if ($employee->work_permit_expiry && $employee->work_permit_expiry <= now()->addDays(90)) {
+            $expiringDocs['work_permit'] = $employee->work_permit_expiry;
+        }
+    }
+
+    return view('employees.show', compact('employee', 'expiringDocs', 'pastEarnings'));
     }
 
     // Show the form for editing the specified employee
@@ -304,8 +315,18 @@ class EmployeeController extends Controller
         $employee->load(['bankAccounts', 'documents', 'loans' => function($query) {
             $query->orderBy('created_at', 'desc');
         }]);
-        
-        return view('employees.edit', compact('employee', 'companies', 'departments', 'positions'));
+
+        // Earnings for finalized payroll runs (Approved, Paid, or Locked)
+        $pastEarnings = $employee->payrollItems()
+            ->with('payroll')
+            ->whereHas('payroll', function ($query) {
+                $query->whereIn('status', ['Approved', 'Paid', 'Locked']);
+            })
+            ->get()
+            ->sortByDesc(fn ($item) => $item->payroll->period_end)
+            ->values();
+
+        return view('employees.edit', compact('employee', 'companies', 'departments', 'positions', 'pastEarnings'));
     }
 
     // Update the specified employee

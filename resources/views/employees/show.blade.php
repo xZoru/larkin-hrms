@@ -252,6 +252,54 @@
         </div>
     </div>
 
+        <!-- 4b. Earnings History (Past Fortnights) -->
+    <div class="card shadow-sm border-0 mb-3">
+        <div class="card-header bg-light border-bottom d-flex justify-content-between">
+            <h6 class="mb-0 fw-bold"><i class="fas fa-money-check-alt me-2"></i>Earnings History</h6>
+            <small class="text-muted">{{ $pastEarnings->count() }} fortnight(s)</small>
+        </div>
+        <div class="card-body p-0">
+            @if($pastEarnings->count() > 0)
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th style="font-size: 10px; text-transform: uppercase;">Fortnight</th>
+                            <th style="font-size: 10px; text-transform: uppercase;">Period</th>
+                            <th class="text-end" style="font-size: 10px; text-transform: uppercase;">Gross</th>
+                            <th class="text-end" style="font-size: 10px; text-transform: uppercase;">Deductions</th>
+                            <th class="text-end" style="font-size: 10px; text-transform: uppercase;">Net Pay</th>
+                            <th class="text-center" style="font-size: 10px; text-transform: uppercase;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($pastEarnings as $item)
+                        <tr>
+                            <td>#{{ $item->payroll->fortnight_number }}</td>
+                            <td class="small text-muted">
+                                {{ $item->payroll->period_start->format('d/m/y') }} - {{ $item->payroll->period_end->format('d/m/y') }}
+                            </td>
+                            <td class="text-end">K {{ number_format($item->gross_wage, 2) }}</td>
+                            <td class="text-end text-danger">K {{ number_format($item->total_deductions, 2) }}</td>
+                            <td class="text-end fw-bold">K {{ number_format($item->net_pay, 2) }}</td>
+                            <td class="text-center">
+                                <span class="badge
+                                    {{ $item->payroll->status == 'Paid' ? 'bg-success' :
+                                    ($item->payroll->status == 'Approved' ? 'bg-info' : 'bg-secondary') }}">
+                                    {{ $item->payroll->status }}
+                                </span>
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            @else
+            <p class="text-center text-muted py-3 mb-0">No past earnings recorded</p>
+            @endif
+        </div>
+    </div>
+
     <!-- 5. NASFUND Details -->
     <div class="card shadow-sm border-0 mb-3">
         <div class="card-header bg-light border-bottom">

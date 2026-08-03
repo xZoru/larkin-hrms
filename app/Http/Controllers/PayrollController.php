@@ -885,6 +885,26 @@ public function printSigning($payrollId)
         ->with('success', 'Payroll approved successfully.');
     }
 
+    // ============ UPDATE STATUS ============
+    public function updateStatus(Request $request, Payroll $payroll)
+    {
+        $request->validate([
+            'status' => 'required|in:Draft,Approved,Paid,Locked',
+        ]);
+
+        $payroll->status = $request->status;
+
+        if ($request->status === 'Approved' && !$payroll->approved_by) {
+            $payroll->approved_by = auth()->id();
+            $payroll->approved_at = now();
+        }
+
+        $payroll->save();
+
+        return redirect()->route('payroll.index')
+            ->with('success', 'Payroll FN' . $payroll->fortnight_number . ' status changed to ' . $request->status . '.');
+    }
+
     public function exportABA(Payroll $payroll)
     {
         $company = $payroll->company;

@@ -920,7 +920,56 @@
 
                     <!-- TAB: EARNINGS -->
                     <div id="tab-earnings" class="tab-content" style="display:none;">
-                        <p class="text-gray-500 text-sm">Summary of Earnings coming soon...</p>
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="text-lg font-medium text-gray-900">Earnings History</h4>
+                            <span class="text-sm text-gray-500">{{ $pastEarnings->count() }} fortnight(s)</span>
+                        </div>
+                        @if($pastEarnings->count() > 0)
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-gray-50"><tr>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fortnight</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Period</th>
+                                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Gross</th>
+                                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Deductions</th>
+                                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Net Pay</th>
+                                        <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                                    </tr></thead>
+                                    <tbody class="divide-y divide-gray-200">
+                                        @foreach($pastEarnings as $item)
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-3 py-2 font-medium">#{{ $item->payroll->fortnight_number }}</td>
+                                            <td class="px-3 py-2 text-xs text-gray-500">{{ $item->payroll->period_start->format('M d, Y') }} - {{ $item->payroll->period_end->format('M d, Y') }}</td>
+                                            <td class="px-3 py-2 text-right">K {{ number_format($item->gross_wage, 2) }}</td>
+                                            <td class="px-3 py-2 text-right text-red-600">K {{ number_format($item->total_deductions, 2) }}</td>
+                                            <td class="px-3 py-2 text-right font-bold">K {{ number_format($item->net_pay, 2) }}</td>
+                                            <td class="px-3 py-2 text-center">
+                                                <span class="px-2 py-1 rounded-full text-xs font-medium
+                                                    {{ $item->payroll->status == 'Paid' ? 'bg-green-100 text-green-800' :
+                                                       ($item->payroll->status == 'Approved' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800') }}">
+                                                    {{ $item->payroll->status }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                    <tfoot class="bg-gray-50">
+                                        <tr>
+                                            <td class="px-3 py-2 font-bold" colspan="2">TOTAL</td>
+                                            <td class="px-3 py-2 text-right font-bold">K {{ number_format($pastEarnings->sum('gross_wage'), 2) }}</td>
+                                            <td class="px-3 py-2 text-right font-bold text-red-600">K {{ number_format($pastEarnings->sum('total_deductions'), 2) }}</td>
+                                            <td class="px-3 py-2 text-right font-bold text-green-600">K {{ number_format($pastEarnings->sum('net_pay'), 2) }}</td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        @else
+                            <div class="text-center py-8 text-gray-500">
+                                <svg class="h-12 w-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                                <p>No earnings recorded for this employee yet.</p>
+                            </div>
+                        @endif
                     </div>
 
                     <!-- TAB: LOANS -->
