@@ -429,9 +429,9 @@
                                     <th style="width: 18%;">Selected Employee</th>
                                     <th style="width: 10%;">Amount</th>
                                     <th style="width: 14%;">Loan Type</th>
-                                    <th style="width: 12%;">Installments</th>
+                                    <th style="width: 12%;">Deduction / Fortnight</th>
                                     <th style="width: 18%;">Reason</th>
-                                    <th style="width: 10%;">Deduction</th>
+                                    <th style="width: 10%;">Est. Fortnights</th>
                                     <th style="width: 6%;">Action</th>
                                 </tr>
                             </thead>
@@ -462,24 +462,13 @@
                                         </select>
                                     </td>
                                     <td>
-                                        <select name="loans[0][installment_count]" class="form-control-custom form-control-custom-sm installment-select" required>
-                                            <option value="1">1 (Next cutoff)</option>
-                                            <option value="2">2 Installments</option>
-                                            <option value="3">3 Installments</option>
-                                            <option value="4" selected>4 Installments</option>
-                                            <option value="6">6 Installments</option>
-                                            <option value="8">8 Installments</option>
-                                            <option value="10">10 Installments</option>
-                                            <option value="12">12 Installments</option>
-                                        </select>
+                                        <input type="number" name="loans[0][deduction_per_cutoff]" class="form-control-custom form-control-custom-sm deduction-input" placeholder="Amount per fortnight" step="0.01" min="0.01" required>
                                     </td>
                                     <td>
                                         <input type="text" name="loans[0][reason]" class="form-control-custom form-control-custom-sm" placeholder="Reason">
                                     </td>
                                     <td class="deduction-cell text-center">
-                                        <span class="deduction-badge">K 0.00</span>
-                                        <input type="hidden" name="loans[0][deduction]" class="deduction-input" value="0">
-                                        <input type="hidden" name="loans[0][installment_count]" class="installment-hidden" value="4">
+                                        <span class="deduction-badge">-</span>
                                     </td>
                                     <td class="text-center">
                                         <button type="button" class="remove-row-btn" style="display:none;">
@@ -526,7 +515,7 @@
                                 <th class="text-left">Employee</th>
                                 <th class="text-left">Loan Type</th>
                                 <th class="text-right">Amount</th>
-                                <th class="text-right">Deduction</th>
+                                <th class="text-right">Deduction / FN</th>
                                 <th class="text-right">Remaining</th>
                                 <th class="text-right">Total Paid</th>
                                 <th class="text-left">Reason</th>
@@ -628,26 +617,25 @@
 document.addEventListener('DOMContentLoaded', function() {
     let rowCount = 1;
 
-    // ============ HELPER FUNCTION: Calculate Deduction ============
+    // ============ HELPER FUNCTION: Estimate Fortnights From Deduction ============
+    // Deduction per fortnight is now the actual input; this just shows the user
+    // roughly how many fortnights it will take to pay off - purely informational,
+    // not submitted with the form.
     function triggerDeductionCalculation(row) {
         var amount = parseFloat(row.querySelector('.amount-input').value) || 0;
-        var installmentSelect = row.querySelector('.installment-select');
-        var installments = parseInt(installmentSelect.value) || 1;
-        var deduction = amount / installments;
-        
-        // Update display badge
-        var badge = row.querySelector('.deduction-cell .deduction-badge');
-        if (badge) badge.textContent = 'K ' + deduction.toFixed(2);
-        
-        // Update deduction input
         var deductionInput = row.querySelector('.deduction-input');
-        if (deductionInput) deductionInput.value = deduction.toFixed(2);
-        
-        // ✅ UPDATE THE HIDDEN INSTALLMENT INPUT
-        var hiddenInstallment = row.querySelector('.installment-hidden');
-        if (hiddenInstallment) {
-            hiddenInstallment.value = installments;
+        var deduction = parseFloat(deductionInput.value) || 0;
+
+        var badge = row.querySelector('.deduction-cell .deduction-badge');
+        if (!badge) return;
+
+        if (amount <= 0 || deduction <= 0) {
+            badge.textContent = '-';
+            return;
         }
+
+        var fortnights = Math.ceil(amount / deduction);
+        badge.textContent = fortnights + (fortnights === 1 ? ' cutoff' : ' cutoffs');
     }
 
     // ============ ADD ROW ============
@@ -663,29 +651,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 el.setAttribute('name', name.replace(/\[0\]/, '[' + newIndex + ']'));
             }
             if (el.tagName === 'SELECT') {
-                if (el.classList.contains('installment-select')) {
-                    el.value = '4';
-                } else if (el.classList.contains('loan-type-select')) {
-                    el.value = '';
-                } else {
-                    el.selectedIndex = 0;
-                }
+                el.selectedIndex = 0;
             } else if (el.type === 'number' || el.type === 'text') {
                 el.value = '';
             }
         });
-        
-        // Reset deduction badge
+
+        // Reset deduction estimate badge and re-enable the deduction input
         var badge = newRow.querySelector('.deduction-cell .deduction-badge');
-        if (badge) badge.textContent = 'K 0.00';
-        
+        if (badge) badge.textContent = '-';
+
         var deductionInput = newRow.querySelector('.deduction-input');
-        if (deductionInput) deductionInput.value = '0';
-        
-        // ✅ Reset hidden installment to 4
-        var hiddenInstallment = newRow.querySelector('.installment-hidden');
-        if (hiddenInstallment) hiddenInstallment.value = '4';
-        
+        if (deductionInput) {
+            deductionInput.value = '';
+            deductionInput.readOnly = false;
+        }
+
         // Show remove button
         var removeBtn = newRow.querySelector('.remove-row-btn');
         if (removeBtn) removeBtn.style.display = 'inline-block';
@@ -695,11 +676,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (selectedDisplay) {
             selectedDisplay.innerHTML = '<span class="text-muted" style="font-size: 12px;">Select an employee</span>';
         }
-        
-        // Enable installment select for new row
-        var installmentSelect = newRow.querySelector('.installment-select');
-        if (installmentSelect) installmentSelect.disabled = false;
-        
+
         document.getElementById('loanRows').appendChild(newRow);
         rowCount++;
     });
@@ -732,96 +709,45 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // ============ LOAN TYPE CHANGE - Update Installment Options ============
+    // ============ LOAN TYPE CHANGE - Cash Advance forces full-amount deduction ============
     document.addEventListener('change', function(e) {
         if (e.target.classList.contains('loan-type-select')) {
             var row = e.target.closest('tr');
-            var installmentSelect = row.querySelector('.installment-select');
+            var deductionInput = row.querySelector('.deduction-input');
+            var amountInput = row.querySelector('.amount-input');
             var selectedType = e.target.value;
-            
-            // Clear current options
-            installmentSelect.innerHTML = '';
-            
+
             if (selectedType === 'Cash Advance') {
-                // Cash Advance: Only 1 option (1-time payment)
-                var option = document.createElement('option');
-                option.value = '1';
-                option.textContent = '1 (Next cutoff)';
-                installmentSelect.appendChild(option);
-                installmentSelect.value = '1';
-                installmentSelect.disabled = true;
-            } else if (selectedType === 'Loan' || selectedType === 'Company Deductions') {
-                // Loan or Company Deductions: Full options
-                installmentSelect.disabled = false;
-                var options = [
-                    { value: '1', text: '1 (Next cutoff)' },
-                    { value: '2', text: '2 Installments' },
-                    { value: '3', text: '3 Installments' },
-                    { value: '4', text: '4 Installments' },
-                    { value: '6', text: '6 Installments' },
-                    { value: '8', text: '8 Installments' },
-                    { value: '10', text: '10 Installments' },
-                    { value: '12', text: '12 Installments' }
-                ];
-                
-                options.forEach(function(opt) {
-                    var option = document.createElement('option');
-                    option.value = opt.value;
-                    option.textContent = opt.text;
-                    installmentSelect.appendChild(option);
-                });
-                installmentSelect.value = '4';
+                // Cash Advance is always deducted in full next cutoff.
+                deductionInput.value = amountInput.value || '';
+                deductionInput.readOnly = true;
             } else {
-                // No selection: show all options but default to 4
-                installmentSelect.disabled = false;
-                var options = [
-                    { value: '1', text: '1 (Next cutoff)' },
-                    { value: '2', text: '2 Installments' },
-                    { value: '3', text: '3 Installments' },
-                    { value: '4', text: '4 Installments' },
-                    { value: '6', text: '6 Installments' },
-                    { value: '8', text: '8 Installments' },
-                    { value: '10', text: '10 Installments' },
-                    { value: '12', text: '12 Installments' }
-                ];
-                
-                options.forEach(function(opt) {
-                    var option = document.createElement('option');
-                    option.value = opt.value;
-                    option.textContent = opt.text;
-                    installmentSelect.appendChild(option);
-                });
-                installmentSelect.value = '4';
+                deductionInput.readOnly = false;
             }
-            
-            // Update the hidden installment input
-            var hiddenInstallment = row.querySelector('.installment-hidden');
-            if (hiddenInstallment) {
-                hiddenInstallment.value = installmentSelect.value;
-            }
-            
-            // Recalculate deduction
+
             triggerDeductionCalculation(row);
         }
     });
 
-    // ============ AMOUNT INPUT - Calculate Deduction ============
+    // ============ AMOUNT INPUT - Keep Cash Advance deduction synced, recalc estimate ============
     document.addEventListener('input', function(e) {
         if (e.target.classList.contains('amount-input')) {
             var row = e.target.closest('tr');
+            var loanTypeSelect = row.querySelector('.loan-type-select');
+            var deductionInput = row.querySelector('.deduction-input');
+
+            if (loanTypeSelect && loanTypeSelect.value === 'Cash Advance') {
+                deductionInput.value = e.target.value;
+            }
+
             triggerDeductionCalculation(row);
         }
     });
 
-    // ============ INSTALLMENT SELECT CHANGE ============
-    document.addEventListener('change', function(e) {
-        if (e.target.classList.contains('installment-select')) {
+    // ============ DEDUCTION INPUT CHANGE - Recalculate estimate ============
+    document.addEventListener('input', function(e) {
+        if (e.target.classList.contains('deduction-input')) {
             var row = e.target.closest('tr');
-            // Update hidden installment input
-            var hiddenInstallment = row.querySelector('.installment-hidden');
-            if (hiddenInstallment) {
-                hiddenInstallment.value = e.target.value;
-            }
             triggerDeductionCalculation(row);
         }
     });
@@ -921,20 +847,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
-
-    // ============ INITIAL CALCULATION FOR FIRST ROW ============
-    var firstRow = document.querySelector('.loan-row');
-    if (firstRow) {
-        var firstInstallment = firstRow.querySelector('.installment-select');
-        if (firstInstallment) {
-            firstInstallment.value = '4';
-        }
-        var hiddenInstallment = firstRow.querySelector('.installment-hidden');
-        if (hiddenInstallment) {
-            hiddenInstallment.value = '4';
-        }
-        triggerDeductionCalculation(firstRow);
-    }
 
     // ============ SELECT2 INITIALIZATION ============
     if (typeof $.fn.select2 !== 'undefined') {

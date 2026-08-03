@@ -441,11 +441,10 @@
                                         @error('marital_status') <p class="form-error">{{ $message }}</p> @enderror
                                     </div>
                                     <div class="form-group">
-                                        <label class="form-label required-label">Birth Date</label>
+                                        <label class="form-label">Birth Date</label>
                                         <input type="text" 
                                             name="date_of_birth" 
                                             id="date_of_birth"
-                                            required 
                                             class="flatpickr-input form-input @error('date_of_birth') border-red-500 @enderror" 
                                             value="{{ old('date_of_birth', $employee->date_of_birth?->format('Y-m-d')) }}"
                                             placeholder="DD/MM/YY">

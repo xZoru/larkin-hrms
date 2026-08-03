@@ -110,6 +110,7 @@ class LoanRequestController extends Controller
             'loans.*.employee_id' => 'required|exists:employees,id',
             'loans.*.loan_type' => 'required|in:Cash Advance,Loan,Company Deductions',
             'loans.*.amount' => 'required|numeric|min:1',
+            'loans.*.deduction_per_cutoff' => 'required|numeric|min:0.01',
             'loans.*.reason' => 'nullable|string|max:500',
         ]);
 
@@ -125,11 +126,21 @@ class LoanRequestController extends Controller
                     $errors[] = "Employee ID: {$loanData['employee_id']} - Not authorized";
                     continue;
                 }
-                
-                // Get installment count from the hidden field
-                $installmentCount = $loanData['installment_count'] ?? 4;
-                $amount = $loanData['amount'];
-                $deductionPerCutoff = $loanData['deduction'] ?? ($amount / $installmentCount);
+
+                $amount = (float) $loanData['amount'];
+
+                // Fortnightly deduction is now the user-entered value. Cash Advance
+                // is always a single-cutoff deduction, so the full amount is deducted
+                // next payroll regardless of what was typed.
+                $deductionPerCutoff = $loanData['loan_type'] === 'Cash Advance'
+                    ? $amount
+                    : min((float) $loanData['deduction_per_cutoff'], $amount);
+
+                // installment_count is now derived purely for reporting/display -
+                // it's how many fortnights it will take to clear the balance.
+                $installmentCount = $deductionPerCutoff > 0
+                    ? (int) ceil($amount / $deductionPerCutoff)
+                    : 1;
 
                 Loan::create([
                     'company_id' => $companyId,
@@ -202,7 +213,7 @@ class LoanRequestController extends Controller
             'employee_id' => 'required|exists:employees,id',
             'loan_type' => ['required', Rule::in(['Cash Advance', 'Loan', 'Company Deductions'])],
             'amount' => 'required|numeric|min:1',
-            'installment_count' => 'nullable|integer|min:1',
+            'deduction_per_cutoff' => 'required|numeric|min:0.01',
             'reason' => 'nullable|string|max:500',
         ]);
 
@@ -213,13 +224,18 @@ class LoanRequestController extends Controller
             return back()->with('error', 'You are not authorized to create a loan for this employee.');
         }
 
-        $installmentCount = $request->installment_count ?? 4;
-        $deductionPerCutoff = $request->amount / $installmentCount;
+        $amount = (float) $request->amount;
+        $deductionPerCutoff = $request->loan_type === 'Cash Advance'
+            ? $amount
+            : min((float) $request->deduction_per_cutoff, $amount);
+        $installmentCount = $deductionPerCutoff > 0
+            ? (int) ceil($amount / $deductionPerCutoff)
+            : 1;
 
         $loanRequest->update([
             'employee_id' => $request->employee_id,
             'loan_type' => $request->loan_type,
-            'amount' => $request->amount,
+            'amount' => $amount,
             'deduction_per_cutoff' => $deductionPerCutoff,
             'installment_count' => $installmentCount,
             'reason' => $request->reason,
@@ -372,7 +388,7 @@ class LoanRequestController extends Controller
             'loans.*.employee_id' => 'required|exists:employees,id',
             'loans.*.loan_type' => ['required', Rule::in(['Cash Advance', 'Loan', 'Company Deductions'])],
             'loans.*.amount' => 'required|numeric|min:1',
-            'loans.*.installment_count' => 'nullable|integer|min:1',
+            'loans.*.deduction_per_cutoff' => 'required|numeric|min:0.01',
             'loans.*.reason' => 'nullable|string|max:500',
         ]);
 
@@ -387,17 +403,22 @@ class LoanRequestController extends Controller
                     $errors[] = "Employee ID: {$loanData['employee_id']} - Not authorized";
                     continue;
                 }
-                
-                $installmentCount = $loanData['installment_count'] ?? 4;
-                $deductionPerCutoff = $loanData['amount'] / $installmentCount;
+
+                $amount = (float) $loanData['amount'];
+                $deductionPerCutoff = $loanData['loan_type'] === 'Cash Advance'
+                    ? $amount
+                    : min((float) $loanData['deduction_per_cutoff'], $amount);
+                $installmentCount = $deductionPerCutoff > 0
+                    ? (int) ceil($amount / $deductionPerCutoff)
+                    : 1;
 
                 Loan::create([
                     'company_id' => $companyId,
                     'employee_id' => $loanData['employee_id'],
                     'loan_type' => $loanData['loan_type'],
-                    'amount' => $loanData['amount'],
+                    'amount' => $amount,
                     'deduction_per_cutoff' => $deductionPerCutoff,
-                    'remaining_balance' => $loanData['amount'],
+                    'remaining_balance' => $amount,
                     'total_paid' => 0,
                     'installment_count' => $installmentCount,
                     'payments_made' => 0,

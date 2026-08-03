@@ -28,7 +28,7 @@ class StoreEmployeeRequest extends FormRequest
             'gender' => 'required|in:Male,Female,Other',
             'marital_status' => 'nullable|in:Single,Married,Divorced,Widowed',
             'employee_type' => 'required|in:National,Expatriate',
-            'date_of_birth' => 'required|date|before:today',
+            'date_of_birth' => 'nullable|date|before:today',
             'photo' => 'nullable|image|max:2048',
             'joining_date' => 'required|date',
             'end_date' => 'nullable|date|after:joining_date',
@@ -69,7 +69,6 @@ class StoreEmployeeRequest extends FormRequest
             'company_id.required' => 'Please select a company.',
             'gender.required' => 'Gender is required.',
             'employee_type.required' => 'Employee type is required.',
-            'date_of_birth.required' => 'Date of birth is required.',
             'joining_date.required' => 'Joining date is required.',
             'position.required' => 'Please enter a position.',
         ];

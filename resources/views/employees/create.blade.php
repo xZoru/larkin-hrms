@@ -145,14 +145,13 @@
                                     @error('marital_status') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 required-label">Birth Date</label>
+                                    <label class="block text-sm font-medium text-gray-700">Birth Date</label>
                                     <input type="text" 
                                         name="date_of_birth" 
                                         id="date_of_birth"
                                         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 @error('date_of_birth') border-red-500 @enderror" 
                                         value="{{ old('date_of_birth') }}"
                                         placeholder="DD/MM/YY">
-                                    @error('date_of_birth') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700">Phone Number</label>

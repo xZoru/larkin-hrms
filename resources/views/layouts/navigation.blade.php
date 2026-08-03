@@ -28,13 +28,6 @@
                     <i class="fas fa-chevron-down dropdown-arrow" :class="{ 'rotated': open }"></i>
                 </button>
                 <div x-show="open" x-collapse class="sidebar-submenu">
-                    @can('view-departments')
-                    <a href="{{ route('departments.index') }}" class="sidebar-link submenu-link {{ request()->routeIs('departments.*') ? 'active-sub' : '' }}">
-                        <i class="fas fa-sitemap"></i>
-                        <span>Departments</span>
-                    </a>
-                    @endcan
-
                     @if(auth()->user()->isSuperAdmin())
                     <a href="{{ route('users.index') }}" class="sidebar-link submenu-link {{ request()->routeIs('users.*') ? 'active-sub' : '' }}">
                         <i class="fas fa-user-cog"></i>
