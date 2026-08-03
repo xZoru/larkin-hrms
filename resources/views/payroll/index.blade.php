@@ -406,8 +406,12 @@
                                             <i class="fas fa-chart-bar"></i> View Summary
                                         </a>
                                         
-                                        <button type="button" class="dropdown-item" onclick="printPayslips('{{ $payroll->id }}')">
-                                            <i class="fas fa-file-invoice"></i> Print Payslips
+                                        <button type="button" class="dropdown-item" onclick="printPayslips('{{ $payroll->id }}', 'national')">
+                                            <i class="fas fa-file-invoice"></i> Print National Payslips
+                                        </button>
+
+                                        <button type="button" class="dropdown-item" onclick="printPayslips('{{ $payroll->id }}', 'expatriate')">
+                                            <i class="fas fa-file-invoice"></i> Print Expatriate Payslips
                                         </button>
                                         
                                         <button type="button" class="dropdown-item" onclick="printSigning('{{ $payroll->id }}')">
@@ -572,8 +576,8 @@
     // ============================================
     // PRINT FUNCTIONS
     // ============================================
-    function printPayslips(payrollId) {
-        const url = '/payroll/' + payrollId + '/print-payslips';
+    function printPayslips(payrollId, type) {
+        const url = '/payroll/' + payrollId + '/print-payslips/' + type;
         window.open(url, '_blank');
         closeAllDropdowns();
     }

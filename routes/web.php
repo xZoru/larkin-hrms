@@ -232,7 +232,9 @@ Route::middleware(['auth', SuperAdminMiddleware::class])
     });
 
 // Print Payslips
-Route::get('/payroll/{payroll}/print-payslips', [PayrollController::class, 'printPayslips'])->name('payroll.print-payslips');
+Route::get('/payroll/{payroll}/print-payslips/{type}', [PayrollController::class, 'printPayslips'])
+    ->name('payroll.print-payslips')
+    ->where('type', 'national|expatriate');
 
 
 // Print Signing

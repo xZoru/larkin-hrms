@@ -720,13 +720,18 @@ public function summary(Request $request)
             'total_employees' => $items->count(),
         ]);
     }
-public function printPayslips($payrollId)
+public function printPayslips($payrollId, $type)
 {
     $payroll = Payroll::with(['items.employee.bankAccounts', 'company'])->findOrFail($payrollId);
-    
+
+    $employeeType = $type === 'national' ? 'National' : 'Expatriate';
+
     $payrollItems = $payroll->items()
         ->with('employee.bankAccounts')
         ->whereNotNull('employee_id')
+        ->whereHas('employee', function ($q) use ($employeeType) {
+            $q->where('employee_type', $employeeType);
+        })
         ->get();
     
     // Set the logo
@@ -802,6 +807,7 @@ public function printPayslips($payrollId)
         'period_start' => $payroll->period_start,
         'period_end' => $payroll->period_end,
         'generated_date' => now(),
+        'employee_type_label' => $employeeType,
     ];
     
     $pdf = Pdf::loadView('payroll.print-payslips', $data);
@@ -819,7 +825,7 @@ public function printPayslips($payrollId)
         'margin_right' => 5,
     ]);
     
-    return $pdf->download('payslips_FN' . $payroll->fortnight_number . '.pdf');
+    return $pdf->download('payslips_FN' . $payroll->fortnight_number . '_' . $employeeType . '.pdf');
 }
 /**
  * Print signing sheet for all employees in a payroll
