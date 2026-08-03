@@ -397,6 +397,173 @@
         flex-shrink: 0;
     }
 
+    /* ============ HOURS CALCULATOR (National employees) ============ */
+    .hours-cell {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .calc-trigger {
+        width: 26px;
+        height: 26px;
+        flex-shrink: 0;
+        border: 1.5px solid #d1d5db;
+        background: #f8fafc;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.15s, border-color 0.15s;
+    }
+    .calc-trigger:hover {
+        background: #eef2ff;
+        border-color: #6366f1;
+    }
+    .calc-trigger:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+    .calc-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.45);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    .calc-overlay.open {
+        display: flex;
+    }
+    .calc-popover {
+        background: white;
+        border-radius: 12px;
+        width: 320px;
+        max-width: 90vw;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        overflow: hidden;
+    }
+    .calc-popover-header {
+        background: linear-gradient(135deg, #1a1f36 0%, #2d3555 100%);
+        color: white;
+        padding: 14px 18px;
+        font-weight: 700;
+        font-size: 14px;
+        letter-spacing: 0.3px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .calc-popover-header .calc-close {
+        background: none;
+        border: none;
+        color: #cbd5e1;
+        font-size: 18px;
+        cursor: pointer;
+        line-height: 1;
+    }
+    .calc-popover-header .calc-close:hover {
+        color: white;
+    }
+    .calc-popover-body {
+        padding: 16px 18px;
+    }
+    .calc-popover-hint {
+        font-size: 11px;
+        color: #64748b;
+        font-style: italic;
+        margin-bottom: 14px;
+    }
+    .calc-field {
+        margin-bottom: 12px;
+    }
+    .calc-field label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        color: #475569;
+        margin-bottom: 4px;
+    }
+    .calc-field input {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1.5px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 15px;
+        font-weight: 600;
+        text-align: center;
+        box-sizing: border-box;
+    }
+    .calc-field input:focus {
+        border-color: #6366f1;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+    .calc-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 4px;
+    }
+    .calc-actions button {
+        flex: 1;
+        padding: 9px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 13px;
+        border: none;
+        cursor: pointer;
+    }
+    .calc-btn-calc {
+        background: #1a1f36;
+        color: white;
+    }
+    .calc-btn-calc:hover {
+        background: #2d3555;
+    }
+    .calc-btn-insert {
+        background: #22c55e;
+        color: white;
+    }
+    .calc-btn-insert:hover {
+        background: #16a34a;
+    }
+    .calc-btn-insert:disabled {
+        background: #cbd5e1;
+        cursor: not-allowed;
+    }
+    .calc-result-box {
+        margin-top: 14px;
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 8px;
+        padding: 12px;
+        text-align: center;
+    }
+    .calc-result-box .calc-result-label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        color: #166534;
+        font-weight: 700;
+    }
+    .calc-result-box .calc-result-value {
+        font-size: 26px;
+        font-weight: 700;
+        color: #15803d;
+        margin-top: 2px;
+    }
+    .calc-error {
+        margin-top: 10px;
+        font-size: 12px;
+        color: #b91c1c;
+        text-align: center;
+    }
+
     @media (max-width: 1024px) {
         .timesheet-wrapper {
             grid-template-columns: 1fr;
@@ -630,14 +797,22 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <input type="number" 
-                                                    name="attendance[{{ $dateKey }}][hours]" 
-                                                    value="{{ $hours }}"
-                                                    class="hours-input"
-                                                    step="any"
-                                                    min="0"
-                                                    max="24"
-                                                    {{ $rowDisabled ? 'disabled' : '' }}>
+                                                <div class="hours-cell">
+                                                    <input type="number" 
+                                                        name="attendance[{{ $dateKey }}][hours]" 
+                                                        id="hours-input-{{ $dateKey }}"
+                                                        value="{{ $hours }}"
+                                                        class="hours-input"
+                                                        step="any"
+                                                        min="0"
+                                                        max="24"
+                                                        {{ $rowDisabled ? 'disabled' : '' }}>
+                                                    @unless($selectedEmployee->isExpatriate())
+                                                        <button type="button" class="calc-trigger" title="Calculate hours from clock in/out"
+                                                            onclick="openHoursCalculator('{{ $dateKey }}')"
+                                                            {{ $rowDisabled ? 'disabled' : '' }}>🧮</button>
+                                                    @endunless
+                                                </div>
                                                 <input type="hidden" name="attendance[{{ $dateKey }}][date]" value="{{ $dateKey }}">
                                             </td>
                                             <td>
@@ -706,14 +881,22 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <input type="number" 
-                                                       name="attendance[{{ $dateKey }}][hours]" 
-                                                       value="{{ $hours }}"
-                                                       class="hours-input"
-                                                       step="any"
-                                                       min="0"
-                                                       max="24"
-                                                       {{ $rowDisabled ? 'disabled' : '' }}>
+                                                <div class="hours-cell">
+                                                    <input type="number" 
+                                                           name="attendance[{{ $dateKey }}][hours]" 
+                                                           id="hours-input-{{ $dateKey }}"
+                                                           value="{{ $hours }}"
+                                                           class="hours-input"
+                                                           step="any"
+                                                           min="0"
+                                                           max="24"
+                                                           {{ $rowDisabled ? 'disabled' : '' }}>
+                                                    @unless($selectedEmployee->isExpatriate())
+                                                        <button type="button" class="calc-trigger" title="Calculate hours from clock in/out"
+                                                            onclick="openHoursCalculator('{{ $dateKey }}')"
+                                                            {{ $rowDisabled ? 'disabled' : '' }}>🧮</button>
+                                                    @endunless
+                                                </div>
                                                 <input type="hidden" name="attendance[{{ $dateKey }}][date]" value="{{ $dateKey }}">
                                             </td>
                                             <td>
@@ -767,6 +950,46 @@
                             </table>
                         </div>
                     </div>
+
+                    @unless($selectedEmployee->isExpatriate())
+                        <!-- ============ HOURS CALCULATOR (National employees) ============ -->
+                        <div class="calc-overlay" id="hoursCalcOverlay">
+                            <div class="calc-popover">
+                                <div class="calc-popover-header">
+                                    <span>🧮 Hours Calculator</span>
+                                    <button type="button" class="calc-close" onclick="closeHoursCalculator()">&times;</button>
+                                </div>
+                                <div class="calc-popover-body">
+                                    <div class="calc-popover-hint">Enter time using a dot: 8.36 = 8:36 AM, 17.30 = 5:30 PM</div>
+
+                                    <div class="calc-field">
+                                        <label for="calcClockIn">Clock In</label>
+                                        <input type="text" id="calcClockIn" inputmode="decimal" placeholder="8.00">
+                                    </div>
+                                    <div class="calc-field">
+                                        <label for="calcClockOut">Clock Out</label>
+                                        <input type="text" id="calcClockOut" inputmode="decimal" placeholder="17.00">
+                                    </div>
+                                    <div class="calc-field">
+                                        <label for="calcBreak">Break (hours)</label>
+                                        <input type="text" id="calcBreak" inputmode="decimal" placeholder="1">
+                                    </div>
+
+                                    <div class="calc-actions">
+                                        <button type="button" class="calc-btn-calc" onclick="calculateHoursWorked()">Calculate</button>
+                                        <button type="button" class="calc-btn-insert" id="calcInsertBtn" disabled onclick="insertCalculatedHours()">Insert</button>
+                                    </div>
+
+                                    <div id="calcErrorBox" class="calc-error" style="display:none;"></div>
+
+                                    <div id="calcResultBox" class="calc-result-box" style="display:none;">
+                                        <div class="calc-result-label">Decimal Hours Worked</div>
+                                        <div class="calc-result-value" id="calcResultValue">0.00</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @endunless
 
                     <!-- ============ ACTION BUTTONS ============ -->
                     <div class="mt-6 flex flex-wrap items-center justify-between border-t border-gray-200 pt-6">
@@ -886,6 +1109,113 @@
                 window.location.href = url.toString();
             });
         }
+    });
+
+    // ============ HOURS CALCULATOR (National employees) ============
+    let calcTargetDateKey = null;
+
+    function openHoursCalculator(dateKey) {
+        calcTargetDateKey = dateKey;
+        document.getElementById('calcClockIn').value = '';
+        document.getElementById('calcClockOut').value = '';
+        document.getElementById('calcBreak').value = '1';
+        document.getElementById('calcResultBox').style.display = 'none';
+        document.getElementById('calcErrorBox').style.display = 'none';
+        document.getElementById('calcInsertBtn').disabled = true;
+        document.getElementById('hoursCalcOverlay').classList.add('open');
+        document.getElementById('calcClockIn').focus();
+    }
+
+    function closeHoursCalculator() {
+        document.getElementById('hoursCalcOverlay').classList.remove('open');
+        calcTargetDateKey = null;
+    }
+
+    // Parses "dot" time notation, e.g. 8.36 -> 8:36 (8h 36m), 17.3 -> 17:30 (17h 30m)
+    // Returns total minutes since midnight, or null if invalid.
+    function parseDotTime(raw) {
+        if (raw === null || raw === undefined) return null;
+        const value = String(raw).trim();
+        if (value === '') return null;
+        if (!/^\d{1,2}(\.\d{1,2})?$/.test(value)) return null;
+
+        const [hourStr, minuteStr = ''] = value.split('.');
+        const hours = parseInt(hourStr, 10);
+        // Pad a single digit (e.g. ".3") to represent 30 minutes, not 3.
+        const minutes = parseInt(minuteStr.padEnd(2, '0'), 10);
+
+        if (hours < 0 || hours > 24 || minutes > 59) return null;
+        return (hours * 60) + minutes;
+    }
+
+    function calculateHoursWorked() {
+        const errorBox = document.getElementById('calcErrorBox');
+        const resultBox = document.getElementById('calcResultBox');
+        const insertBtn = document.getElementById('calcInsertBtn');
+
+        errorBox.style.display = 'none';
+        resultBox.style.display = 'none';
+        insertBtn.disabled = true;
+
+        const inMinutes = parseDotTime(document.getElementById('calcClockIn').value);
+        const outMinutes = parseDotTime(document.getElementById('calcClockOut').value);
+        const breakHoursRaw = document.getElementById('calcBreak').value.trim();
+        const breakHours = breakHoursRaw === '' ? 0 : parseFloat(breakHoursRaw);
+
+        if (inMinutes === null || outMinutes === null) {
+            errorBox.textContent = 'Enter valid clock in/out times, e.g. 8.36';
+            errorBox.style.display = 'block';
+            return;
+        }
+        if (isNaN(breakHours) || breakHours < 0) {
+            errorBox.textContent = 'Enter a valid break value, e.g. 1 or 0.5';
+            errorBox.style.display = 'block';
+            return;
+        }
+
+        let workedMinutes = outMinutes - inMinutes;
+        if (workedMinutes <= 0) {
+            errorBox.textContent = 'Clock out must be after clock in';
+            errorBox.style.display = 'block';
+            return;
+        }
+
+        const netMinutes = workedMinutes - (breakHours * 60);
+        if (netMinutes < 0) {
+            errorBox.textContent = 'Break is longer than time worked';
+            errorBox.style.display = 'block';
+            return;
+        }
+
+        const decimalHours = Math.round((netMinutes / 60) * 100) / 100;
+        document.getElementById('calcResultValue').textContent = decimalHours.toFixed(2);
+        resultBox.style.display = 'block';
+        insertBtn.disabled = false;
+        insertBtn.dataset.value = decimalHours;
+    }
+
+    function insertCalculatedHours() {
+        if (!calcTargetDateKey) return;
+        const value = document.getElementById('calcInsertBtn').dataset.value;
+        const hoursInput = document.getElementById('hours-input-' + calcTargetDateKey);
+        if (hoursInput) {
+            hoursInput.value = value;
+            hoursInput.dispatchEvent(new Event('change'));
+        }
+        closeHoursCalculator();
+    }
+
+    // Close popover on background click or Escape key
+    document.addEventListener('DOMContentLoaded', function() {
+        const overlay = document.getElementById('hoursCalcOverlay');
+        if (overlay) {
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) closeHoursCalculator();
+            });
+        }
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeHoursCalculator();
+        });
     });
 
     // Toggle hours input based on type selection
