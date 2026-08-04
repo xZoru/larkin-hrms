@@ -486,7 +486,9 @@ public function previewPayroll($payrollId, Request $request)
                 ];
             } elseif ($item->employee) {
                 // ✅ Regular employee payroll item
-                $bankAccount = $item->employee->bankAccounts()->where('is_active', true)->first();
+                // Use the already eager-loaded collection (ordered is_preferred desc, priority asc)
+                // instead of re-querying, which was silently ignoring is_preferred.
+                $bankAccount = $item->employee->bankAccounts->first();
                 
                 if (!$bankAccount) {
                     continue;
