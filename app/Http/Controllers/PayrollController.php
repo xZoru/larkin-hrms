@@ -171,7 +171,7 @@ class PayrollController extends Controller
         // turns K 2,200.00 (84 hours) into K 2,199.96 at K 26.19/hour.
         $hourlyRate = $employee->hourly_rate ?? 0;
         $calculationHourlyRate = $hourlyRate;
-        $fortnightHours = (float) ($employee->fortnight_hours ?? 84);
+        $fortnightHours = (float) $employee->regular_hours_limit;
 
         if ((float) $employee->monthly_salary > 0 && $fortnightHours > 0) {
             $calculationHourlyRate = ((float) $employee->monthly_salary * 12)
@@ -461,7 +461,7 @@ public function summary(Request $request)
             // Manual ABA entries are payment instructions, not employee payroll
             // rows, so keep them out of the employee-facing payroll summary.
             $payrollItems = $payroll->items()
-                ->with('employee')
+                ->with('employee.company')
                 ->get()
                 ->reject(function ($item) {
                     $details = $item->details ?? [];
@@ -481,8 +481,9 @@ public function summary(Request $request)
                         // Calculate from monthly salary (monthly / 2)
                         $item->fn_rate = round((float) $employee->monthly_salary / 2, 2);
                     } else {
-                        // Fallback to hourly_rate * 84
-                        $item->fn_rate = round((float) $employee->hourly_rate * 84, 2);
+                        // Fallback to hourly_rate * the employee's regular-hours
+                        // limit (84, or 144 for e.g. YellowJacket Security)
+                        $item->fn_rate = round((float) $employee->hourly_rate * $employee->regular_hours_limit, 2);
                     }
                 } else {
                     // ✅ Manual entry - set fn_rate to 0 or net_pay

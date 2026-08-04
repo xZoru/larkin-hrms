@@ -116,6 +116,20 @@ class Employee extends Model
         return $this->date_of_birth ? $this->date_of_birth->age : null;
     }
 
+    /**
+     * The effective fortnight regular-hours cap for this employee.
+     * Precedence: an explicit per-employee override (fortnight_hours),
+     * then the employee's company default (companies.regular_hours,
+     * e.g. 144 for YellowJacket Security), then 84 as the final fallback.
+     *
+     * This is the single source of truth for the 84/144-hour logic and
+     * should be used anywhere that previously hardcoded 84.
+     */
+    public function getRegularHoursLimitAttribute()
+    {
+        return (int) ($this->fortnight_hours ?? ($this->company?->regular_hours ?? 84));
+    }
+
     // SOW: Employee belongs to Company
     public function company()
     {
