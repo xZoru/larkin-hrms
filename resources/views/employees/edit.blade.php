@@ -468,7 +468,7 @@
                                     <label class="form-label required-label">Company</label>
                                     <select name="company_id" required class="form-select @error('company_id') border-red-500 @enderror">
                                         @foreach($companies as $company)
-                                            <option value="{{ $company->id }}" {{ old('company_id', $employee->company_id) == $company->id ? 'selected' : '' }}>{{ $company->name }}</option>
+                                            <option value="{{ $company->id }}" data-hours="{{ $company->regular_hours ?? 84 }}" {{ old('company_id', $employee->company_id) == $company->id ? 'selected' : '' }}>{{ $company->name }}</option>
                                         @endforeach
                                     </select>
                                     @error('company_id') <p class="form-error">{{ $message }}</p> @enderror
@@ -601,22 +601,31 @@
                                 <label class="form-label">Fortnight Hours</label>
                                 <select name="fortnight_hours" id="fortnight_hours" class="form-select">
                                     @php
-                                        $currentFortnightHours = $employee->fortnight_hours ?? 84;
+                                        // null means "no override, inherit company default" - distinct from an
+                                        // explicit 84 or 0. Do NOT collapse null into 84 here.
+                                        $companyDefaultHours = $employee->company->regular_hours ?? 84;
+                                        $storedFortnightHours = $employee->fortnight_hours;
+                                        $selectedFortnightHours = old('fortnight_hours', $storedFortnightHours === null ? '' : (string) $storedFortnightHours);
+                                        $isCustomSelected = $selectedFortnightHours !== '' && !in_array($selectedFortnightHours, ['84', '144'], true);
+                                        $effectiveHours = $selectedFortnightHours === ''
+                                            ? $companyDefaultHours
+                                            : ($isCustomSelected ? (int) old('custom_fortnight_hours', $storedFortnightHours) : (int) $selectedFortnightHours);
                                     @endphp
-                                    <option value="84" {{ $currentFortnightHours == 84 ? 'selected' : '' }}>Standard (84 hours)</option>
-                                    <option value="144" {{ $currentFortnightHours == 144 ? 'selected' : '' }}>Security (144 hours)</option>
-                                    <option value="custom" {{ !in_array($currentFortnightHours, [84, 144]) ? 'selected' : '' }}>Custom</option>
+                                    <option value="" {{ $selectedFortnightHours === '' ? 'selected' : '' }}>Use Company Default ({{ $companyDefaultHours }} hours)</option>
+                                    <option value="84" {{ $selectedFortnightHours === '84' ? 'selected' : '' }}>Standard (84 hours)</option>
+                                    <option value="144" {{ $selectedFortnightHours === '144' ? 'selected' : '' }}>Security (144 hours)</option>
+                                    <option value="custom" {{ $isCustomSelected ? 'selected' : '' }}>Custom</option>
                                 </select>
                             </div>
 
                             <!-- Custom Hours -->
-                            <div class="form-group" id="custom_hours_container" style="{{ !in_array($currentFortnightHours, [84, 144]) ? 'display:block' : 'display:none' }}">
+                            <div class="form-group" id="custom_hours_container" style="display:{{ $isCustomSelected ? 'block' : 'none' }}">
                                 <label class="form-label">Custom Fortnight Hours</label>
                                 <input type="number" 
                                     name="custom_fortnight_hours" 
                                     id="custom_fortnight_hours" 
                                     class="form-input" 
-                                    value="{{ !in_array($currentFortnightHours, [84, 144]) ? $currentFortnightHours : '' }}" 
+                                    value="{{ $isCustomSelected ? old('custom_fortnight_hours', $storedFortnightHours) : old('custom_fortnight_hours') }}" 
                                     placeholder="Enter hours"
                                     oninput="calculateHourlyRate()">
                             </div>
@@ -682,12 +691,12 @@
                                     <div class="text-sm text-gray-600">
                                         <span class="font-medium">Formula:</span>
                                         <span id="formula_display">
-                                            Monthly Salary ÷ {{ number_format(($currentFortnightHours * 26) / 12, 1) }} hours = Hourly Rate
+                                            Monthly Salary ÷ {{ number_format(($effectiveHours * 26) / 12, 1) }} hours = Hourly Rate
                                         </span>
                                     </div>
                                     <div class="text-sm text-gray-600 mt-1">
                                         <span class="font-medium">Based on:</span>
-                                        <span id="hours_display">{{ $currentFortnightHours }} hours per fortnight</span>
+                                        <span id="hours_display">{{ $effectiveHours }} hours per fortnight</span>
                                     </div>
                                 </div>
                             </div>
@@ -698,19 +707,19 @@
                                     <div class="grid grid-cols-2 gap-4 text-sm">
                                         <div>
                                             <span class="text-gray-500">Daily Rate (8 hrs):</span>
-                                            <span class="font-medium" id="daily_rate">K {{ number_format(($employee->hourly_rate ?? 0) * 8, 2) }}</span>
+                                            <span class="font-medium" id="daily_rate">K {{ number_format((old('hourly_rate', $employee->hourly_rate) ?? 0) * 8, 2) }}</span>
                                         </div>
                                         <div>
                                             <span class="text-gray-500">Weekly Rate (40 hrs):</span>
-                                            <span class="font-medium" id="weekly_rate">K {{ number_format(($employee->hourly_rate ?? 0) * 40, 2) }}</span>
+                                            <span class="font-medium" id="weekly_rate">K {{ number_format((old('hourly_rate', $employee->hourly_rate) ?? 0) * 40, 2) }}</span>
                                         </div>
                                         <div>
                                             <span class="text-gray-500">Fortnightly Rate:</span>
-                                            <span class="font-medium" id="fortnightly_rate">K {{ number_format(($employee->hourly_rate ?? 0) * $currentFortnightHours, 2) }}</span>
+                                            <span class="font-medium" id="fortnightly_rate">K {{ number_format((old('hourly_rate', $employee->hourly_rate) ?? 0) * $effectiveHours, 2) }}</span>
                                         </div>
                                         <div>
                                             <span class="text-gray-500">Annual Salary:</span>
-                                            <span class="font-medium" id="annual_salary">K {{ number_format(($employee->hourly_rate ?? 0) * $currentFortnightHours * 26, 2) }}</span>
+                                            <span class="font-medium" id="annual_salary">K {{ number_format((old('hourly_rate', $employee->hourly_rate) ?? 0) * $effectiveHours * 26, 2) }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1356,6 +1365,115 @@
                 altInput: true,
                 altFormat: "d/m/y",
             });
+        });
+
+        // ============ SALARY AUTO-CALCULATION ============
+        // These were previously called via oninput= but never defined anywhere
+        // in this file, so editing Monthly Salary / Hourly Rate silently did
+        // nothing. Ported from the create-employee form and adapted to also
+        // resolve "Use Company Default" against the currently selected company.
+        function getEffectiveFortnightHours() {
+            const fortnightSelect = document.getElementById('fortnight_hours');
+            const customInput = document.getElementById('custom_fortnight_hours');
+            const fortnightHoursSelect = fortnightSelect ? fortnightSelect.value : '84';
+            const customHours = customInput ? parseInt(customInput.value) : NaN;
+
+            if (fortnightHoursSelect === 'custom') {
+                return customHours || 84;
+            }
+            if (fortnightHoursSelect === '') {
+                const companySelect = document.querySelector('select[name="company_id"]');
+                const selectedOption = companySelect ? companySelect.options[companySelect.selectedIndex] : null;
+                const companyHours = selectedOption ? parseInt(selectedOption.dataset.hours) : NaN;
+                return companyHours || 84;
+            }
+            return parseInt(fortnightHoursSelect) || 84;
+        }
+
+        function updateQuickCalculations(hourlyRate, hoursPerFortnight) {
+            const dailyRate = hourlyRate * 8;
+            const weeklyRate = hourlyRate * 40;
+            const fortnightlyRate = hourlyRate * hoursPerFortnight;
+            const annualSalary = fortnightlyRate * 26;
+
+            const dailyEl = document.getElementById('daily_rate');
+            const weeklyEl = document.getElementById('weekly_rate');
+            const fortnightlyEl = document.getElementById('fortnightly_rate');
+            const annualEl = document.getElementById('annual_salary');
+            const formulaEl = document.getElementById('formula_display');
+            const hoursEl = document.getElementById('hours_display');
+
+            if (dailyEl) dailyEl.textContent = `K ${dailyRate.toFixed(2)}`;
+            if (weeklyEl) weeklyEl.textContent = `K ${weeklyRate.toFixed(2)}`;
+            if (fortnightlyEl) fortnightlyEl.textContent = `K ${fortnightlyRate.toFixed(2)}`;
+            if (annualEl) annualEl.textContent = `K ${annualSalary.toFixed(2)}`;
+            if (formulaEl) formulaEl.textContent = `Monthly Salary ÷ ${((hoursPerFortnight * 26) / 12).toFixed(1)} hours = Hourly Rate`;
+            if (hoursEl) hoursEl.textContent = `${hoursPerFortnight} hours per fortnight`;
+        }
+
+        window.calculateHourlyRate = function() {
+            const monthlySalaryEl = document.getElementById('monthly_salary');
+            const hourlyRateEl = document.getElementById('hourly_rate');
+            const monthlySalary = monthlySalaryEl ? parseFloat(monthlySalaryEl.value) : NaN;
+            const hoursPerFortnight = getEffectiveFortnightHours();
+            const monthlyHours = (hoursPerFortnight * 26) / 12;
+
+            if (monthlySalary && monthlySalary > 0) {
+                const hourlyRate = monthlySalary / monthlyHours;
+                if (hourlyRateEl) hourlyRateEl.value = hourlyRate.toFixed(2);
+                updateQuickCalculations(hourlyRate, hoursPerFortnight);
+            } else {
+                const currentHourlyRate = hourlyRateEl ? parseFloat(hourlyRateEl.value) : NaN;
+                updateQuickCalculations(currentHourlyRate || 0, hoursPerFortnight);
+            }
+        };
+
+        window.calculateMonthlySalary = function() {
+            const hourlyRateEl = document.getElementById('hourly_rate');
+            const monthlySalaryEl = document.getElementById('monthly_salary');
+            const hourlyRate = hourlyRateEl ? parseFloat(hourlyRateEl.value) : NaN;
+            const hoursPerFortnight = getEffectiveFortnightHours();
+            const monthlyHours = (hoursPerFortnight * 26) / 12;
+
+            if (hourlyRate && hourlyRate > 0) {
+                const monthlySalary = hourlyRate * monthlyHours;
+                if (monthlySalaryEl) monthlySalaryEl.value = monthlySalary.toFixed(2);
+                updateQuickCalculations(hourlyRate, hoursPerFortnight);
+            }
+        };
+
+        // ============ FORTNIGHT HOURS SELECTOR ============
+        document.addEventListener('DOMContentLoaded', function() {
+            const fortnightSelect = document.getElementById('fortnight_hours');
+            const customContainer = document.getElementById('custom_hours_container');
+            const customInput = document.getElementById('custom_fortnight_hours');
+            const companySelectEl = document.querySelector('select[name="company_id"]');
+
+            if (fortnightSelect) {
+                fortnightSelect.addEventListener('change', function() {
+                    if (this.value === 'custom') {
+                        if (customContainer) customContainer.style.display = 'block';
+                        if (customInput) customInput.focus();
+                    } else {
+                        if (customContainer) customContainer.style.display = 'none';
+                    }
+                    window.calculateHourlyRate();
+                });
+            }
+
+            if (customInput) {
+                customInput.addEventListener('input', function() {
+                    window.calculateHourlyRate();
+                });
+            }
+
+            if (companySelectEl) {
+                companySelectEl.addEventListener('change', function() {
+                    if (fortnightSelect && fortnightSelect.value === '') {
+                        window.calculateHourlyRate();
+                    }
+                });
+            }
         });
     })();
 </script>

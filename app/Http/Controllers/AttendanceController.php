@@ -186,7 +186,7 @@ class AttendanceController extends Controller
 
             $scheduleHours = (int) $request->input('expatriate_schedule_hours', 84);
             if (!in_array($scheduleHours, [84, 144], true)
-                || ($scheduleHours === 144 && !$this->isYellowjacketEmployee($employee))) {
+                || $scheduleHours !== $employee->regular_hours_limit) {
                 return redirect()->route('attendance.index', [
                     'fortnight' => $fortnight,
                     'employee_id' => $employeeId,
@@ -661,12 +661,18 @@ public function summaryBulkUpdate(Request $request)
 
             // Credit a holiday only when the employee worked strictly before or
             // after that specific holiday. Work on the holiday date alone does
-            // not create the automatic 8-hour holiday credit.
+            // not create the automatic holiday credit.
+            // A holiday credit represents one standard scheduled day off.
+            // YellowJacket Security's 144-hour national employees work
+            // 12-hour shifts, so their holiday credit is 12 hours; everyone
+            // else (84-hour employees) uses the standard 8-hour day.
+            $standardDayHours = ($employee?->regular_hours_limit === 144) ? 12 : 8;
+
             $holidayHours = $holidayDates
                 ->filter(function ($holidayDate) use ($workedDates) {
                     return $workedDates->contains(fn ($workedDate) => $workedDate < $holidayDate || $workedDate > $holidayDate);
                 })
-                ->count() * 8;
+                ->count() * $standardDayHours;
         }
 
         $regularHours = 0;
@@ -695,14 +701,14 @@ public function summaryBulkUpdate(Request $request)
             }
         }
 
-        $regularLimit = $employee?->fortnight_hours
-            ?? ($employee?->company?->regular_hours ?? 84);
+        $regularLimit = $employee?->regular_hours_limit ?? 84;
 
-        // A holiday credit consumes part of the employee's 84/144-hour
-        // entitlement. For example, one holiday reduces an 84-hour cap to 76.
-        // Overtime triggers off THIS reduced cap: once worked hours exceed
-        // it, the excess is overtime rather than being absorbed into the
-        // holiday bucket.
+        // A holiday credit consumes part of the employee's regular-hours
+        // entitlement (84 or 144). For example, one 8-hour holiday credit
+        // reduces an 84-hour cap to 76; a 12-hour credit reduces a 144-hour
+        // cap to 132. Overtime triggers off THIS reduced cap: once worked
+        // hours exceed it, the excess is overtime rather than being
+        // absorbed into the holiday bucket.
         $regularLimit = max(0, $regularLimit - $holidayHours);
 
         $overtimeHours = 0;
@@ -802,14 +808,6 @@ public function summaryBulkUpdate(Request $request)
             ->unique()
             ->values()
             ->toArray();
-    }
-
-    private function isYellowjacketEmployee(Employee $employee): bool
-    {
-        $companyName = strtolower((string) optional($employee->company)->name);
-
-        return str_contains($companyName, 'yellowjacket')
-            && (str_contains($companyName, 'port moresby') || str_contains($companyName, 'lae'));
     }
 
     private function generateExpatriateSchedule(Employee $employee, string $fortnight, int $scheduleHours, array $publicHolidays, string $currentStatus): void

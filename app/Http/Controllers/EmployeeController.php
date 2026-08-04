@@ -158,12 +158,23 @@ class EmployeeController extends Controller
             }
         }
 
-         $fortnightHours = $request->fortnight_hours ?? 84;
+        // fortnight_hours: '' means "no override, inherit company default" -> null.
+        // 'custom' means use the custom_fortnight_hours value. Anything else
+        // (84 or 144) is an explicit per-employee override.
         if ($request->fortnight_hours === 'custom') {
-            $fortnightHours = $request->custom_fortnight_hours ?? 84;
+            $data['fortnight_hours'] = $request->filled('custom_fortnight_hours')
+                ? (int) $request->custom_fortnight_hours
+                : null;
+        } elseif ($request->fortnight_hours === '' || $request->fortnight_hours === null) {
+            $data['fortnight_hours'] = null;
+        } else {
+            $data['fortnight_hours'] = (int) $request->fortnight_hours;
         }
-        
-        $data['fortnight_hours'] = $fortnightHours;
+
+        // Effective hours used for payroll math below: the saved override,
+        // or the selected company's default, or 84 as the final fallback.
+        $selectedCompany = Company::find($request->company_id);
+        $fortnightHours = $data['fortnight_hours'] ?? ($selectedCompany->regular_hours ?? 84);
         
         //  HIGH-PRECISION PAYROLL MATH BLOCK
         if ($request->filled('monthly_salary') && $request->monthly_salary > 0) {
@@ -186,7 +197,7 @@ class EmployeeController extends Controller
         }
 
         if (empty($data['employee_number'])) {
-            $company = Company::find($data['company_id']);
+            $company = $selectedCompany;
             $lastEmployee = Employee::where('company_id', $data['company_id'])
                 ->orderBy('id', 'desc')
                 ->first();
@@ -365,12 +376,22 @@ class EmployeeController extends Controller
         $oldRate = $employee->hourly_rate;
         $newRate = $request->hourly_rate;
 
-        $fortnightHours = $request->fortnight_hours ?? 84;
+        // fortnight_hours: '' means "no override, inherit company default" -> null.
+        // 'custom' means use the custom_fortnight_hours value. Anything else
+        // (84 or 144) is an explicit per-employee override.
         if ($request->fortnight_hours === 'custom') {
-            $fortnightHours = $request->custom_fortnight_hours ?? 84;
+            $data['fortnight_hours'] = $request->filled('custom_fortnight_hours')
+                ? (int) $request->custom_fortnight_hours
+                : null;
+        } elseif ($request->fortnight_hours === '' || $request->fortnight_hours === null) {
+            $data['fortnight_hours'] = null;
+        } else {
+            $data['fortnight_hours'] = (int) $request->fortnight_hours;
         }
-        
-        $data['fortnight_hours'] = $fortnightHours;
+
+        // Effective hours used for payroll math below: the saved override,
+        // or the employee's company default, or 84 as the final fallback.
+        $fortnightHours = $data['fortnight_hours'] ?? ($employee->company?->regular_hours ?? 84);
         
         if ($request->filled('monthly_salary') && $request->monthly_salary > 0) {
             $preciseFortnightlyBase = ($request->monthly_salary * 12) / 26;

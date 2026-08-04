@@ -97,7 +97,7 @@
                                     <select name="company_id" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 @error('company_id') border-red-500 @enderror">
                                         <option value="">Select Company</option>
                                         @foreach($companies as $company)
-                                            <option value="{{ $company->id }}" {{ old('company_id') == $company->id ? 'selected' : '' }}>{{ $company->name }}</option>
+                                            <option value="{{ $company->id }}" data-hours="{{ $company->regular_hours ?? 84 }}" {{ old('company_id') == $company->id ? 'selected' : '' }}>{{ $company->name }}</option>
                                         @endforeach
                                     </select>
                                     @error('company_id') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
@@ -319,16 +319,19 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Fortnight Hours</label>
                                 <select name="fortnight_hours" id="fortnight_hours" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
-                                    <option value="84">Standard (84 hours)</option>
-                                    <option value="144">Security (144 hours)</option>
-                                    <option value="custom">Custom</option>
+                                    @php $oldFortnightHours = old('fortnight_hours', ''); @endphp
+                                    <option value="" {{ $oldFortnightHours === '' ? 'selected' : '' }}>Use Company Default</option>
+                                    <option value="84" {{ $oldFortnightHours == '84' ? 'selected' : '' }}>Standard (84 hours)</option>
+                                    <option value="144" {{ $oldFortnightHours == '144' ? 'selected' : '' }}>Security (144 hours)</option>
+                                    <option value="custom" {{ $oldFortnightHours === 'custom' ? 'selected' : '' }}>Custom</option>
                                 </select>
                             </div>
                             
-                            <div id="custom_hours_container" style="display:none;">
+                            <div id="custom_hours_container" style="display:{{ $oldFortnightHours === 'custom' ? 'block' : 'none' }};">
                                 <label class="block text-sm font-medium text-gray-700">Custom Fortnight Hours</label>
                                 <input type="number" name="custom_fortnight_hours" id="custom_fortnight_hours" 
                                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" 
+                                    value="{{ old('custom_fortnight_hours') }}"
                                     placeholder="Enter hours">
                             </div>
                             
@@ -597,15 +600,26 @@
         });
 
         // ============ SALARY AUTO-CALCULATION ============
-        window.calculateHourlyRate = function() {
-            const monthlySalary = parseFloat(document.getElementById('monthly_salary').value);
+        function getEffectiveFortnightHours() {
             const fortnightHoursSelect = document.getElementById('fortnight_hours').value;
             const customHours = parseInt(document.getElementById('custom_fortnight_hours').value);
-            
-            let hoursPerFortnight = parseInt(fortnightHoursSelect);
+
             if (fortnightHoursSelect === 'custom') {
-                hoursPerFortnight = customHours || 84;
+                return customHours || 84;
             }
+            if (fortnightHoursSelect === '') {
+                // "Use Company Default" - read the hours off the selected company option
+                const companySelect = document.querySelector('select[name="company_id"]');
+                const selectedOption = companySelect ? companySelect.options[companySelect.selectedIndex] : null;
+                const companyHours = selectedOption ? parseInt(selectedOption.dataset.hours) : NaN;
+                return companyHours || 84;
+            }
+            return parseInt(fortnightHoursSelect) || 84;
+        }
+
+        window.calculateHourlyRate = function() {
+            const monthlySalary = parseFloat(document.getElementById('monthly_salary').value);
+            const hoursPerFortnight = getEffectiveFortnightHours();
             const monthlyHours = (hoursPerFortnight * 26) / 12;
             
             if (monthlySalary && monthlySalary > 0) {
@@ -617,13 +631,7 @@
 
         window.calculateMonthlySalary = function() {
             const hourlyRate = parseFloat(document.getElementById('hourly_rate').value);
-            const fortnightHoursSelect = document.getElementById('fortnight_hours').value;
-            const customHours = parseInt(document.getElementById('custom_fortnight_hours').value);
-            
-            let hoursPerFortnight = parseInt(fortnightHoursSelect);
-            if (fortnightHoursSelect === 'custom') {
-                hoursPerFortnight = customHours || 84;
-            }
+            const hoursPerFortnight = getEffectiveFortnightHours();
             const monthlyHours = (hoursPerFortnight * 26) / 12;
             
             if (hourlyRate && hourlyRate > 0) {
@@ -666,6 +674,15 @@
             if (customInput) {
                 customInput.addEventListener('input', function() {
                     window.calculateHourlyRate();
+                });
+            }
+
+            const companySelectEl = document.querySelector('select[name="company_id"]');
+            if (companySelectEl) {
+                companySelectEl.addEventListener('change', function() {
+                    if (fortnightSelect && fortnightSelect.value === '') {
+                        window.calculateHourlyRate();
+                    }
                 });
             }
         });
