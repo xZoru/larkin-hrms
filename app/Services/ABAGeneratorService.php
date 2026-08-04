@@ -24,10 +24,12 @@ class ABAGeneratorService
                     return false;
                 }
                 
-                // Get active account or fallback to first available account
+                // Prefer the account explicitly marked as preferred, then fall back
+                // to an active account, then to the first available account.
                 $activeAccount = $item->employee->bankAccounts
-                    ->where('is_active', true)
-                    ->first() ?? $item->employee->bankAccounts->first();
+                    ->where('is_preferred', true)->first()
+                    ?? $item->employee->bankAccounts->where('is_active', true)->first()
+                    ?? $item->employee->bankAccounts->first();
                 
                 return !is_null($activeAccount);
             });
@@ -118,10 +120,13 @@ class ABAGeneratorService
                 $amount = $item->net_pay;
             } else {
                 // Regular employee (uses already loaded collection without running new SQL queries)
+                // Prefer the account explicitly marked as preferred, then fall back
+                // to an active account, then to the first available account.
                 $employee = $item->employee;
                 $bankAccount = $employee->bankAccounts
-                    ->where('is_active', true)
-                    ->first() ?? $employee->bankAccounts->first();
+                    ->where('is_preferred', true)->first()
+                    ?? $employee->bankAccounts->where('is_active', true)->first()
+                    ?? $employee->bankAccounts->first();
                 $amount = $item->net_pay;
             }
             

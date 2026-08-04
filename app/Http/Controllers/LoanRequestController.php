@@ -325,10 +325,6 @@ class LoanRequestController extends Controller
     public function destroy(Loan $loanRequest)
     {
         $this->authorizeCompany($loanRequest);
-        
-        if (!$loanRequest->canBeEdited()) {
-            return back()->with('error', 'This loan request cannot be deleted.');
-        }
 
         $loanRequest->delete();
 
