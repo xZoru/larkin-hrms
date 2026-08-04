@@ -1247,7 +1247,7 @@
             const bankOffLabel = document.getElementById('bankToggleLabel');
             const bankOnLabel = document.getElementById('bankToggleLabelOn');
             const bankHiddenInput = document.getElementById('bank_toggle_hidden');
-            const bankInputs = bankContainer ? bankContainer.querySelectorAll('input:not([name*="is_preferred"])') : [];
+            const bankInputs = bankContainer ? bankContainer.querySelectorAll('input:not([name*="preferred_account"])') : [];
 
             function toggleBankFields(show) {
                 // ✅ Update hidden input value
