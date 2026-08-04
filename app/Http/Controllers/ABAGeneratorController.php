@@ -460,10 +460,11 @@ public function previewPayroll($payrollId, Request $request)
         
         $debitDescription = $request->get('debit_description', '');
         
-        // ✅ Get ALL payroll items (including those with null employee_id)
-        $allItems = $payroll->items()
-            ->where('net_pay', '>', 0)
-            ->get();
+        // Use the already eager-loaded collection so employee.bankAccounts stays
+        // constrained/ordered by is_preferred — a fresh items() query here would
+        // silently discard that eager-loaded ordering.
+        $allItems = $payroll->items
+            ->where('net_pay', '>', 0);
 
         $data = [];
         
@@ -486,7 +487,9 @@ public function previewPayroll($payrollId, Request $request)
                 ];
             } elseif ($item->employee) {
                 // ✅ Regular employee payroll item
-                $bankAccount = $item->employee->bankAccounts()->where('is_active', true)->first();
+                // Use the already eager-loaded collection (ordered is_preferred desc, priority asc)
+                // instead of re-querying, which was silently ignoring is_preferred.
+                $bankAccount = $item->employee->bankAccounts->first();
                 
                 if (!$bankAccount) {
                     continue;
