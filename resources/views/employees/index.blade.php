@@ -407,8 +407,19 @@
                                 {{ $employee->position_name ?? 'N/A' }}
                             </td>
                             <td style="font-size: 12px;">
-                                <div>{{ $employee->workshift ?? 'Regular Dayshift' }}</div>
-                                <div style="font-size: 9px; color: #9ca3af;">08:00 AM - 05:00 PM</div>
+                                @php
+                                    $shiftRaw = $employee->workshift ?? 'Regular Dayshift';
+                                    // Parse name and hours from formats like: "Regular Dayshift (08:00 AM - 05:00 PM)"
+                                    if (preg_match('/^(.*?)\s*\((.*?)\)$/', $shiftRaw, $matches)) {
+                                        $shiftName = trim($matches[1]);
+                                        $shiftTime = trim($matches[2]);
+                                    } else {
+                                        $shiftName = $shiftRaw;
+                                        $shiftTime = '08:00 AM - 05:00 PM';
+                                    }
+                                @endphp
+                                <div>{{ $shiftName }}</div>
+                                <div style="font-size: 9px; color: #9ca3af;">{{ $shiftTime }}</div>
                             </td>
                             <td style="font-size: 12px;">{{ $employee->department->name ?? 'N/A' }}</td>
                             <td class="text-center">

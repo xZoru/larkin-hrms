@@ -77,7 +77,6 @@ class EmployeeController extends Controller
     }
 
     // Show the form for creating a new employee
-    // Show the form for creating a new employee
     public function create()
     {
         $user = auth()->user();
@@ -89,14 +88,13 @@ class EmployeeController extends Controller
             $companies = Company::where('id', $companyId)->get();
         }
         
-        // FIX: Pull ALL departments because they are now universal system-wide!
+        // Pull ALL departments because they are now universal system-wide!
         $departments = Department::all(); 
         
         $positions = $this->getPositionSuggestions($user->isSuperAdmin() ? null : $companyId);
 
         return view('employees.create', compact('companies', 'departments', 'positions'));
     }
-
 
     // Store a newly created employee
     public function store(StoreEmployeeRequest $request)
@@ -120,6 +118,7 @@ class EmployeeController extends Controller
         $data['full_name'] = $fullName;
         $data['position'] = trim($request->position);
         $data['position_id'] = null;
+        $data['workshift'] = $request->input('workshift');
         $data['allowance'] = $request->allowance ?? 0;
         $data['status'] = $request->status ?? 'Active';
         $data['employee_type'] = $request->employee_type ?? 'National';
@@ -141,26 +140,9 @@ class EmployeeController extends Controller
                     'is_active' => true,
                 ]
             );
-            // Handle department - find existing or create new
-            $departmentName = trim($request->department_name);
-            if (!empty($departmentName)) {
-                $department = Department::firstOrCreate(
-                    [
-                        'name' => $departmentName,
-                        'company_id' => $request->company_id,
-                    ],
-                    [
-                        'code' => strtoupper(substr(preg_replace('/[^a-zA-Z0-9]/', '', $departmentName), 0, 3)) . '-' . str_pad(rand(1, 999), 3, '0', STR_PAD_LEFT),
-                        'is_active' => true,
-                    ]
-                );
-                $data['department_id'] = $department->id;
-            }
+            $data['department_id'] = $department->id;
         }
 
-        // fortnight_hours: '' means "no override, inherit company default" -> null.
-        // 'custom' means use the custom_fortnight_hours value. Anything else
-        // (84 or 144) is an explicit per-employee override.
         if ($request->fortnight_hours === 'custom') {
             $data['fortnight_hours'] = $request->filled('custom_fortnight_hours')
                 ? (int) $request->custom_fortnight_hours
@@ -171,20 +153,12 @@ class EmployeeController extends Controller
             $data['fortnight_hours'] = (int) $request->fortnight_hours;
         }
 
-        // Effective hours used for payroll math below: the saved override,
-        // or the selected company's default, or 84 as the final fallback.
         $selectedCompany = Company::find($request->company_id);
         $fortnightHours = $data['fortnight_hours'] ?? ($selectedCompany->regular_hours ?? 84);
         
-        //  HIGH-PRECISION PAYROLL MATH BLOCK
         if ($request->filled('monthly_salary') && $request->monthly_salary > 0) {
-            // Step 1: Calculate the exact fortnightly base pay using standard PNG logic
             $preciseFortnightlyBase = ($request->monthly_salary * 12) / 26;
-            
-            // Step 2: Assign your precise base salary first so it locks to K2,200.00
             $data['base_salary'] = round($preciseFortnightlyBase, 2);
-            
-            // Step 3: Compute the clean hourly rate from that base amount
             $data['hourly_rate'] = round($preciseFortnightlyBase / $fortnightHours, 2);
             $data['monthly_salary'] = $request->monthly_salary;
         } 
@@ -216,9 +190,6 @@ class EmployeeController extends Controller
             $data['photo_path'] = $request->file('photo')->store('employees/photos', config('filesystems.employee_media_disk'));
         }
 
-        // Employees without bank details must be paid in cash. Enforce this here
-        // as well as in the form, so a modified or scripted request cannot leave
-        // the database defaulted to Bank Transfer.
         if ($request->input('bank_toggle') !== 'on') {
             $data['payment_method'] = 'Cash';
         }
@@ -261,42 +232,39 @@ class EmployeeController extends Controller
     // Display the specified employee
     public function show(Employee $employee)
     {
-    $user = auth()->user();
+        $user = auth()->user();
 
-    if (!$user->isSuperAdmin()) {
-        if (!$user->canViewEmployee($employee)) {
-            abort(403, 'You are not authorized to view this employee.');
+        if (!$user->isSuperAdmin()) {
+            if (!$user->canViewEmployee($employee)) {
+                abort(403, 'You are not authorized to view this employee.');
+            }
         }
-    }
 
-    $employee->load(['company', 'department', 'position', 'bankAccounts', 'documents']);
+        $employee->load(['company', 'department', 'position', 'bankAccounts', 'documents']);
 
-    // Earnings for finalized payroll runs (Approved, Paid, or Locked).
-    // Uses status rather than period_end so a manually-marked Paid payroll
-    // shows up immediately, even if its fortnight hasn't technically ended.
-    $pastEarnings = $employee->payrollItems()
-        ->with('payroll')
-        ->whereHas('payroll', function ($query) {
-            $query->whereIn('status', ['Approved', 'Paid', 'Locked']);
-        })
-        ->get()
-        ->sortByDesc(fn ($item) => $item->payroll->period_end)
-        ->values();
+        $pastEarnings = $employee->payrollItems()
+            ->with('payroll')
+            ->whereHas('payroll', function ($query) {
+                $query->whereIn('status', ['Approved', 'Paid', 'Locked']);
+            })
+            ->get()
+            ->sortByDesc(fn ($item) => $item->payroll->period_end)
+            ->values();
 
-    $expiringDocs = [];
-    if ($employee->employee_type === 'Expatriate') {
-        if ($employee->passport_expiry && $employee->passport_expiry <= now()->addDays(90)) {
-            $expiringDocs['passport'] = $employee->passport_expiry;
+        $expiringDocs = [];
+        if ($employee->employee_type === 'Expatriate') {
+            if ($employee->passport_expiry && $employee->passport_expiry <= now()->addDays(90)) {
+                $expiringDocs['passport'] = $employee->passport_expiry;
+            }
+            if ($employee->visa_expiry && $employee->visa_expiry <= now()->addDays(90)) {
+                $expiringDocs['visa'] = $employee->visa_expiry;
+            }
+            if ($employee->work_permit_expiry && $employee->work_permit_expiry <= now()->addDays(90)) {
+                $expiringDocs['work_permit'] = $employee->work_permit_expiry;
+            }
         }
-        if ($employee->visa_expiry && $employee->visa_expiry <= now()->addDays(90)) {
-            $expiringDocs['visa'] = $employee->visa_expiry;
-        }
-        if ($employee->work_permit_expiry && $employee->work_permit_expiry <= now()->addDays(90)) {
-            $expiringDocs['work_permit'] = $employee->work_permit_expiry;
-        }
-    }
 
-    return view('employees.show', compact('employee', 'expiringDocs', 'pastEarnings'));
+        return view('employees.show', compact('employee', 'expiringDocs', 'pastEarnings'));
     }
 
     // Show the form for editing the specified employee
@@ -304,14 +272,13 @@ class EmployeeController extends Controller
     {
         $user = auth()->user();
         
-        // Super Admin can edit any employee
         if (!$user->isSuperAdmin()) {
             if (!$user->canViewEmployee($employee)) {
                 abort(403, 'You are not authorized to edit this employee.');
             }
         }
         
-        $companyId = $this->getCompanyId(); // ✅ FIXED: Use helper method
+        $companyId = $this->getCompanyId();
         
         if ($user->isSuperAdmin()) {
             $companies = Company::where('is_active', true)->get();
@@ -327,7 +294,6 @@ class EmployeeController extends Controller
             $query->orderBy('created_at', 'desc');
         }]);
 
-        // Earnings for finalized payroll runs (Approved, Paid, or Locked)
         $pastEarnings = $employee->payrollItems()
             ->with('payroll')
             ->whereHas('payroll', function ($query) {
@@ -345,7 +311,6 @@ class EmployeeController extends Controller
     {
         $user = auth()->user();
         
-        // Super Admin can update any employee
         if (!$user->isSuperAdmin()) {
             if (!$user->canViewEmployee($employee)) {
                 abort(403, 'You are not authorized to update this employee.');
@@ -371,14 +336,15 @@ class EmployeeController extends Controller
         $data['full_name'] = $fullName;
         $data['position'] = trim($request->position);
         $data['position_id'] = null;
+        
+        // Ensure workshift is always passed into data array for update
+        $data['workshift'] = $request->input('workshift');
+        
         $data['allowance'] = $request->allowance ?? 0;
 
         $oldRate = $employee->hourly_rate;
         $newRate = $request->hourly_rate;
 
-        // fortnight_hours: '' means "no override, inherit company default" -> null.
-        // 'custom' means use the custom_fortnight_hours value. Anything else
-        // (84 or 144) is an explicit per-employee override.
         if ($request->fortnight_hours === 'custom') {
             $data['fortnight_hours'] = $request->filled('custom_fortnight_hours')
                 ? (int) $request->custom_fortnight_hours
@@ -389,8 +355,6 @@ class EmployeeController extends Controller
             $data['fortnight_hours'] = (int) $request->fortnight_hours;
         }
 
-        // Effective hours used for payroll math below: the saved override,
-        // or the employee's company default, or 84 as the final fallback.
         $fortnightHours = $data['fortnight_hours'] ?? ($employee->company?->regular_hours ?? 84);
         
         if ($request->filled('monthly_salary') && $request->monthly_salary > 0) {
@@ -472,7 +436,6 @@ class EmployeeController extends Controller
     {
         $user = auth()->user();
         
-        // Super Admin can delete any employee
         if (!$user->isSuperAdmin()) {
             if (!$user->canViewEmployee($employee)) {
                 abort(403, 'You are not authorized to delete this employee.');
@@ -511,7 +474,6 @@ class EmployeeController extends Controller
     {
         $user = auth()->user();
         
-        // Super Admin can upload documents for any employee
         if (!$user->isSuperAdmin()) {
             if (!$user->canViewEmployee($employee)) {
                 abort(403, 'You are not authorized to upload documents for this employee.');
@@ -551,7 +513,7 @@ class EmployeeController extends Controller
         }
     }
 
-    // Get expiring documents (for dashboard notifications)
+    // Get expiring documents
     public function getExpiringDocuments()
     {
         $user = auth()->user();
@@ -575,7 +537,6 @@ class EmployeeController extends Controller
     {
         $user = auth()->user();
         
-        // Super Admin can delete documents for any employee
         if (!$user->isSuperAdmin()) {
             if (!$user->canViewEmployee($employee)) {
                 abort(403, 'You are not authorized to delete documents for this employee.');
