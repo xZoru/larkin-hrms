@@ -553,6 +553,12 @@ public function summary(Request $request)
                 ->filter(function ($item) {
                     return (float) $item->hours_worked > 0;
                 })
+                ->sortBy(function ($item) {
+                    $employeeNumber = trim((string) ($item->employee?->employee_number ?? ''));
+                    $employeeGroup = $item->employee?->isExpatriate() ? '0' : '1';
+
+                    return $employeeGroup . '-' . ($employeeNumber === '' ? '~' : $employeeNumber);
+                }, SORT_NATURAL | SORT_FLAG_CASE)
                 ->values();
             
             // Add FN Rate to each item

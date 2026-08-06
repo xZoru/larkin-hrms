@@ -43,11 +43,14 @@ class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidt
             ->with('employee')
             ->get()
             // Payroll creation may group employees by type; the export is
-            // always presented in employee-number order instead.
+            // presented with expatriates first, then by employee number.
             ->sortBy(function ($item) {
                 $employeeNumber = trim((string) ($item->employee?->employee_number ?? ''));
+                $employeeGroup = !$item->employee
+                    ? '2'
+                    : ($item->employee->isExpatriate() ? '0' : '1');
 
-                return $employeeNumber === '' ? '~' : $employeeNumber;
+                return $employeeGroup . '-' . ($employeeNumber === '' ? '~' : $employeeNumber);
             }, SORT_NATURAL | SORT_FLAG_CASE)
             ->values();
         $this->company = $this->payroll->company;
