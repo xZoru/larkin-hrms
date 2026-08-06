@@ -659,7 +659,7 @@
                             </thead>
                             <tbody>
                                 @foreach($payrollItems as $item)
-                                <tr data-id="{{ $item->id }}" data-employee-type="{{ $item->employee->employee_type ?? 'National' }}">
+                                <tr data-id="{{ $item->id }}" data-employee-type="{{ $item->employee->employee_type ?? 'National' }}" data-has-nasfund="{{ $item->employee?->nasfund_number ? 'true' : 'false' }}">
                                     <input type="hidden" class="basic-pay-original" value="{{ $item->basic_pay }}">
                                     <td class="employee-cell">
                                         @if($item->employee)
@@ -746,21 +746,24 @@
                                             value="{{ number_format($item->gross_wage, 2, '.', '') }}"
                                             class="editable-input amount-gross"
                                             data-original="{{ $item->gross_wage }}"
-                                            id="gross_{{ $item->id }}">
+                                            id="gross_{{ $item->id }}"
+                                            readonly>
                                     </td>
                                     <td class="num-cell-sm">
                                         <input type="number" step="0.01" min="0" 
                                             name="items[{{ $item->id }}][tax]"
                                             value="{{ number_format($item->tax, 2, '.', '') }}"
                                             class="editable-input amount-negative"
-                                            data-original="{{ $item->tax }}">
+                                            data-original="{{ $item->tax }}"
+                                            readonly>
                                     </td>
                                     <td class="num-cell-sm">
                                         <input type="number" step="0.01" min="0" 
                                             name="items[{{ $item->id }}][nasfund_ee]"
                                             value="{{ number_format($item->nasfund_ee, 2, '.', '') }}"
                                             class="editable-input"
-                                            data-original="{{ $item->nasfund_ee }}">
+                                            data-original="{{ $item->nasfund_ee }}"
+                                            readonly>
                                     </td>
                                     <td class="num-cell-sm">
                                         <input type="number" step="0.01" min="0" 
@@ -946,7 +949,7 @@
         }
     }
 
-    function recalculateRow(input) {
+    function legacyRecalculateRow(input) {
         const row = input.closest('tr');
         if (!row) return;
         
@@ -1050,6 +1053,54 @@
         updateTotals();
     }
 
+    // Keep the preview aligned with the server-side calculation. The server
+    // recalculates these values again when saving, so calculated values cannot
+    // be changed by modifying the browser request.
+    function recalculateRow(input) {
+        const row = input.closest('tr');
+        if (!row) return;
+
+        const employeeType = row.dataset.employeeType || 'National';
+        const basicPay = parseFloat(row.querySelector('.basic-pay-original')?.value) || 0;
+        const overtimePay = parseFloat(row.querySelector('[name$="[overtime_pay]"]')?.value) || 0;
+        const sundayPay = parseFloat(row.querySelector('[name$="[sunday_pay]"]')?.value) || 0;
+        const holidayPay = parseFloat(row.querySelector('[name$="[holiday_pay]"]')?.value) || 0;
+        const leavePay = parseFloat(row.querySelector('[name$="[leave_pay]"]')?.value) || 0;
+        const otherEarnings = parseFloat(row.querySelector('[name$="[other_earnings]"]')?.value) || 0;
+        const ncsl = parseFloat(row.querySelector('[name$="[ncsl]"]')?.value) || 0;
+        const loan = parseFloat(row.querySelector('[name$="[loan_deduction]"]')?.value) || 0;
+        const otherDeductions = parseFloat(row.querySelector('[name$="[other_deductions]"]')?.value) || 0;
+
+        const earnings = basicPay + overtimePay + sundayPay + holidayPay + leavePay + otherEarnings;
+        const hasNasfund = row.dataset.hasNasfund === 'true';
+        const nasfund = hasNasfund ? earnings * 0.06 : 0;
+        const preTaxDeductions = nasfund + ncsl + loan + otherDeductions;
+        const taxBase = employeeType === 'Expatriate'
+            ? earnings - preTaxDeductions
+            : earnings;
+        const tax = calculateTax(taxBase, employeeType);
+        const gross = employeeType === 'Expatriate' ? earnings + tax : earnings;
+        const regularPay = employeeType === 'Expatriate' ? basicPay + tax : basicPay;
+        const net = gross - tax - preTaxDeductions;
+
+        const calculatedFields = [
+            ['[name$="[regular_pay]"]', regularPay],
+            ['[name$="[gross_wage]"]', gross],
+            ['[name$="[tax]"]', tax],
+            ['[name$="[nasfund_ee]"]', nasfund],
+            ['[name$="[net_pay]"]', net],
+        ];
+
+        calculatedFields.forEach(([selector, value]) => {
+            const field = row.querySelector(selector);
+            if (!field) return;
+            field.value = value.toFixed(2);
+            if (!field.readOnly && !field.disabled) markEdited(field);
+        });
+
+        updateTotals();
+    }
+
     function updateTotals() {
         let totalBasic = 0, totalRegular = 0, totalOvertime = 0, totalSunday = 0;
         let totalHoliday = 0, totalLeave = 0, totalOtherEarnings = 0, totalGross = 0;
@@ -1057,7 +1108,7 @@
         let totalOtherDeductions = 0, totalNet = 0;
         
         document.querySelectorAll('#payrollForm tbody tr').forEach(row => {
-            const basic = parseFloat(row.querySelector('[name*="regular_pay"]')?.value) || 0;
+            const basic = parseFloat(row.querySelector('[name*="basic_pay"]')?.value) || 0;
             const regular = parseFloat(row.querySelector('[name*="regular_pay"]')?.value) || 0;
             const overtime = parseFloat(row.querySelector('[name*="overtime_pay"]')?.value) || 0;
             const sunday = parseFloat(row.querySelector('[name*="sunday_pay"]')?.value) || 0;
