@@ -337,6 +337,10 @@ public function summaryBulkUpdate(Request $request)
         $request->validate([
             'fortnight' => 'required|string',
             'attendance' => 'nullable|array',
+            'summaries' => 'nullable|array',
+            'summaries.*.regular_hours' => 'nullable|numeric|min:0',
+            'summaries.*.overtime_hours' => 'nullable|numeric|min:0',
+            'summaries.*.sunday_hours' => 'nullable|numeric|min:0',
         ]);
 
         $user = auth()->user();
@@ -344,6 +348,7 @@ public function summaryBulkUpdate(Request $request)
         $allowedTypes = $user->getAllowedEmployeeTypes();
         $fortnight = $request->fortnight;
         $attendanceData = $request->attendance ?? [];
+        $summaryData = $request->input('summaries', []);
         $publicHolidays = $this->getPublicHolidays($companyId);
 
         $action = $request->input('action');
@@ -409,7 +414,10 @@ public function summaryBulkUpdate(Request $request)
                 ])->with('success', $message);
         }
 
-        $employeeIds = collect(array_keys($attendanceData))->map(fn ($id) => (int) $id);
+        $employeeIds = collect(array_merge(array_keys($attendanceData), array_keys($summaryData)))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
 
         $employees = Employee::where('company_id', $companyId)
             ->active()
@@ -421,8 +429,8 @@ public function summaryBulkUpdate(Request $request)
         $updatedEmployeeIds = collect();
         $skippedLocked = 0;
 
-        foreach ($attendanceData as $employeeId => $dailyRows) {
-            $employee = $employees->get((int) $employeeId);
+        foreach ($employees as $employee) {
+            $dailyRows = $attendanceData[$employee->id] ?? [];
 
             if (!$employee || !$user->canViewEmployee($employee)) {
                 continue;
@@ -469,7 +477,30 @@ public function summaryBulkUpdate(Request $request)
             }
 
             // Recalculate summary totals (REG, OT, Sun, Hol) for this employee
-            $this->updateSummary($employee->id, $fortnight);
+            $summary = $this->updateSummary($employee->id, $fortnight);
+
+            // REG, OT, and Sunday hours can be adjusted directly on the
+            // summary. Preserve the calculated holiday hours, then update the
+            // grand total to match the saved component hours.
+            $overrides = $summaryData[$employee->id] ?? [];
+            if (!empty($overrides)) {
+                $regularHours = array_key_exists('regular_hours', $overrides)
+                    ? (float) $overrides['regular_hours']
+                    : (float) $summary->regular_hours;
+                $overtimeHours = array_key_exists('overtime_hours', $overrides)
+                    ? (float) $overrides['overtime_hours']
+                    : (float) $summary->overtime_hours;
+                $sundayHours = array_key_exists('sunday_hours', $overrides)
+                    ? (float) $overrides['sunday_hours']
+                    : (float) $summary->sunday_hours;
+
+                $summary->update([
+                    'regular_hours' => $regularHours,
+                    'overtime_hours' => $overtimeHours,
+                    'sunday_hours' => $sundayHours,
+                    'total_hours' => $regularHours + $overtimeHours + $sundayHours + (float) $summary->holiday_hours,
+                ]);
+            }
             $updatedEmployeeIds->push($employee->id);
         }
 

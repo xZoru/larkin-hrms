@@ -281,6 +281,28 @@
         font-weight: 700;
         color: #475569;
     }
+    .summary-hours-input {
+        width: 100%;
+        min-width: 0;
+        padding: 4px 2px;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 4px;
+        background: white;
+        color: inherit;
+        font: inherit;
+        font-variant-numeric: tabular-nums;
+        text-align: center;
+    }
+    .summary-hours-input:focus {
+        border-color: #4f46e5;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    }
+    .summary-hours-input:disabled {
+        background: #f1f5f9;
+        color: #94a3b8;
+        cursor: not-allowed;
+    }
     
     /* Day Cells */
     .day-cell {
@@ -706,9 +728,36 @@
                                             </td>
 
                                             <!-- Summary Columns (REG, OT, Sun, Hol) -->
-                                            <td class="summary-col reg">{{ number_format($summary->regular_hours ?? 0, 2) }}</td>
-                                            <td class="summary-col ot">{{ number_format($summary->overtime_hours ?? 0, 2) }}</td>
-                                            <td class="summary-col sun">{{ number_format($summary->sunday_hours ?? 0, 2) }}</td>
+                                            <td class="summary-col reg">
+                                                <input type="number"
+                                                    name="summaries[{{ $employee->id }}][regular_hours]"
+                                                    value="{{ number_format($summary->regular_hours ?? 0, 2, '.', '') }}"
+                                                    class="summary-hours-input"
+                                                    step="0.01"
+                                                    min="0"
+                                                    title="Adjust regular hours"
+                                                    {{ $isLocked ? 'disabled' : '' }}>
+                                            </td>
+                                            <td class="summary-col ot">
+                                                <input type="number"
+                                                    name="summaries[{{ $employee->id }}][overtime_hours]"
+                                                    value="{{ number_format($summary->overtime_hours ?? 0, 2, '.', '') }}"
+                                                    class="summary-hours-input"
+                                                    step="0.01"
+                                                    min="0"
+                                                    title="Adjust overtime hours"
+                                                    {{ $isLocked ? 'disabled' : '' }}>
+                                            </td>
+                                            <td class="summary-col sun">
+                                                <input type="number"
+                                                    name="summaries[{{ $employee->id }}][sunday_hours]"
+                                                    value="{{ number_format($summary->sunday_hours ?? 0, 2, '.', '') }}"
+                                                    class="summary-hours-input"
+                                                    step="0.01"
+                                                    min="0"
+                                                    title="Adjust Sunday hours"
+                                                    {{ $isLocked ? 'disabled' : '' }}>
+                                            </td>
                                             <td class="summary-col hol">{{ number_format($summary->holiday_hours ?? 0, 2) }}</td>
 
                                             <!-- Day Cells -->
