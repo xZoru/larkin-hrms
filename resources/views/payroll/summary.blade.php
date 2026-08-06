@@ -1193,9 +1193,17 @@
         }
         
         const form = document.getElementById('payrollForm');
-        const formData = new FormData(form);
-        const editedNames = Array.from(editedFields.keys());
-        formData.append('_edited_fields', JSON.stringify(editedNames));
+        const formData = new FormData();
+        const fortnightInput = form.querySelector('[name="fortnight"]');
+
+        // Send only changed fields. Submitting every field in a large payroll
+        // can exceed PHP's input-variable limit and silently drop later rows.
+        formData.append('fortnight', fortnightInput.value);
+        editedFields.forEach((entry, fieldName) => {
+            if (entry.element) {
+                formData.append(fieldName, entry.element.value);
+            }
+        });
         
         const saveBtn = document.getElementById('saveAllBtn');
         saveBtn.disabled = true;
