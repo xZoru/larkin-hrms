@@ -64,7 +64,7 @@ class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidt
             'fn_rate' => 0, 'basic_pay' => 0, 'regular' => 0, 'over_time' => 0,
             'sunday_ot' => 0, 'holiday_ot' => 0, 'final_pay' => 0, 'other' => 0,
             'gross_total' => 0, 'fn_tax' => 0, 'npf' => 0, 'ncsl' => 0,
-            'cash_adv' => 0, 'net_pay' => 0,
+            'cash_adv' => 0, 'other_deductions' => 0, 'net_pay' => 0,
         ];
 
         foreach ($this->payrollItems as $item) {
@@ -95,6 +95,7 @@ class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidt
                 'npf' => (float) ($item->nasfund_ee ?? 0),
                 'ncsl' => 0,
                 'cash_adv' => (float) ($item->loan_deduction ?? 0),
+                'other_deductions' => (float) ($item->other_deductions ?? 0),
                 'net_pay' => (float) ($item->net_pay ?? 0),
             ];
 
@@ -124,6 +125,7 @@ class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidt
             'npf' => $totals['npf'],
             'ncsl' => $totals['ncsl'],
             'cash_adv' => $totals['cash_adv'],
+            'other_deductions' => $totals['other_deductions'],
             'net_pay' => $totals['net_pay'],
         ]);
 
@@ -155,8 +157,8 @@ class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidt
             'M' => 12,
             'N' => 10,
             'O' => 13,
-            'P' => 14,
-            'Q' => 4,
+            'P' => 13,
+            'Q' => 14,
             'R' => 4,
             'S' => 4,
             'T' => 18,
@@ -169,7 +171,7 @@ class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidt
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
-                $lastColumn = 'P';
+                $lastColumn = 'Q';
 
                 // Push the employee data (currently rows 1..dataRowCount+1) down to
                 // make room for the title / payroll-date / bank-summary / two-row
@@ -339,20 +341,20 @@ class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidt
                 $sheet->mergeCells("B{$headerRow1}:B{$headerRow2}");
                 $sheet->mergeCells("C{$headerRow1}:J{$headerRow1}");
                 $sheet->mergeCells("K{$headerRow1}:K{$headerRow2}");
-                $sheet->mergeCells("L{$headerRow1}:O{$headerRow1}");
-                $sheet->mergeCells("P{$headerRow1}:P{$headerRow2}");
+                $sheet->mergeCells("L{$headerRow1}:P{$headerRow1}");
+                $sheet->mergeCells("Q{$headerRow1}:Q{$headerRow2}");
 
                 $sheet->setCellValue("A{$headerRow1}", 'EMP. NO.');
                 $sheet->setCellValue("B{$headerRow1}", 'Employee Name');
                 $sheet->setCellValue("C{$headerRow1}", 'GROSS');
                 $sheet->setCellValue("K{$headerRow1}", 'Gross Total');
                 $sheet->setCellValue("L{$headerRow1}", 'DEDUCTIONS');
-                $sheet->setCellValue("P{$headerRow1}", 'Net Pay');
+                $sheet->setCellValue("Q{$headerRow1}", 'Net Pay');
 
                 $subHeaders = [
                     'C' => 'FN Rate', 'D' => 'Basic Pay', 'E' => 'Regular', 'F' => 'Over Time',
                     'G' => 'Sunday OT', 'H' => 'Holiday Pay', 'I' => 'Final Pay', 'J' => 'Other',
-                    'L' => 'FN Tax', 'M' => 'NPF (6%)', 'N' => 'NCSL', 'O' => 'Cash Adv',
+                    'L' => 'FN Tax', 'M' => 'NPF (6%)', 'N' => 'NCSL', 'O' => 'Cash Adv', 'P' => 'Others',
                 ];
                 foreach ($subHeaders as $col => $label) {
                     $sheet->setCellValue("{$col}{$headerRow2}", $label);
