@@ -39,7 +39,17 @@ class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidt
     protected function loadData()
     {
         $this->payroll = \App\Models\Payroll::with(['items.employee', 'company'])->findOrFail($this->payrollId);
-        $this->payrollItems = $this->payroll->items()->with('employee')->get();
+        $this->payrollItems = $this->payroll->items()
+            ->with('employee')
+            ->get()
+            // Payroll creation may group employees by type; the export is
+            // always presented in employee-number order instead.
+            ->sortBy(function ($item) {
+                $employeeNumber = trim((string) ($item->employee?->employee_number ?? ''));
+
+                return $employeeNumber === '' ? '~' : $employeeNumber;
+            }, SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
         $this->company = $this->payroll->company;
 
         // Add FN Rate to each item
