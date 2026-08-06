@@ -62,6 +62,10 @@ class PayrollController extends Controller
         $employees = Employee::where('company_id', $companyId)
             ->where('status', 'Active')
             ->whereIn('employee_type', $allowedTypes)
+            ->whereHas('attendanceSummaries', function ($query) use ($fortnight) {
+                $query->where('fortnight_number', $fortnight)
+                    ->where('total_hours', '>', 0);
+            })
             ->with(['attendanceSummaries' => function($query) use ($fortnight) {
                 $query->where('fortnight_number', $fortnight);
             }])
@@ -91,6 +95,25 @@ class PayrollController extends Controller
         $fortnight = $request->fortnight;
         $period = $this->getFortnightPeriod($fortnight);
 
+        $employees = Employee::where('company_id', $companyId)
+            ->whereIn('id', $request->employee_ids)
+            ->active()
+            ->whereIn('employee_type', $allowedTypes)
+            ->whereHas('attendanceSummaries', function ($query) use ($fortnight) {
+                $query->where('fortnight_number', $fortnight)
+                    ->where('total_hours', '>', 0);
+            })
+            ->with(['attendanceSummaries' => function($query) use ($fortnight) {
+                $query->where('fortnight_number', $fortnight);
+            }])
+            ->get();
+
+        if ($employees->isEmpty()) {
+            return back()
+                ->withInput()
+                ->withErrors(['employee_ids' => 'No selected employees have attendance for this fortnight.']);
+        }
+
         $payroll = Payroll::create([
             'company_id' => $companyId,
             'fortnight_number' => $fortnight,
@@ -100,15 +123,6 @@ class PayrollController extends Controller
             'status' => 'Draft',
             'created_by' => auth()->id(),
         ]);
-
-        $employees = Employee::where('company_id', $companyId)
-            ->whereIn('id', $request->employee_ids)
-            ->active()
-            ->whereIn('employee_type', $allowedTypes)
-            ->with(['attendanceSummaries' => function($query) use ($fortnight) {
-                $query->where('fortnight_number', $fortnight);
-            }])
-            ->get();
 
         $totalGross = 0;
         $totalTax = 0;
@@ -536,6 +550,9 @@ public function summary(Request $request)
                     return is_array($details)
                         && ($details['type'] ?? null) === 'manual_entry';
                 })
+                ->filter(function ($item) {
+                    return (float) $item->hours_worked > 0;
+                })
                 ->values();
             
             // Add FN Rate to each item
@@ -563,12 +580,12 @@ public function summary(Request $request)
                 'end' => $payroll->period_end,
             ];
             
-            $totalEmployees = $payroll->total_employees;
-            $totalGross = $payroll->total_gross;
-            $totalTax = $payroll->total_tax;
-            $totalNasfund = $payroll->total_nasfund_ee;
-            $totalLoanDeductions = $payroll->total_loan_deductions ?? 0;
-            $totalNet = $payroll->total_net;
+            $totalEmployees = $payrollItems->count();
+            $totalGross = $payrollItems->sum('gross_wage');
+            $totalTax = $payrollItems->sum('tax');
+            $totalNasfund = $payrollItems->sum('nasfund_ee');
+            $totalLoanDeductions = $payrollItems->sum('loan_deduction');
+            $totalNet = $payrollItems->sum('net_pay');
             $totalHours = $payrollItems->sum('hours_worked');
             $totalOvertimeHours = $payrollItems->sum('overtime_hours');
             $totalSundayHours = $payrollItems->sum('sunday_hours');
