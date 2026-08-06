@@ -130,6 +130,21 @@ class Employee extends Model
         return (int) ($this->fortnight_hours ?? ($this->company?->regular_hours ?? 84));
     }
 
+    /**
+     * Yellow Jacket, Wave, and Caroline's employees do not receive a Sunday
+     * premium. Their Sunday work counts toward the normal regular-hours cap,
+     * then becomes standard overtime once that cap has been reached.
+     */
+    public function isSundayOvertimeExempt(): bool
+    {
+        return in_array(strtoupper((string) ($this->company?->code ?? '')), [
+            'YJS-POM',
+            'YJS-LAE',
+            'WAVE',
+            'CARO',
+        ], true);
+    }
+
     // SOW: Employee belongs to Company
     public function company()
     {

@@ -371,6 +371,16 @@ class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidt
                 $sheet->getStyle("A{$firstDataRow}:{$lastColumn}{$lastDataRow}")
                     ->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('C2F9BF');
 
+                // Cash-paid employees are intentionally left white so they are
+                // distinct from the existing green bank-transfer rows.
+                foreach ($this->payrollItems->values() as $index => $item) {
+                    if (strtolower($item->employee->payment_method ?? '') === 'cash') {
+                        $rowNumber = $firstDataRow + $index;
+                        $sheet->getStyle("A{$rowNumber}:{$lastColumn}{$rowNumber}")
+                            ->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FFFFFF');
+                    }
+                }
+
                 $sheet->getStyle("C{$firstDataRow}:{$lastColumn}{$lastDataRow}")
                     ->getNumberFormat()->setFormatCode('#,##0.00');
 

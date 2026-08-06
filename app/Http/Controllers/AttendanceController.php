@@ -717,6 +717,7 @@ public function summaryBulkUpdate(Request $request)
         $regularHours = 0;
         $sundayHours = 0;
         $totalHours = 0;
+        $isSundayOvertimeExempt = $employee?->isSundayOvertimeExempt() ?? false;
 
         foreach ($logs as $log) {
             $hours = $log->hours_worked;
@@ -733,7 +734,7 @@ public function summaryBulkUpdate(Request $request)
             // the reduced 84/144-hour cap is exceeded. For expatriates,
             // $isExpatriate is true so is_holiday is simply ignored here since
             // holidayHours is forced to 0 above.
-            if ($log->is_sunday && !$log->is_holiday) {
+            if ($log->is_sunday && !$log->is_holiday && !$isSundayOvertimeExempt) {
                 $sundayHours += $hours;
             } else {
                 $regularHours += $hours;
