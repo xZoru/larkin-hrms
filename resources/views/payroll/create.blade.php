@@ -339,7 +339,7 @@
                                 $regularPay = round($regularHours * $calculationHourlyRate, 2);
                                 $overtimePay = round($overtimeHours * $calculationHourlyRate * 1.5, 2);
                                 $sundayPay = round($sundayHours * $calculationHourlyRate * 2, 2);
-                                $holidayPay = round($holidayHours * $calculationHourlyRate * 2, 2);
+                                $holidayPay = round($holidayHours * $calculationHourlyRate, 2);
                                 $allowance = $employee->allowance ?? 0;
                                 $grossPay = $regularPay + $overtimePay + $sundayPay + $holidayPay + $allowance;
                                 
