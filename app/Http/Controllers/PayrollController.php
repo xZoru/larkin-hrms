@@ -226,6 +226,23 @@ class PayrollController extends Controller
         $totalDeductions = $tax + $nasfundEE + $loanDeduction + $otherDeductions;
         $netPay = $grossPay - $totalDeductions;
 
+        $amounts = $this->calculatePayrollAmounts($employee, [
+            'basic_pay' => $basicPay,
+            'overtime_pay' => $overtimePay,
+            'sunday_pay' => $sundayPay,
+            'holiday_pay' => $holidayPay,
+            'allowance' => $allowance,
+            'loan_deduction' => $loanDeduction,
+        ]);
+        $regularPay = $amounts['regular_pay'];
+        $grossPay = $amounts['gross_wage'];
+        $tax = $amounts['tax'];
+        $nasfundEE = $amounts['nasfund_ee'];
+        $nasfundER = $amounts['nasfund_er'];
+        $otherDeductions = $amounts['other_deductions'];
+        $totalDeductions = $amounts['total_deductions'];
+        $netPay = $amounts['net_pay'];
+
         return [
             'regular_hours' => $regularHours,
             'overtime_hours' => $overtimeHours,
@@ -254,6 +271,55 @@ class PayrollController extends Controller
                 'company_name' => $employee->company->name ?? '',
                 'employee_type' => $employee->employee_type,
             ]
+        ];
+    }
+
+    /**
+     * Calculate payroll amounts from the employee's earnings and deductions.
+     * This is the single source of truth used when a payroll is created and
+     * when its summary is edited.
+     */
+    private function calculatePayrollAmounts(Employee $employee, array $values): array
+    {
+        $basicPay = (float) ($values['basic_pay'] ?? 0);
+        $overtimePay = (float) ($values['overtime_pay'] ?? 0);
+        $sundayPay = (float) ($values['sunday_pay'] ?? 0);
+        $holidayPay = (float) ($values['holiday_pay'] ?? 0);
+        $leavePay = (float) ($values['leave_pay'] ?? 0);
+        $allowance = (float) ($values['allowance'] ?? 0);
+        $loanDeduction = (float) ($values['loan_deduction'] ?? 0);
+        $otherDeductions = (float) ($values['other_deductions'] ?? 0);
+        $ncsl = (float) ($values['ncsl'] ?? 0);
+
+        $earnings = $basicPay + $overtimePay + $sundayPay + $holidayPay + $leavePay + $allowance;
+        $nasfundEE = $employee->nasfund_number ? round($earnings * 0.06, 2) : 0;
+        $nasfundER = $employee->nasfund_number ? round($earnings * 0.084, 2) : 0;
+        $preTaxDeductions = $nasfundEE + $ncsl + $loanDeduction + $otherDeductions;
+
+        if ($employee->employee_type === 'Expatriate') {
+            // Expatriate tax is employer-funded: calculate it from the
+            // intended net wage, then add it back to gross pay.
+            $tax = $this->calculateTaxOnNet($employee, $earnings - $preTaxDeductions);
+            $regularPay = $basicPay + $tax;
+            $grossWage = $earnings + $tax;
+        } else {
+            // National employees are taxed on all taxable earnings.
+            $tax = $this->calculateNationalTax($employee, $earnings);
+            $regularPay = $basicPay;
+            $grossWage = $earnings;
+        }
+
+        $totalDeductions = $tax + $preTaxDeductions;
+
+        return [
+            'regular_pay' => round($regularPay, 2),
+            'gross_wage' => round($grossWage, 2),
+            'tax' => round($tax, 2),
+            'nasfund_ee' => $nasfundEE,
+            'nasfund_er' => $nasfundER,
+            'other_deductions' => round($otherDeductions, 2),
+            'total_deductions' => round($totalDeductions, 2),
+            'net_pay' => round($grossWage - $totalDeductions, 2),
         ];
     }
 
@@ -329,9 +395,9 @@ class PayrollController extends Controller
         
         // Use your existing tax calculation methods
         if ($employeeType === 'Expatriate') {
-            $tax = $this->calculateTaxOnNet($grossPay);
+            $tax = $this->calculateTaxOnNet(null, $grossPay);
         } else {
-            $tax = $this->calculateTax($grossPay);
+            $tax = $this->calculateNationalTax(null, $grossPay);
         }
         
         $nasfund = $grossPay * 0.06;
@@ -610,35 +676,26 @@ public function summary(Request $request)
             // Don't allow updates to locked or approved payrolls
             if (in_array($payrollItem->payroll->status, ['Locked', 'Approved', 'Paid'])) continue;
 
-            $updateData = [];
-            
-            // Map the fields
-            $fieldMap = [
-                'regular_pay' => 'regular_pay',
-                'overtime_pay' => 'overtime_pay',
-                'sunday_pay' => 'sunday_pay',
-                'holiday_pay' => 'holiday_pay',
-                'leave_pay' => 'leave_pay',
-                'other_earnings' => 'allowance',
-                'gross_wage' => 'gross_wage',
-                'tax' => 'tax',
-                'nasfund_ee' => 'nasfund_ee',
-                'ncsl' => 'ncsl',
-                'loan_deduction' => 'loan_deduction',
-                'other_deductions' => 'other_deductions',
-                'net_pay' => 'net_pay',
-            ];
-            
-            foreach ($fieldMap as $requestField => $dbField) {
-                if (isset($data[$requestField])) {
-                    $updateData[$dbField] = round((float)$data[$requestField], 2);
-                }
-            }
+            $payrollItem->load('employee');
+            if (!$payrollItem->employee) continue;
 
-            if (!empty($updateData)) {
-                $payrollItem->update($updateData);
-                $updatedCount++;
-            }
+            // Gross, tax, NASFUND, and net pay are calculated fields. Never
+            // trust browser-submitted values for them.
+            $earningsAndDeductions = [
+                'basic_pay' => $payrollItem->basic_pay,
+                'overtime_pay' => $data['overtime_pay'] ?? $payrollItem->overtime_pay,
+                'sunday_pay' => $data['sunday_pay'] ?? $payrollItem->sunday_pay,
+                'holiday_pay' => $data['holiday_pay'] ?? $payrollItem->holiday_pay,
+                'leave_pay' => $data['leave_pay'] ?? $payrollItem->leave_pay,
+                'allowance' => $data['other_earnings'] ?? $payrollItem->allowance,
+                'ncsl' => $data['ncsl'] ?? $payrollItem->ncsl,
+                'loan_deduction' => $data['loan_deduction'] ?? $payrollItem->loan_deduction,
+                'other_deductions' => $data['other_deductions'] ?? $payrollItem->other_deductions,
+            ];
+            $amounts = $this->calculatePayrollAmounts($payrollItem->employee, $earningsAndDeductions);
+
+            $payrollItem->update(array_merge($earningsAndDeductions, $amounts));
+            $updatedCount++;
         }
 
         // Update payroll totals if any items were updated
@@ -667,39 +724,20 @@ public function summary(Request $request)
 
         $allowance = round((float) $request->allowance, 2);
         $employee = $payrollItem->employee;
-        $grossPayBeforeTax =
-            (float) $payrollItem->regular_pay +
-            (float) $payrollItem->overtime_pay +
-            (float) $payrollItem->sunday_pay +
-            (float) $payrollItem->holiday_pay +
-            $allowance;
-
-        $nasfundEE = $employee->nasfund_number ? round($grossPayBeforeTax * 0.06, 2) : 0;
-        $nasfundER = $employee->nasfund_number ? round($grossPayBeforeTax * 0.084, 2) : 0;
-        $loanDeduction = (float) ($payrollItem->loan_deduction ?? 0);
-        $otherDeductions = (float) ($payrollItem->other_deductions ?? 0);
-
-        if ($employee->employee_type === 'Expatriate') {
-            $provisionalNet = $grossPayBeforeTax - $nasfundEE - $loanDeduction - $otherDeductions;
-            $tax = $this->calculateTaxOnNet($employee, $provisionalNet);
-            $grossPay = $grossPayBeforeTax + $tax;
-        } else {
-            $tax = $this->calculateNationalTax($employee, $grossPayBeforeTax);
-            $grossPay = $grossPayBeforeTax;
-        }
-
-        $totalDeductions = $tax + $nasfundEE + $loanDeduction + $otherDeductions;
-        $netPay = $grossPay - $totalDeductions;
-
-        $payrollItem->update([
+        $earningsAndDeductions = [
+            'basic_pay' => $payrollItem->basic_pay,
+            'overtime_pay' => $payrollItem->overtime_pay,
+            'sunday_pay' => $payrollItem->sunday_pay,
+            'holiday_pay' => $payrollItem->holiday_pay,
+            'leave_pay' => $payrollItem->leave_pay,
             'allowance' => $allowance,
-            'gross_wage' => round($grossPay, 2),
-            'tax' => round($tax, 2),
-            'nasfund_ee' => $nasfundEE,
-            'nasfund_er' => $nasfundER,
-            'total_deductions' => round($totalDeductions, 2),
-            'net_pay' => round($netPay, 2),
-        ]);
+            'ncsl' => $payrollItem->ncsl,
+            'loan_deduction' => $payrollItem->loan_deduction,
+            'other_deductions' => $payrollItem->other_deductions,
+        ];
+        $amounts = $this->calculatePayrollAmounts($employee, $earningsAndDeductions);
+
+        $payrollItem->update(array_merge($earningsAndDeductions, $amounts));
 
         $this->syncPayrollTotals($payrollItem->payroll);
 
