@@ -290,13 +290,6 @@ class AttendanceController extends Controller
             ->orderBy('first_name')
             ->get();
 
-        // Summaries are persisted, while holidays can be added or changed
-        // later. Recalculate before display so the 84/144 cap and automatic
-        // holiday credits always reflect the current holiday configuration.
-        $employees->each(function (Employee $employee) use ($fortnight) {
-            $this->updateSummary($employee->id, $fortnight);
-        });
-
         $attendanceLogs = AttendanceLog::whereIn('employee_id', $employees->pluck('id'))
             ->where('fortnight_number', $fortnight)
             ->get()
@@ -337,6 +330,10 @@ public function summaryBulkUpdate(Request $request)
         $request->validate([
             'fortnight' => 'required|string',
             'attendance' => 'nullable|array',
+            'summaries' => 'nullable|array',
+            'summaries.*.regular_hours' => 'nullable|numeric|min:0',
+            'summaries.*.overtime_hours' => 'nullable|numeric|min:0',
+            'summaries.*.sunday_hours' => 'nullable|numeric|min:0',
         ]);
 
         $user = auth()->user();
@@ -344,12 +341,15 @@ public function summaryBulkUpdate(Request $request)
         $allowedTypes = $user->getAllowedEmployeeTypes();
         $fortnight = $request->fortnight;
         $attendanceData = $request->attendance ?? [];
+        $summaryData = $request->input('summaries', []);
         $publicHolidays = $this->getPublicHolidays($companyId);
 
         $action = $request->input('action');
-        $requiredPermission = $action === 'unlock'
-            ? 'unlock-attendance'
-            : 'save-attendance';
+        $requiredPermission = match ($action) {
+            'unlock' => 'unlock-attendance',
+            'lock_all' => 'lock-attendance',
+            default => 'save-attendance',
+        };
         if (!$this->hasAttendancePermission($user, $requiredPermission)) {
             return redirect()->back()->with('error', 'You do not have permission to perform this attendance action.');
         }
@@ -409,7 +409,43 @@ public function summaryBulkUpdate(Request $request)
                 ])->with('success', $message);
         }
 
-        $employeeIds = collect(array_keys($attendanceData))->map(fn ($id) => (int) $id);
+        if ($action === 'lock_all') {
+            $targetEmployeeIds = collect(array_merge(
+                array_keys($attendanceData),
+                array_keys($summaryData),
+                $request->input('employee_ids', [])
+            ))
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values();
+
+            $lockableEmployeeIds = Employee::where('company_id', $companyId)
+                ->active()
+                ->whereIn('employee_type', $allowedTypes)
+                ->whereIn('id', $targetEmployeeIds)
+                ->get()
+                ->filter(fn (Employee $employee) => $user->canViewEmployee($employee))
+                ->pluck('id');
+
+            $locked = AttendanceLog::whereIn('employee_id', $lockableEmployeeIds)
+                ->where('fortnight_number', $fortnight)
+                ->where('timesheet_status', '!=', 'Locked')
+                ->update([
+                    'timesheet_status' => 'Locked',
+                    'locked_at' => now(),
+                    'locked_by' => auth()->id(),
+                ]);
+
+            return redirect()->route('attendance.summary', [
+                'fortnight' => $fortnight,
+                'generated' => 1,
+            ])->with('success', "Locked {$locked} attendance record(s) for this fortnight.");
+        }
+
+        $employeeIds = collect(array_merge(array_keys($attendanceData), array_keys($summaryData)))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
 
         $employees = Employee::where('company_id', $companyId)
             ->active()
@@ -421,8 +457,8 @@ public function summaryBulkUpdate(Request $request)
         $updatedEmployeeIds = collect();
         $skippedLocked = 0;
 
-        foreach ($attendanceData as $employeeId => $dailyRows) {
-            $employee = $employees->get((int) $employeeId);
+        foreach ($employees as $employee) {
+            $dailyRows = $attendanceData[$employee->id] ?? [];
 
             if (!$employee || !$user->canViewEmployee($employee)) {
                 continue;
@@ -469,7 +505,27 @@ public function summaryBulkUpdate(Request $request)
             }
 
             // Recalculate summary totals (REG, OT, Sun, Hol) for this employee
-            $this->updateSummary($employee->id, $fortnight);
+            $summary = $this->updateSummary($employee->id, $fortnight);
+            $overrides = $summaryData[$employee->id] ?? [];
+
+            if (!empty($overrides)) {
+                $regularHours = array_key_exists('regular_hours', $overrides)
+                    ? (float) $overrides['regular_hours']
+                    : (float) $summary->regular_hours;
+                $overtimeHours = array_key_exists('overtime_hours', $overrides)
+                    ? (float) $overrides['overtime_hours']
+                    : (float) $summary->overtime_hours;
+                $sundayHours = array_key_exists('sunday_hours', $overrides)
+                    ? (float) $overrides['sunday_hours']
+                    : (float) $summary->sunday_hours;
+
+                $summary->update([
+                    'regular_hours' => $regularHours,
+                    'overtime_hours' => $overtimeHours,
+                    'sunday_hours' => $sundayHours,
+                    'total_hours' => $regularHours + $overtimeHours + $sundayHours + (float) $summary->holiday_hours,
+                ]);
+            }
             $updatedEmployeeIds->push($employee->id);
         }
 
