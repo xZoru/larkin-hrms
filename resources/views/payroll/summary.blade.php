@@ -645,7 +645,7 @@
                                     <th class="num-cell-sm text-right">Regular</th>
                                     <th class="num-cell-sm text-right">Over Time</th>
                                     <th class="num-cell-sm text-right">Sunday OT</th>
-                                    <th class="num-cell-sm text-right">Holiday OT</th>
+                                    <th class="num-cell-sm text-right">Holiday Pay</th>
                                     <th class="num-cell-sm text-right">PLP/ALP/FP</th>
                                     <th class="num-cell-sm text-right">Other</th>
                                     <th class="num-cell-sm text-right">Gross Total</th>

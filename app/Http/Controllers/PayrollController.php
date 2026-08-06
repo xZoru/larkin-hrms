@@ -184,7 +184,8 @@ class PayrollController extends Controller
         $basicPay = round($regularHours * $calculationHourlyRate, 2);
         $overtimePay = round($overtimeHours * $calculationHourlyRate * 1.5, 2);
         $sundayPay = round($sundayHours * $calculationHourlyRate * 2, 2);
-        $holidayPay = round($holidayHours * $calculationHourlyRate * 2, 2);
+        // Holiday credits are paid at the employee's standard hourly rate.
+        $holidayPay = round($holidayHours * $calculationHourlyRate, 2);
         $allowance = $employee->allowance ?? 0;
         
         $grossPayBeforeTax = $basicPay + $overtimePay + $sundayPay + $holidayPay + $allowance;

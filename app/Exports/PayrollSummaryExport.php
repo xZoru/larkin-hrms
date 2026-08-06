@@ -351,7 +351,7 @@ class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidt
 
                 $subHeaders = [
                     'C' => 'FN Rate', 'D' => 'Basic Pay', 'E' => 'Regular', 'F' => 'Over Time',
-                    'G' => 'Sunday OT', 'H' => 'Holiday OT', 'I' => 'Final Pay', 'J' => 'Other',
+                    'G' => 'Sunday OT', 'H' => 'Holiday Pay', 'I' => 'Final Pay', 'J' => 'Other',
                     'L' => 'FN Tax', 'M' => 'NPF (6%)', 'N' => 'NCSL', 'O' => 'Cash Adv',
                 ];
                 foreach ($subHeaders as $col => $label) {

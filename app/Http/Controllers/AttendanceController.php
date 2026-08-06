@@ -659,9 +659,16 @@ public function summaryBulkUpdate(Request $request)
                 ->pluck('date')
                 ->map(fn ($date) => $date->format('Y-m-d'));
 
+<<<<<<< HEAD
             // Credit a holiday only when the employee worked strictly before or
             // after that specific holiday. Work on the holiday date alone does
             // not create the automatic holiday credit.
+=======
+            // Credit a holiday only when the employee worked on the immediately
+            // preceding or following day. Work elsewhere in the fortnight (or
+            // on the holiday itself) does not create the automatic holiday
+            // credit.
+>>>>>>> testing
             // A holiday credit represents one standard scheduled day off.
             // YellowJacket Security's 144-hour national employees work
             // 12-hour shifts, so their holiday credit is 12 hours; everyone
@@ -670,7 +677,12 @@ public function summaryBulkUpdate(Request $request)
 
             $holidayHours = $holidayDates
                 ->filter(function ($holidayDate) use ($workedDates) {
-                    return $workedDates->contains(fn ($workedDate) => $workedDate < $holidayDate || $workedDate > $holidayDate);
+                    $holiday = Carbon::parse($holidayDate);
+                    $previousDay = $holiday->copy()->subDay()->format('Y-m-d');
+                    $nextDay = $holiday->copy()->addDay()->format('Y-m-d');
+
+                    return $workedDates->contains($previousDay)
+                        || $workedDates->contains($nextDay);
                 })
                 ->count() * $standardDayHours;
         }
