@@ -737,22 +737,34 @@
 
                                             <!-- Summary Columns (REG, OT, Sun, Hol) -->
                                             <td class="summary-col reg">
-                                                <input type="number" name="summaries[{{ $employee->id }}][regular_hours]"
-                                                    value="{{ number_format($summary->regular_hours ?? 0, 2, '.', '') }}" class="summary-hours-input"
-                                                    step="0.01" min="0" title="Adjust regular hours"
-                                                    data-summary-editable="{{ $isLocked ? 'false' : 'true' }}" disabled>
+                                                <input type="number"
+                                                    name="summaries[{{ $employee->id }}][regular_hours]"
+                                                    value="{{ number_format($summary->regular_hours ?? 0, 2, '.', '') }}"
+                                                    class="summary-hours-input"
+                                                    step="0.01"
+                                                    min="0"
+                                                    title="Adjust regular hours"
+                                                    {{ $isLocked ? 'disabled' : '' }}>
                                             </td>
                                             <td class="summary-col ot">
-                                                <input type="number" name="summaries[{{ $employee->id }}][overtime_hours]"
-                                                    value="{{ number_format($summary->overtime_hours ?? 0, 2, '.', '') }}" class="summary-hours-input"
-                                                    step="0.01" min="0" title="Adjust overtime hours"
-                                                    data-summary-editable="{{ $isLocked ? 'false' : 'true' }}" disabled>
+                                                <input type="number"
+                                                    name="summaries[{{ $employee->id }}][overtime_hours]"
+                                                    value="{{ number_format($summary->overtime_hours ?? 0, 2, '.', '') }}"
+                                                    class="summary-hours-input"
+                                                    step="0.01"
+                                                    min="0"
+                                                    title="Adjust overtime hours"
+                                                    {{ $isLocked ? 'disabled' : '' }}>
                                             </td>
                                             <td class="summary-col sun">
-                                                <input type="number" name="summaries[{{ $employee->id }}][sunday_hours]"
-                                                    value="{{ number_format($summary->sunday_hours ?? 0, 2, '.', '') }}" class="summary-hours-input"
-                                                    step="0.01" min="0" title="Adjust Sunday hours"
-                                                    data-summary-editable="{{ $isLocked ? 'false' : 'true' }}" disabled>
+                                                <input type="number"
+                                                    name="summaries[{{ $employee->id }}][sunday_hours]"
+                                                    value="{{ number_format($summary->sunday_hours ?? 0, 2, '.', '') }}"
+                                                    class="summary-hours-input"
+                                                    step="0.01"
+                                                    min="0"
+                                                    title="Adjust Sunday hours"
+                                                    {{ $isLocked ? 'disabled' : '' }}>
                                             </td>
                                             <td class="summary-col hol">{{ number_format($summary->holiday_hours ?? 0, 2) }}</td>
 

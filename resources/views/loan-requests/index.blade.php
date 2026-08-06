@@ -196,6 +196,13 @@
     .btn-action.view:hover {
         background: #e2e8f0;
     }
+    .btn-action.delete {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    .btn-action.delete:hover {
+        background: #fecaca;
+    }
     
     .btn-add-row {
         background: #4f46e5;
@@ -576,9 +583,13 @@
                                                 <i class="fas fa-times"></i>
                                             </button>
                                         @endif
-                                        <a href="{{ route('loan-requests.show', $loan) }}" class="btn-action view" title="View">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
+                                        <form action="{{ route('loan-requests.destroy', $loan) }}" method="POST" class="inline-block" onsubmit="return confirm('Are you sure you want to delete this loan request? This cannot be undone.');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn-action delete" title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
                                     </div>
                                 </td>
                             </tr>

@@ -409,39 +409,6 @@ public function summaryBulkUpdate(Request $request)
                 ])->with('success', $message);
         }
 
-        if ($action === 'lock_all') {
-            $targetEmployeeIds = collect(array_merge(
-                array_keys($attendanceData),
-                array_keys($summaryData),
-                $request->input('employee_ids', [])
-            ))
-                ->map(fn ($id) => (int) $id)
-                ->unique()
-                ->values();
-
-            $lockableEmployeeIds = Employee::where('company_id', $companyId)
-                ->active()
-                ->whereIn('employee_type', $allowedTypes)
-                ->whereIn('id', $targetEmployeeIds)
-                ->get()
-                ->filter(fn (Employee $employee) => $user->canViewEmployee($employee))
-                ->pluck('id');
-
-            $locked = AttendanceLog::whereIn('employee_id', $lockableEmployeeIds)
-                ->where('fortnight_number', $fortnight)
-                ->where('timesheet_status', '!=', 'Locked')
-                ->update([
-                    'timesheet_status' => 'Locked',
-                    'locked_at' => now(),
-                    'locked_by' => auth()->id(),
-                ]);
-
-            return redirect()->route('attendance.summary', [
-                'fortnight' => $fortnight,
-                'generated' => 1,
-            ])->with('success', "Locked {$locked} attendance record(s) for this fortnight.");
-        }
-
         $employeeIds = collect(array_merge(array_keys($attendanceData), array_keys($summaryData)))
             ->map(fn ($id) => (int) $id)
             ->unique()
@@ -506,8 +473,11 @@ public function summaryBulkUpdate(Request $request)
 
             // Recalculate summary totals (REG, OT, Sun, Hol) for this employee
             $summary = $this->updateSummary($employee->id, $fortnight);
-            $overrides = $summaryData[$employee->id] ?? [];
 
+            // REG, OT, and Sunday hours can be adjusted directly on the
+            // summary. Preserve the calculated holiday hours, then update the
+            // grand total to match the saved component hours.
+            $overrides = $summaryData[$employee->id] ?? [];
             if (!empty($overrides)) {
                 $regularHours = array_key_exists('regular_hours', $overrides)
                     ? (float) $overrides['regular_hours']
