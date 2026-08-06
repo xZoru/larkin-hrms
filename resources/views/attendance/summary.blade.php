@@ -744,7 +744,8 @@
                                                     step="0.01"
                                                     min="0"
                                                     title="Adjust regular hours"
-                                                    {{ $isLocked ? 'disabled' : '' }}>
+                                                    data-summary-editable="{{ $isLocked ? 'false' : 'true' }}"
+                                                    disabled>
                                             </td>
                                             <td class="summary-col ot">
                                                 <input type="number"
@@ -754,7 +755,8 @@
                                                     step="0.01"
                                                     min="0"
                                                     title="Adjust overtime hours"
-                                                    {{ $isLocked ? 'disabled' : '' }}>
+                                                    data-summary-editable="{{ $isLocked ? 'false' : 'true' }}"
+                                                    disabled>
                                             </td>
                                             <td class="summary-col sun">
                                                 <input type="number"
@@ -764,7 +766,8 @@
                                                     step="0.01"
                                                     min="0"
                                                     title="Adjust Sunday hours"
-                                                    {{ $isLocked ? 'disabled' : '' }}>
+                                                    data-summary-editable="{{ $isLocked ? 'false' : 'true' }}"
+                                                    disabled>
                                             </td>
                                             <td class="summary-col hol">{{ number_format($summary->holiday_hours ?? 0, 2) }}</td>
 
