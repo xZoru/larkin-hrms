@@ -569,20 +569,9 @@ public function saveAllEntries(Request $request)
             // ✅ Create manual entry WITHOUT creating employee
             $bsb = str_replace('-', '', $entry['bsb']);
             
-            // Check if manual entry already exists
-            $existingManual = PayrollItem::where('payroll_id', $payroll->id)
-                ->whereNull('employee_id')
-                ->where('details->type', 'manual_entry')
-                ->where('details->account_number', $entry['account_number'])
-                ->where('details->bsb', $bsb)
-                ->first();
-            
-            if ($existingManual) {
-                $existingManual->net_pay = $entry['amount'];
-                $existingManual->gross_wage = $entry['amount'];
-                $existingManual->save();
-            } else {
-                PayrollItem::create([
+            // Each requested payment remains a distinct row. Multiple manual
+            // payments may legitimately use the same bank account.
+            PayrollItem::create([
                     'payroll_id' => $payroll->id,
                     'employee_id' => null,  // ✅ This will now work
                     'gross_wage' => $entry['amount'],
@@ -616,9 +605,8 @@ public function saveAllEntries(Request $request)
                         'is_manual_entry' => true,
                         'employee_id' => null
                     ]
-                ]);
-                $manualCount++;
-            }
+            ]);
+            $manualCount++;
         }
         }
 
