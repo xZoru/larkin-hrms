@@ -19,6 +19,7 @@ use App\Http\Controllers\BackupController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\EmployeeSettlementPaymentController;
 use App\Http\Middleware\SuperAdminMiddleware;
 
 // OR if using the route group:
@@ -111,6 +112,12 @@ Route::middleware(['auth'])->group(function () {
     ->name('payroll.export-excel');
     Route::post('/payroll/{payroll}/update-status', [PayrollController::class, 'updateStatus'])
     ->name('payroll.update-status');
+
+    Route::get('/final-pay', [EmployeeSettlementPaymentController::class, 'createFinalPay'])->name('settlements.final-pay.create');
+    Route::post('/final-pay', [EmployeeSettlementPaymentController::class, 'storeFinalPay'])->name('settlements.final-pay.store');
+    Route::get('/annual-leave-pay', [EmployeeSettlementPaymentController::class, 'createAnnualLeavePay'])->name('settlements.annual-leave-pay.create');
+    Route::post('/annual-leave-pay', [EmployeeSettlementPaymentController::class, 'storeAnnualLeavePay'])->name('settlements.annual-leave-pay.store');
+    Route::get('/settlement-payments/{payment}/download', [EmployeeSettlementPaymentController::class, 'download'])->name('settlements.download');
 });
 
 // ============ LOAN REQUESTS ROUTES ============
