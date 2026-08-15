@@ -290,13 +290,6 @@ class AttendanceController extends Controller
             ->orderBy('first_name')
             ->get();
 
-        // Summaries are persisted, while holidays can be added or changed
-        // later. Recalculate before display so the 84/144 cap and automatic
-        // holiday credits always reflect the current holiday configuration.
-        $employees->each(function (Employee $employee) use ($fortnight) {
-            $this->updateSummary($employee->id, $fortnight);
-        });
-
         $attendanceLogs = AttendanceLog::whereIn('employee_id', $employees->pluck('id'))
             ->where('fortnight_number', $fortnight)
             ->get()
@@ -352,9 +345,11 @@ public function summaryBulkUpdate(Request $request)
         $publicHolidays = $this->getPublicHolidays($companyId);
 
         $action = $request->input('action');
-        $requiredPermission = $action === 'unlock'
-            ? 'unlock-attendance'
-            : 'save-attendance';
+        $requiredPermission = match ($action) {
+            'unlock' => 'unlock-attendance',
+            'lock_all' => 'lock-attendance',
+            default => 'save-attendance',
+        };
         if (!$this->hasAttendancePermission($user, $requiredPermission)) {
             return redirect()->back()->with('error', 'You do not have permission to perform this attendance action.');
         }

@@ -14,10 +14,7 @@ class DatabaseSeeder extends Seeder
             UsersSeeder::class,
             DepartmentsSeeder::class,
             TaxTableSeeder::class,
-            MemoTemplateSeeder::class,
             EmployeeSeeder::class,        
-            LeaveRecordSeeder::class,     
-            LoanSeeder::class,            
             NotificationSeeder::class,
             PermissionSeeder::class,
         ]);

@@ -662,9 +662,16 @@
                             <button type="button" class="btn-export" onclick="exportTable()" style="background: #0ea5e9;">
                                 <i class="fas fa-file-csv"></i> Export CSV
                             </button>
+                            <button type="button" id="editSummaryFields" class="btn-export" style="background: #4f46e5;">
+                                <i class="fas fa-pen"></i> Edit Fields
+                            </button>
                             <!-- Submit Button Linked explicitly using form attribute -->
                             <button type="submit" form="summaryForm" class="btn-save">
                                 <i class="fas fa-save"></i> Save Changes
+                            </button>
+                            <button type="submit" form="summaryForm" name="action" value="lock_all" class="btn-save" style="background: #dc2626;"
+                                onclick="return confirm('Save any pending changes first. Lock every timesheet shown for this fortnight? This prevents all further edits until each timesheet is unlocked.');">
+                                <i class="fas fa-lock"></i> Lock Everything
                             </button>
                         </div>
                     </div>
@@ -712,9 +719,10 @@
                                                 'Locked' => 'status-locked',
                                             ][$status] ?? 'status-draft';
                                         @endphp
-                                        <tr>
+                                        <tr data-locked="{{ $isLocked ? 'true' : 'false' }}">
                                             <!-- Employee Number -->
                                             <td class="employee-cell">
+                                                <input type="hidden" name="employee_ids[]" value="{{ $employee->id }}">
                                                 {{ $employee->employee_number }}
                                                 <span class="status-badge {{ $statusClass }}">
                                                     @if($status === 'Locked') 🔒 @endif
@@ -736,7 +744,8 @@
                                                     step="0.01"
                                                     min="0"
                                                     title="Adjust regular hours"
-                                                    {{ $isLocked ? 'disabled' : '' }}>
+                                                    data-summary-editable="{{ $isLocked ? 'false' : 'true' }}"
+                                                    disabled>
                                             </td>
                                             <td class="summary-col ot">
                                                 <input type="number"
@@ -746,7 +755,8 @@
                                                     step="0.01"
                                                     min="0"
                                                     title="Adjust overtime hours"
-                                                    {{ $isLocked ? 'disabled' : '' }}>
+                                                    data-summary-editable="{{ $isLocked ? 'false' : 'true' }}"
+                                                    disabled>
                                             </td>
                                             <td class="summary-col sun">
                                                 <input type="number"
@@ -756,7 +766,8 @@
                                                     step="0.01"
                                                     min="0"
                                                     title="Adjust Sunday hours"
-                                                    {{ $isLocked ? 'disabled' : '' }}>
+                                                    data-summary-editable="{{ $isLocked ? 'false' : 'true' }}"
+                                                    disabled>
                                             </td>
                                             <td class="summary-col hol">{{ number_format($summary->holiday_hours ?? 0, 2) }}</td>
 
@@ -779,7 +790,8 @@
                                                         max="24"
                                                         placeholder=""
                                                         title="Enter hours for {{ $date->format('d/m/y') }}"
-                                                        {{ $isLocked ? 'disabled' : '' }}>
+                                                        data-summary-editable="{{ $isLocked ? 'false' : 'true' }}"
+                                                        disabled>
                                                     <input type="hidden" 
                                                         name="attendance[{{ $employee->id }}][{{ $dateKey }}][type]" 
                                                         value="{{ $log ? $log->attendance_type : 'Work' }}">
@@ -794,7 +806,7 @@
                         <!-- Info Box -->
                         <div class="info-box">
                             <i class="fas fa-info-circle"></i>
-                            <span>Edit hours directly in the grid. Locked timesheets are read-only.</span>
+                            <span>Select Edit Fields to change hours. Locked timesheets always remain read-only.</span>
                         </div>
                     @else
                         <!-- Empty State -->
@@ -869,6 +881,24 @@
 
     // Auto-submit on fortnight change
     document.addEventListener('DOMContentLoaded', function() {
+        const editButton = document.getElementById('editSummaryFields');
+        if (editButton) {
+            let editing = false;
+
+            editButton.addEventListener('click', function() {
+                editing = !editing;
+
+                document.querySelectorAll('[data-summary-editable="true"]').forEach(function(input) {
+                    input.disabled = !editing;
+                });
+
+                editButton.innerHTML = editing
+                    ? '<i class="fas fa-lock-open"></i> Fields Enabled'
+                    : '<i class="fas fa-pen"></i> Edit Fields';
+                editButton.style.background = editing ? '#16a34a' : '#4f46e5';
+            });
+        }
+
         document.getElementById('fortnight')?.addEventListener('change', function() {
             this.closest('form').submit();
         });
