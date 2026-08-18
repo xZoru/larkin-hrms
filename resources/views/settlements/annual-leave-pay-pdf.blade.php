@@ -14,7 +14,7 @@ body { font-family: Arial, sans-serif; font-size: 12px; line-height: 1.3; }
 .total { border-top: 1px solid #222; font-size: 15px; font-weight: bold; } .signature { margin-top: 28px; }
 .issued { text-align: center; } .issuer-position { margin-left: 100px; font-style: italic; } .signature-row { margin: 16px 0 0 20px; }
 .line { display: inline-block; width: 170px; text-align: center; border-bottom: 1px solid #222; }
-.line-wrap { display: inline-block; text-align: center; } .line-name { display: block; margin-top: 2px; }
+.received-name { display: inline-block; width: 170px; margin-left: 92px; text-align: center; }
 </style></head><body>
 <table class="copies"><tr>@for($copy = 0; $copy < 2; $copy++)<td>
     <div class="header">@if($company?->logo_data)<img class="logo" src="{{ $company->logo_data }}">@endif<div class="right">{{ now()->format('F d, Y') }}</div></div>
@@ -28,5 +28,5 @@ body { font-family: Arial, sans-serif; font-size: 12px; line-height: 1.3; }
         <tr><td class="label">Annual Leave Pay:</td><td class="value">{{ number_format($payment->amount, 2) }}</td></tr>
     </table>
     <div class="calculation">Calculation:<table class="calc"><tr><td class="operator"></td><td class="figure">{{ number_format($payment->hourly_rate, 2) }}</td><td class="description">Hourly rate</td></tr><tr><td class="operator">x</td><td class="figure">{{ number_format($payment->hours_per_week, 2) }}</td><td class="description">Hours per week</td></tr><tr><td class="operator">x</td><td class="figure">{{ number_format($payment->leave_weeks, 2) }}</td><td class="description">Annual Leave in Weeks</td></tr><tr><td class="operator">x</td><td class="figure total">{{ number_format($payment->service_fraction * 100, 2) }}%</td><td class="description">Days of Service / 1 Yr</td></tr><tr><td class="operator"></td><td class="figure total">K {{ number_format($payment->amount, 2) }}</td><td class="description"></td></tr></table></div>
-    <div class="signature"><div class="issued"><b>Issued by:</b> <span class="name">{{ strtoupper($payment->issuer_name) }}</span><br><span class="issuer-position">{{ $payment->issuer_position }}</span></div><div class="signature-row"><b>Received by:</b> <span class="line-wrap"><span class="line">&nbsp;</span><span class="line-name">{{ $payment->employee->full_name }}</span></span></div><div class="signature-row"><b>Date:</b> <span class="line">&nbsp;</span></div></div>
+    <div class="signature"><div class="issued"><b>Issued by:</b> <span class="name">{{ strtoupper($payment->issuer_name) }}</span><br><span class="issuer-position">{{ $payment->issuer_position }}</span></div><div class="signature-row"><b>Received by:</b> <span class="line">&nbsp;</span><br><span class="received-name">{{ $payment->employee->full_name }}</span></div><div class="signature-row"><b>Date:</b> <span class="line">&nbsp;</span></div></div>
 </td>@endfor</tr></table></body></html>
