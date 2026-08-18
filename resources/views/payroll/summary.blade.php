@@ -612,6 +612,10 @@
                                 </option>
                             @endforeach
                         </select>
+                        <select id="branch_selector" class="fortnight-selector">
+                            <option value="">All Branches / Sites</option>
+                            @foreach($branches as $branch)<option value="{{ $branch->id }}" {{ request('branch_id') == $branch->id ? 'selected' : '' }}>{{ $branch->name }}</option>@endforeach
+                        </select>
                     </div>
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
                         <button type="button" onclick="resetChanges()" class="btn-reset">
@@ -1290,6 +1294,17 @@
                 }
                 const url = new URL(window.location.href);
                 url.searchParams.set('fortnight', this.value);
+                window.location.href = url.toString();
+            });
+        }
+
+        const branchSelector = document.getElementById('branch_selector');
+        if (branchSelector) {
+            branchSelector.addEventListener('change', function() {
+                if (editedFields.size > 0 && !confirm('You have unsaved changes. Are you sure you want to leave?')) return;
+                const url = new URL(window.location.href);
+                if (this.value) url.searchParams.set('branch_id', this.value);
+                else url.searchParams.delete('branch_id');
                 window.location.href = url.toString();
             });
         }

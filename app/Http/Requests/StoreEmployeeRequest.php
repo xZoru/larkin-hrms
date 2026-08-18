@@ -20,6 +20,7 @@ class StoreEmployeeRequest extends FormRequest
             'middle_name' => 'nullable|string|max:255',
             'extension_name' => 'nullable|string|max:255',
             'company_id' => 'required|exists:companies,id',
+            'branch_id' => 'nullable|exists:branches,id',
             'department_name' => 'required|string|max:255',
             'employee_number' => [
                 'nullable',

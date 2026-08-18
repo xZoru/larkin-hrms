@@ -20,6 +20,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\EmployeeSettlementPaymentController;
+use App\Http\Controllers\BranchController;
 use App\Http\Middleware\SuperAdminMiddleware;
 
 // OR if using the route group:
@@ -67,6 +68,9 @@ Route::prefix('aba')->name('aba.')->middleware(['auth'])->group(function () {
 Route::middleware(['auth', 'company.access'])->group(function () {
     Route::get('employees/{employee}/photo', [EmployeeController::class, 'photo'])->name('employees.photo');
     Route::resource('employees', EmployeeController::class);
+    Route::get('employees/{employee}/assignments/create', [EmployeeController::class, 'createAssignment'])->name('employees.assignments.create');
+    Route::post('employees/{employee}/assignments', [EmployeeController::class, 'storeAssignment'])->name('employees.assignments.store');
+    Route::delete('employees/{employee}/assignments/{assignment}', [EmployeeController::class, 'destroyAssignment'])->name('employees.assignments.destroy');
     Route::post('employees/{employee}/documents', [EmployeeController::class, 'uploadDocument'])->name('employees.upload-document');
     Route::get('employees/expiring-documents', [EmployeeController::class, 'getExpiringDocuments'])->name('employees.expiring-documents');
     Route::delete('employees/{employee}/documents/{document}', [EmployeeController::class, 'destroyDocument'])
@@ -92,6 +96,12 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/attendance/{log}', [AttendanceController::class, 'destroy'])->name('attendance.destroy');
     Route::get('/employees/{employee}/attendance', [AttendanceController::class, 'show'])->name('employees.attendance');
     Route::get('/attendance/export', [AttendanceController::class, 'export'])->name('attendance.export');
+});
+
+Route::middleware(['auth', 'company.access'])->prefix('branches')->name('branches.')->group(function () {
+    Route::get('/', [BranchController::class, 'index'])->name('index');
+    Route::post('/', [BranchController::class, 'store'])->name('store');
+    Route::delete('/{branch}', [BranchController::class, 'destroy'])->name('destroy');
 });
 
 // ============ PAYROLL ROUTES ============

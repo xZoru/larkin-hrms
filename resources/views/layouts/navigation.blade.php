@@ -34,6 +34,9 @@
                         <span>User Management</span>
                     </a>
                     @endif
+                    <a href="{{ route('branches.index') }}" class="sidebar-link submenu-link {{ request()->routeIs('branches.*') ? 'active-sub' : '' }}">
+                        <i class="fas fa-map-marker-alt"></i><span>Branches & Outstations</span>
+                    </a>
 
                     @can('view-company-bank-details')
                     <a href="{{ route('company-bank-details.index') }}" class="sidebar-link submenu-link {{ request()->routeIs('company-bank-details.*') ? 'active-sub' : '' }}">

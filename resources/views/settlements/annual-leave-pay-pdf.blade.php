@@ -1,11 +1,11 @@
 <!doctype html>
 <html><head><style>
-@page { margin: 13mm 10mm; }
-html, body { margin: 0; padding: 0; }
+@page { size: A4 portrait; margin: 45pt 48pt 25pt 68pt; }
+html, body { height: 100%; margin: 0; padding: 0; }
 body { font-family: Arial, sans-serif; font-size: 12px; line-height: 1.3; }
-.copies { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.copies td { width: 50%; vertical-align: top; border: 1.5px solid #000; padding: 16px; }
-.header { height: 65px; } .logo { max-width: 165px; max-height: 50px; } .right { text-align: right; }
+.copies { width: 100%; height: 100%; border-collapse: collapse; table-layout: fixed; }
+.copies td { width: 50%; vertical-align: top; border: 1px solid #222; padding: 17pt; }
+.header { height: 65px; } .logo { display: block; max-width: 120pt; max-height: 38pt; } .right { margin-top: 8pt; text-align: right; }
 .name, .amount { font-weight: bold; }
 .employee-details { margin: 0 0 0 30px; border-collapse: collapse; line-height: 1.25; }
 .employee-details td { border: 0; padding: 0; } .employee-details .label { width: 118px; } .employee-details .value { font-weight: bold; }
@@ -17,10 +17,10 @@ body { font-family: Arial, sans-serif; font-size: 12px; line-height: 1.3; }
 .signature-table td { border: 0; padding: 6px 0; vertical-align: top; }
 .sig-label { text-align: right; white-space: nowrap; }
 .sig-label span { font-weight: bold; margin-right: 10px; }
-.sig-value { text-align: left; }
-.issuer-position { font-style: italic; margin-left: 90px; display: inline-block; }
+.sig-value { margin-left: 50px; }
+.issuer-position { font-style: italic; margin-left: 50px; display: inline-block; }
 .line { display: inline-block; width: 170px; text-align: center; border-bottom: 1px solid #222; }
-.received-name { display: inline-block; margin-left: 90px; }
+.received-name { display: inline-block; margin-left: 50px; }
 </style></head><body>
 <table class="copies"><tr>@for($copy = 0; $copy < 2; $copy++)<td>
     <div class="header">@if($company?->logo_data)<img class="logo" src="{{ $company->logo_data }}">@endif<div class="right">{{ now()->format('F d, Y') }}</div></div>

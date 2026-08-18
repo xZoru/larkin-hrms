@@ -6,10 +6,13 @@ use App\Models\Employee;
 use App\Models\Company;
 use App\Models\Department;
 use App\Models\BankAccount;
+use App\Models\Branch;
+use App\Models\EmployeeAssignment;
 use App\Http\Requests\StoreEmployeeRequest;
 use App\Http\Requests\UpdateEmployeeRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class EmployeeController extends Controller
 {
@@ -41,7 +44,7 @@ class EmployeeController extends Controller
         $companyId = $this->getCompanyId();
         $allowedTypes = $user->getAllowedEmployeeTypes();
 
-        $query = Employee::with(['company', 'department']);
+        $query = Employee::with(['company', 'department', 'assignments.branch']);
 
         $query->where('company_id', $companyId);
 
@@ -58,6 +61,18 @@ class EmployeeController extends Controller
             ->when($request->department, function($query) use ($request) {
                 return $query->where('department_id', $request->department);
             })
+            ->when($request->branch_id === 'unassigned', function ($query) {
+                $today = now()->toDateString();
+                return $query->whereDoesntHave('assignments', function ($assignment) use ($today) {
+                    $assignment->whereDate('from_date', '<=', $today)
+                        ->where(function ($dates) use ($today) {
+                            $dates->whereNull('to_date')->orWhereDate('to_date', '>=', $today);
+                        });
+                });
+            })
+            ->when($request->branch_id && $request->branch_id !== 'unassigned', function($query) use ($request) {
+                return $query->atBranch($request->branch_id);
+            })
             ->when($request->employee_type, function($query) use ($request) {
                 return $query->where('employee_type', $request->employee_type);
             })
@@ -73,7 +88,8 @@ class EmployeeController extends Controller
 
         $positions = $this->getPositionSuggestions($companyId);
 
-        return view('employees.index', compact('employees', 'positions'));
+        $branches = Branch::where('company_id', $companyId)->where('is_active', true)->orderBy('name')->get();
+        return view('employees.index', compact('employees', 'positions', 'branches'));
     }
 
     // Show the form for creating a new employee
@@ -93,13 +109,16 @@ class EmployeeController extends Controller
         
         $positions = $this->getPositionSuggestions($user->isSuperAdmin() ? null : $companyId);
 
-        return view('employees.create', compact('companies', 'departments', 'positions'));
+        $branches = Branch::whereIn('company_id', $companies->pluck('id'))->where('is_active', true)->orderBy('name')->get();
+        return view('employees.create', compact('companies', 'departments', 'positions', 'branches'));
     }
 
     // Store a newly created employee
     public function store(StoreEmployeeRequest $request)
     {
         $data = $request->validated();
+        $branchId = $data['branch_id'] ?? null;
+        unset($data['branch_id']);
 
         $data['first_name'] = $request->first_name;
         $data['middle_name'] = $request->middle_name;
@@ -194,7 +213,19 @@ class EmployeeController extends Controller
             $data['payment_method'] = 'Cash';
         }
 
-        $employee = Employee::create($data);
+        $employee = DB::transaction(function () use ($data, $branchId, $request) {
+            if ($branchId) {
+                abort_unless(Branch::whereKey($branchId)->where('company_id', $data['company_id'])->exists(), 422, 'The selected location does not belong to this company.');
+            }
+            $employee = Employee::create($data);
+            if ($branchId) {
+                EmployeeAssignment::create([
+                    'employee_id' => $employee->id, 'branch_id' => $branchId,
+                    'from_date' => $request->joining_date, 'assigned_by' => auth()->id(),
+                ]);
+            }
+            return $employee;
+        });
 
         if ($request->input('bank_toggle') == 'on') {
             if ($request->has('bank_accounts')) {
@@ -240,7 +271,7 @@ class EmployeeController extends Controller
             }
         }
 
-        $employee->load(['company', 'department', 'position', 'bankAccounts', 'documents']);
+        $employee->load(['company', 'department', 'position', 'bankAccounts', 'documents', 'assignments.branch']);
 
         $pastEarnings = $employee->payrollItems()
             ->with('payroll')
@@ -265,6 +296,43 @@ class EmployeeController extends Controller
         }
 
         return view('employees.show', compact('employee', 'expiringDocs', 'pastEarnings'));
+    }
+
+    public function createAssignment(Employee $employee)
+    {
+        abort_unless($employee->company_id === $this->getCompanyId() || auth()->user()->isSuperAdmin(), 403);
+        $branches = Branch::where('company_id', $employee->company_id)->where('is_active', true)->orderBy('name')->get();
+        return view('employees.assignment', compact('employee', 'branches'));
+    }
+
+    public function storeAssignment(Request $request, Employee $employee)
+    {
+        abort_unless($employee->company_id === $this->getCompanyId() || auth()->user()->isSuperAdmin(), 403);
+        $data = $request->validate([
+            'branch_id' => 'required|exists:branches,id', 'from_date' => 'required|date',
+            'to_date' => 'nullable|date|after_or_equal:from_date|required_if:is_temporary,1', 'is_temporary' => 'boolean', 'notes' => 'nullable|string|max:255',
+        ]);
+        abort_unless(Branch::whereKey($data['branch_id'])->where('company_id', $employee->company_id)->exists(), 422);
+        DB::transaction(function () use ($data, $employee, $request) {
+            // A new ongoing assignment supersedes any prior ongoing assignment from its start date.
+            if (empty($data['to_date'])) {
+                $employee->assignments()->whereNull('to_date')->whereDate('from_date', '<=', $data['from_date'])
+                    ->update(['to_date' => \Carbon\Carbon::parse($data['from_date'])->subDay()->toDateString()]);
+            }
+            EmployeeAssignment::create($data + ['employee_id' => $employee->id, 'assigned_by' => auth()->id(), 'is_temporary' => $request->boolean('is_temporary')]);
+        });
+        return redirect()->route('employees.show', $employee)->with('success', 'Employee assignment recorded successfully.');
+    }
+
+    public function destroyAssignment(Employee $employee, EmployeeAssignment $assignment)
+    {
+        abort_unless($assignment->employee_id === $employee->id, 404);
+        abort_unless($employee->company_id === $this->getCompanyId() || auth()->user()->isSuperAdmin(), 403);
+
+        $assignment->delete();
+
+        return redirect()->route('employees.show', $employee)
+            ->with('success', 'Employee assignment removed successfully.');
     }
 
     // Show the form for editing the specified employee

@@ -80,7 +80,7 @@ class EmployeeSettlementPaymentController extends Controller
         $view = $payment->type === 'final_pay' ? 'settlements.final-pay-pdf' : 'settlements.annual-leave-pay-pdf';
 
         return Pdf::loadView($view, compact('payment', 'company'))
-            ->setPaper('a4')
+            ->setPaper('a4', 'portrait')
             ->download($payment->type . '-' . $payment->employee->employee_number . '.pdf');
     }
 

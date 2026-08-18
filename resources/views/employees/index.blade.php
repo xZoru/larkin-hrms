@@ -327,6 +327,14 @@
                     @endforeach
                 </select>
 
+                <select name="branch_id" class="filter-select" style="min-width: 150px;">
+                    <option value="">All Branches / Sites</option>
+                    <option value="unassigned" {{ request('branch_id') === 'unassigned' ? 'selected' : '' }}>Main Office / Unassigned</option>
+                    @foreach($branches as $branch)
+                        <option value="{{ $branch->id }}" {{ request('branch_id') == $branch->id ? 'selected' : '' }}>{{ $branch->name }}</option>
+                    @endforeach
+                </select>
+
                 <select name="position" class="filter-select" style="min-width: 130px;">
                     <option value="">All Positions</option>
                     @foreach($positions as $position)
@@ -370,6 +378,7 @@
                             <th>Position</th>
                             <th>Workshift</th>
                             <th>Department</th>
+                            <th>Current Location</th>
                             <th class="text-center">Status</th>
                             <th class="text-right">Hourly Rate</th>
                             <th class="text-center">Allowance</th>
@@ -422,6 +431,7 @@
                                 <div style="font-size: 9px; color: #9ca3af;">{{ $shiftTime }}</div>
                             </td>
                             <td style="font-size: 12px;">{{ $employee->department->name ?? 'N/A' }}</td>
+                            <td style="font-size: 12px;">{{ optional($employee->assignmentOn())->branch->name ?? 'Main Office' }}</td>
                             <td class="text-center">
                                 <span class="badge-status {{ $employee->status == 'Active' ? 'active' : 'inactive' }}">
                                     {{ $employee->status ?? 'Active' }}

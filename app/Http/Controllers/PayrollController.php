@@ -8,6 +8,7 @@ use App\Models\PayrollItem;
 use App\Models\AttendanceSummary;
 use App\Models\Loan;
 use App\Models\TaxTable;
+use App\Models\Branch;
 use App\Exports\PayrollSummaryExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -51,6 +52,7 @@ class PayrollController extends Controller
         
         $fortnight = $request->fortnight ?? $this->getCurrentFortnight();
         $period = $this->getFortnightPeriod($fortnight);
+        $branches = Branch::where('company_id', $companyId)->where('is_active', true)->orderBy('name')->get();
 
         $allFortnights = $this->getAllFortnights();
         
@@ -62,6 +64,7 @@ class PayrollController extends Controller
         $employees = Employee::where('company_id', $companyId)
             ->where('status', 'Active')
             ->whereIn('employee_type', $allowedTypes)
+            ->when($request->branch_id, fn ($query) => $query->atBranch($request->branch_id, $period['end']))
             ->with(['attendanceSummaries' => function($query) use ($fortnight) {
                 $query->where('fortnight_number', $fortnight);
             }])
@@ -73,7 +76,7 @@ class PayrollController extends Controller
             ->with('employee')
             ->get();
 
-        return view('payroll.create', compact('employees', 'fortnight', 'period', 'allFortnights', 'fortnightPeriods', 'activeLoans'));
+        return view('payroll.create', compact('employees', 'fortnight', 'period', 'allFortnights', 'fortnightPeriods', 'activeLoans', 'branches'));
     }
 
     // ============ STORE PAYROLL ============
@@ -83,6 +86,7 @@ class PayrollController extends Controller
             'fortnight' => 'required|string',
             'employee_ids' => 'required|array|min:1',
             'employee_ids.*' => 'exists:employees,id',
+            'branch_id' => 'nullable|exists:branches,id',
         ]);
 
         $user = auth()->user();
@@ -105,6 +109,7 @@ class PayrollController extends Controller
             ->whereIn('id', $request->employee_ids)
             ->active()
             ->whereIn('employee_type', $allowedTypes)
+            ->when($request->branch_id, fn ($query) => $query->atBranch($request->branch_id, $period['end']))
             ->with(['attendanceSummaries' => function($query) use ($fortnight) {
                 $query->where('fortnight_number', $fortnight);
             }])
@@ -481,6 +486,7 @@ public function summary(Request $request)
     $user = auth()->user();
     $companyId = $user->getCurrentCompanyId();
     $allowedTypes = $user->getAllowedEmployeeTypes();
+    $branches = Branch::where('company_id', $companyId)->where('is_active', true)->orderBy('name')->get();
     
     $fortnights = Payroll::where('company_id', $companyId)
         ->distinct()
@@ -537,6 +543,13 @@ public function summary(Request $request)
                         && ($details['type'] ?? null) === 'manual_entry';
                 })
                 ->values();
+
+            if ($request->filled('branch_id')) {
+                $branchId = (int) $request->branch_id;
+                $payrollItems = $payrollItems->filter(function ($item) use ($branchId, $payroll) {
+                    return $item->employee && $item->employee->assignmentOn($payroll->period_end)?->branch_id === $branchId;
+                })->values();
+            }
             
             // Add FN Rate to each item
             $payrollItems->each(function ($item) {
@@ -563,12 +576,12 @@ public function summary(Request $request)
                 'end' => $payroll->period_end,
             ];
             
-            $totalEmployees = $payroll->total_employees;
-            $totalGross = $payroll->total_gross;
-            $totalTax = $payroll->total_tax;
-            $totalNasfund = $payroll->total_nasfund_ee;
-            $totalLoanDeductions = $payroll->total_loan_deductions ?? 0;
-            $totalNet = $payroll->total_net;
+            $totalEmployees = $payrollItems->count();
+            $totalGross = $payrollItems->sum('gross_wage');
+            $totalTax = $payrollItems->sum('tax');
+            $totalNasfund = $payrollItems->sum('nasfund_ee');
+            $totalLoanDeductions = $payrollItems->sum('loan_deduction');
+            $totalNet = $payrollItems->sum('net_pay');
             $totalHours = $payrollItems->sum('hours_worked');
             $totalOvertimeHours = $payrollItems->sum('overtime_hours');
             $totalSundayHours = $payrollItems->sum('sunday_hours');
@@ -633,6 +646,7 @@ public function summary(Request $request)
         'totalBasic',
         'totalRegular',
         'employees',
+        'branches',
         'taxTables' //  ADDED THIS
     ));
 }

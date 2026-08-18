@@ -325,6 +325,20 @@
 
     <!-- 6. Payroll Information -->
     <div class="card shadow-sm border-0 mb-3">
+        <div class="card-header bg-light border-bottom d-flex justify-content-between align-items-center">
+            <h6 class="mb-0 fw-bold"><i class="fas fa-map-marker-alt me-2"></i>Branch / Outstation Assignment History</h6>
+            <a href="{{ route('employees.assignments.create', $employee) }}" class="btn btn-sm btn-primary">Assign / Transfer</a>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-sm mb-0"><thead class="bg-light"><tr><th>Location</th><th>Period</th><th>Type</th><th>Notes</th><th></th></tr></thead><tbody>
+                @forelse($employee->assignments as $assignment)<tr><td>{{ $assignment->branch->name }}</td><td>{{ $assignment->from_date->format('d M Y') }} – {{ $assignment->to_date?->format('d M Y') ?? 'Ongoing' }}</td><td>{{ $assignment->is_temporary ? 'Temporary' : 'Regular' }}</td><td>{{ $assignment->notes ?: '—' }}</td><td class="text-end"><form method="POST" action="{{ route('employees.assignments.destroy', [$employee, $assignment]) }}" onsubmit="return confirm('Remove this assignment record? This cannot be undone.')">@csrf @method('DELETE')<button type="submit" class="btn btn-sm btn-outline-danger">Remove</button></form></td></tr>
+                @empty<tr><td colspan="5" class="text-center text-muted py-3">No branch/outstation assignment recorded.</td></tr>@endforelse
+            </tbody></table>
+        </div>
+    </div>
+
+    <!-- 6. Payroll Information -->
+    <div class="card shadow-sm border-0 mb-3">
         <div class="card-header bg-light border-bottom">
             <h6 class="mb-0 fw-bold"><i class="fas fa-wallet me-2"></i>Payroll Information</h6>
         </div>
