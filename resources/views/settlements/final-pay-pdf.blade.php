@@ -1,12 +1,12 @@
 <!doctype html>
 <html><head><style>
-@page { margin: 18mm 12mm; }
-body { font-family: Arial, sans-serif; font-size: 10px; }
+@page { margin: 13mm 10mm; }
+body { font-family: Arial, sans-serif; font-size: 12px; line-height: 1.3; }
 .copies { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.copies td { width: 50%; vertical-align: top; border: 1px solid #222; padding: 14px; }
-.header { height: 55px; } .logo { max-width: 145px; max-height: 42px; } .right { text-align: right; }
-.name, .amount { font-weight: bold; } .calculation { margin: 24px 0 18px; } .calc td { border: 0; padding: 2px; width: auto; }
-.total { border-top: 1px solid #222; font-size: 14px; font-weight: bold; } .signature { margin-top: 24px; }
+.copies td { width: 50%; vertical-align: top; border: 1px solid #222; padding: 16px; }
+.header { height: 65px; } .logo { max-width: 165px; max-height: 50px; } .right { text-align: right; }
+.name, .amount { font-weight: bold; } .calculation { margin: 28px 0 22px; } .calc td { border: 0; padding: 2px; width: auto; }
+.total { border-top: 1px solid #222; font-size: 15px; font-weight: bold; } .signature { margin-top: 28px; }
 .line { display: inline-block; width: 150px; text-align: center; border-bottom: 1px solid #222; }
 </style></head><body>
 <table class="copies"><tr>@for($copy = 0; $copy < 2; $copy++)<td>

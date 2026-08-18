@@ -32,7 +32,10 @@ class EmployeeSettlementPaymentController extends Controller
         $start = Carbon::parse($data['commenced_at']);
         $end = Carbon::parse($data['ended_at']);
         $days = $start->diffInDays($end);
-        $months = round($days / 30.333333, 2);
+        // Final-pay service months are truncated (not rounded) to two decimals.
+        // For example, 322 service days equals 10.615... months and is paid as
+        // 10.61 months, not 10.62.
+        $months = floor(($days / 30.333333) * 100) / 100;
         $amount = round(1.5 * $data['hours_per_day'] * $data['hourly_rate'] * $months, 2);
 
         $payment = EmployeeSettlementPayment::create(array_merge($data, [

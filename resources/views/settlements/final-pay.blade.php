@@ -19,7 +19,7 @@
 </div>
 <script>
 const employee = document.getElementById('employee_id'), start = document.getElementById('commenced_at'), end = document.getElementById('ended_at'), rate = document.getElementById('hourly_rate'), hours = document.getElementById('hours_per_day');
-function calculate(){ const days=(new Date(end.value)-new Date(start.value))/86400000, months=Math.max(0,days/30.333333), amount=1.5*(+hours.value||0)*(+rate.value||0)*months; document.getElementById('service_months').value=months.toFixed(2); document.getElementById('amount').value='K '+amount.toFixed(2); }
+function calculate(){ const days=(new Date(end.value)-new Date(start.value))/86400000, rawMonths=Math.max(0,days/30.333333), months=Math.floor(rawMonths*100)/100, amount=1.5*(+hours.value||0)*(+rate.value||0)*months; document.getElementById('service_months').value=months.toFixed(2); document.getElementById('amount').value='K '+amount.toFixed(2); }
 employee.addEventListener('change',()=>{const option=employee.selectedOptions[0]; start.value=option.dataset.start||''; rate.value=option.dataset.rate||0; calculate();}); [start,end,rate,hours].forEach(el=>el.addEventListener('input',calculate));
 </script>
 @endsection
