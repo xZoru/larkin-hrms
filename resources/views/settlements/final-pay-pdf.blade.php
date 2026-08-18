@@ -1,6 +1,7 @@
 <!doctype html>
 <html><head><style>
 @page { margin: 13mm 10mm; }
+html, body { margin: 0; padding: 0; }
 body { font-family: Arial, sans-serif; font-size: 12px; line-height: 1.3; }
 .copies { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .copies td { width: 50%; vertical-align: top; border: 1px solid #222; padding: 16px; }
