@@ -4,7 +4,7 @@
 html, body { margin: 0; padding: 0; }
 body { font-family: Arial, sans-serif; font-size: 12px; line-height: 1.3; }
 .copies { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.copies td { width: 50%; vertical-align: top; border: 1px solid #222; padding: 16px; }
+.copies td { width: 50%; vertical-align: top; border: 1.5px solid #000; padding: 16px; }
 .header { height: 65px; } .logo { max-width: 165px; max-height: 50px; } .right { text-align: right; }
 .name, .amount { font-weight: bold; }
 .employee-details { margin: 0 0 0 30px; border-collapse: collapse; line-height: 1.25; }
