@@ -462,6 +462,17 @@ public function summaryBulkUpdate(Request $request)
             }
 
             foreach ($dailyRows as $dateKey => $data) {
+                // The attendance summary keeps its hourly inputs disabled until
+                // “Edit Fields” is selected. Disabled inputs are not submitted
+                // by the browser, while the accompanying hidden attendance type
+                // is still submitted. Treating a missing hours key as zero here
+                // used to overwrite the saved timesheet whenever the form was
+                // submitted without editing the day cells (for example after
+                // generating a payroll). Preserve the existing log instead.
+                if (! array_key_exists('hours', $data)) {
+                    continue;
+                }
+
                 $type = $data['type'] ?? 'Work';
                 $hoursInput = $data['hours'] ?? null;
 
