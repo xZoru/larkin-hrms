@@ -735,9 +735,9 @@
                                     <td class="num-cell-sm">
                                         <input type="number" step="0.01" min="0" 
                                             name="items[{{ $item->id }}][leave_pay]"
-                                            value="0.00"
+                                            value="{{ number_format($item->leave_pay, 2, '.', '') }}"
                                             class="editable-input amount-positive"
-                                            data-original="0">
+                                            data-original="{{ $item->leave_pay }}">
                                     </td>
                                     <td class="num-cell-sm">
                                         <input type="number" step="0.01" min="0" 
@@ -775,9 +775,9 @@
                                     <td class="num-cell-sm">
                                         <input type="number" step="0.01" min="0" 
                                             name="items[{{ $item->id }}][ncsl]"
-                                            value="0.00"
+                                            value="{{ number_format($item->ncsl, 2, '.', '') }}"
                                             class="editable-input amount-negative"
-                                            data-original="0">
+                                            data-original="{{ $item->ncsl }}">
                                     </td>
                                     <td class="num-cell-sm">
                                         <input type="number" step="0.01" min="0" 
