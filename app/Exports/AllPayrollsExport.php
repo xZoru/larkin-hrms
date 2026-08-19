@@ -42,7 +42,7 @@ class AllPayrollsExport implements FromCollection, WithColumnWidths, WithEvents,
         foreach ($payrolls as $payroll) {
             $baseRow = $rows->count() + 1;
             $items = $payroll->items;
-            $branchCount = $items->map(fn ($item) => $item->employee?->branchNameOn($payroll->period_end) ?? 'Unassigned')->unique()->count();
+            $branchCount = $items->map(fn ($item) => $item->employee?->branchNameOn($payroll->period_end) ?? 'POM')->unique()->count();
 
             // Reserve the seven-row header block used by the single-payrun export.
             for ($row = 0; $row < 7; $row++) {

@@ -49,7 +49,7 @@ class PayrollController extends Controller
         $user = auth()->user();
         $companyId = $user->getCurrentCompanyId();
         
-        $payrolls = Payroll::with(['company', 'createdBy'])
+        $payrolls = Payroll::with(['company', 'branch', 'createdBy'])
             ->where('company_id', $companyId)
             ->when($request->filled('fortnight'), function ($query) use ($request) {
                 $query->where('fortnight_number', $request->string('fortnight')->toString());
@@ -153,6 +153,7 @@ class PayrollController extends Controller
 
         $payroll = Payroll::create([
             'company_id' => $companyId,
+            'branch_id' => $request->branch_id === 'unassigned' ? null : $request->branch_id,
             'fortnight_number' => $fortnight,
             'period_start' => $period['start'],
             'period_end' => $period['end'],

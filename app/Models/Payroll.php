@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Payroll extends Model
 {
@@ -11,6 +12,7 @@ class Payroll extends Model
 
     protected $fillable = [
         'company_id',
+        'branch_id',
         'fortnight_number',
         'period_start',
         'period_end',
@@ -42,6 +44,23 @@ class Payroll extends Model
     public function company()
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
+    /** Human-readable code, with POM reserved for Main Office payruns. */
+    public function getDisplayCodeAttribute(): string
+    {
+        $companyCode = Str::before($this->company?->code ?? 'LKP', '-') ?: 'LKP';
+        $branchName = $this->branch?->name;
+        $locationCode = $branchName
+            ? Str::upper(Str::substr(preg_replace('/[^A-Za-z]/', '', $branchName), 0, 3))
+            : 'POM';
+
+        return sprintf('P-%s-%s-%05d', $companyCode, $locationCode ?: 'BRN', $this->id);
     }
 
     public function items()

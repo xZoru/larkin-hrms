@@ -381,7 +381,7 @@
                         @forelse($payrolls as $payroll)
                         <tr>
                             <td>
-                                <div class="payroll-code">P-{{ $payroll->company->code ?? 'LKP' }}-{{ str_pad($payroll->id, 5, '0', STR_PAD_LEFT) }}</div>
+                                <div class="payroll-code">{{ $payroll->display_code }}</div>
                                 <div class="date-created">{{ $payroll->created_at->format('d/m/y H:i') }}</div>
                             </td>
                             <td class="fortnight">{{ $payroll->fortnight_number }}</td>
