@@ -282,10 +282,24 @@ class AttendanceController extends Controller
             $fortnightPeriods[$fn] = $this->getFortnightPeriod($fn);
         }
 
+        $branches = Branch::where('company_id', $companyId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
         $employees = Employee::where('company_id', $companyId)
             ->where('status', 'Active')
             ->whereIn('employee_type', $allowedTypes)
             ->when($request->branch_id, fn ($query) => $query->atBranch($request->branch_id, $period['end']))
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $search = trim($request->search);
+
+                $query->where(function ($query) use ($search) {
+                    $query->where('employee_number', 'like', "%{$search}%")
+                        ->orWhere('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%");
+                });
+            })
             ->whereHas('attendanceLogs', function ($query) use ($fortnight) {
                 $query->where('fortnight_number', $fortnight)
                     ->where('hours_worked', '>', 0);
@@ -326,7 +340,8 @@ class AttendanceController extends Controller
             'fortnights',
             'fortnightPeriods',
             'generated',
-            'holidayDates'
+            'holidayDates',
+            'branches'
         ));
     }
 
@@ -903,6 +918,16 @@ public function summaryBulkUpdate(Request $request)
         $employees = Employee::where('company_id', $companyId)
             ->where('status', 'Active')
             ->whereIn('employee_type', $allowedTypes)
+            ->when($request->branch_id, fn ($query) => $query->atBranch($request->branch_id, $period['end']))
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $search = trim($request->search);
+
+                $query->where(function ($query) use ($search) {
+                    $query->where('employee_number', 'like', "%{$search}%")
+                        ->orWhere('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%");
+                });
+            })
             ->whereHas('attendanceLogs', function ($query) use ($fortnight) {
                 $query->where('fortnight_number', $fortnight)
                     ->where('hours_worked', '>', 0);

@@ -163,4 +163,31 @@ class Loan extends Model
 
         return $payment;
     }
+
+    /**
+     * Restore the stored balance fields from the payment ledger.
+     *
+     * This is used when a draft payroll is deleted and its automatic loan
+     * payments are removed. Keeping the ledger as the source of truth also
+     * preserves any valid manual or earlier payroll payments.
+     */
+    public function recalculatePaymentBalance(): void
+    {
+        $totalPaid = min(
+            (float) $this->amount,
+            (float) $this->payments()->sum('amount')
+        );
+        $remainingBalance = max(0, (float) $this->amount - $totalPaid);
+
+        $this->update([
+            'total_paid' => $totalPaid,
+            'remaining_balance' => $remainingBalance,
+            'payments_made' => $this->payments()->count(),
+            // Only a payment can move a released loan to Completed. If the
+            // deleted draft payment reopens it, it must be deductible again.
+            'status' => $remainingBalance > 0 && $this->status === 'Completed'
+                ? 'Released'
+                : $this->status,
+        ]);
+    }
 }

@@ -110,6 +110,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/payroll/create', [PayrollController::class, 'create'])->name('payroll.create');
     Route::post('/payroll', [PayrollController::class, 'store'])->name('payroll.store');
     Route::get('/payroll/summary', [PayrollController::class, 'summary'])->name('payroll.summary');
+    Route::get('/payroll/export-all-excel', [PayrollController::class, 'exportAllExcel'])->name('payroll.export-all-excel');
     Route::patch('/payroll-items/{payrollItem}/allowance', [PayrollController::class, 'updateAllowance'])->name('payroll-items.allowance.update');
     Route::post('/payroll/{payroll}/approve', [PayrollController::class, 'approve'])->name('payroll.approve');
     Route::get('/payroll/{payroll}/export-aba', [PayrollController::class, 'exportABA'])->name('payroll.export-aba');

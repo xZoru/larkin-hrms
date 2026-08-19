@@ -10,8 +10,10 @@ use App\Models\Loan;
 use App\Models\TaxTable;
 use App\Models\Branch;
 use App\Exports\PayrollSummaryExport;
+use App\Exports\AllPayrollsExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Services\ABAGeneratorService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -26,12 +28,33 @@ class PayrollController extends Controller
         $user = auth()->user();
         $companyId = $user->getCurrentCompanyId();
         
-        $payrolls = Payroll::where('company_id', $companyId)
+        $payrolls = Payroll::with(['company', 'createdBy'])
+            ->where('company_id', $companyId)
+            ->when($request->filled('fortnight'), function ($query) use ($request) {
+                $query->where('fortnight_number', $request->string('fortnight')->toString());
+            })
+            ->when($request->filled('status'), function ($query) use ($request) {
+                $query->where('status', $request->string('status')->toString());
+            })
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $search = trim($request->string('search')->toString());
+                $query->where(function ($query) use ($search) {
+                    $query->where('fortnight_number', 'like', "%{$search}%");
+
+                    // The displayed payroll code ends with its database ID,
+                    // e.g. P-LKP-00042, so allow searching by that code too.
+                    if (preg_match('/(\d+)$/', $search, $matches)) {
+                        $query->orWhere('id', (int) $matches[1]);
+                    }
+                });
+            })
             ->orderBy('period_start', 'desc')
-            ->paginate(20);
+            ->paginate(20)
+            ->withQueryString();
 
         $fortnights = Payroll::where('company_id', $companyId)
             ->distinct()
+            ->orderByDesc('fortnight_number')
             ->pluck('fortnight_number')
             ->toArray();
         
@@ -1028,6 +1051,27 @@ public function printSigning($payrollId)
         );
     }
 
+    public function exportAllExcel(Request $request)
+    {
+        $companyId = auth()->user()->getCurrentCompanyId();
+        $fortnight = trim($request->string('fortnight')->toString());
+
+        if ($fortnight === '') {
+            return redirect()->route('payroll.index')
+                ->with('error', 'Select a fortnight before downloading payruns.');
+        }
+
+        if (!Payroll::where('company_id', $companyId)->where('fortnight_number', $fortnight)->exists()) {
+            return redirect()->route('payroll.index')
+                ->with('error', "There are no payruns available for fortnight {$fortnight}.");
+        }
+
+        return Excel::download(
+            new AllPayrollsExport($companyId, $fortnight),
+            'payruns_FN' . $fortnight . '_' . now()->format('Y-m-d') . '.xlsx'
+        );
+    }
+
         public function destroy(Payroll $payroll)
     {
         $user = auth()->user();
@@ -1044,11 +1088,29 @@ public function printSigning($payrollId)
                 ->with('error', 'Only draft payrolls can be deleted.');
         }
         
-        // Delete all payroll items first (cascade will handle this if set)
-        $payroll->items()->delete();
-        
-        // Delete the payroll
-        $payroll->delete();
+        DB::transaction(function () use ($payroll) {
+            // Loan deductions are recorded while the payroll is generated. A
+            // draft payroll has not been paid, so remove its payment records
+            // before deleting it and restore each affected loan from its
+            // remaining payment history.
+            $loanIds = $payroll->loanPayments()
+                ->pluck('loan_id')
+                ->unique();
+
+            Loan::whereKey($loanIds)
+                ->lockForUpdate()
+                ->get()
+                ->each(function (Loan $loan) use ($payroll) {
+                    $loan->payments()
+                        ->where('payroll_id', $payroll->id)
+                        ->delete();
+
+                    $loan->recalculatePaymentBalance();
+                });
+
+            $payroll->items()->delete();
+            $payroll->delete();
+        });
         
         return redirect()->route('payroll.index')
             ->with('success', 'Payroll deleted successfully.');

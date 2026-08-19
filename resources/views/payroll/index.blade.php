@@ -308,7 +308,10 @@
                         <span class="value">{{ $payrolls->where('status', 'Approved')->count() }} Approved</span>
                     </div>
                 </div>
-                <div class="mt-2 sm:mt-0">
+                <div class="mt-2 sm:mt-0 flex items-center gap-2">
+                    <a href="{{ route('payroll.export-all-excel', ['fortnight' => request('fortnight')]) }}" class="btn-create" style="background: #15803d;">
+                        <i class="fas fa-download"></i> Download Filtered Payruns
+                    </a>
                     <a href="{{ route('payroll.create') }}" class="btn-create">
                         + Create Payroll
                     </a>
@@ -327,7 +330,7 @@
                             @php
                                 $period = $fortnightPeriods[$fn] ?? null;
                             @endphp
-                            <option value="{{ $fn }}">
+                            <option value="{{ $fn }}" @selected(request('fortnight') == $fn)>
                                 {{ $fn }}
                                 @if($period)
                                     ({{ \Carbon\Carbon::parse($period['start'])->format('d/m/y') }} - {{ \Carbon\Carbon::parse($period['end'])->format('d/m/y') }})
@@ -340,14 +343,16 @@
                     <label class="block text-xs font-medium text-gray-600 mb-1">Status</label>
                     <select id="status_filter" class="filter-select">
                         <option value="">All Status</option>
-                        <option value="Draft">Draft</option>
-                        <option value="Approved">Approved</option>
-                        <option value="Processing">Processing</option>
+                        <option value="Draft" @selected(request('status') === 'Draft')>Draft</option>
+                        <option value="Approved" @selected(request('status') === 'Approved')>Approved</option>
+                        <option value="Processing" @selected(request('status') === 'Processing')>Processing</option>
+                        <option value="Paid" @selected(request('status') === 'Paid')>Paid</option>
+                        <option value="Locked" @selected(request('status') === 'Locked')>Locked</option>
                     </select>
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">Search</label>
-                    <input type="text" id="search_input" placeholder="Search payroll code..." class="filter-input">
+                    <input type="text" id="search_input" value="{{ request('search') }}" placeholder="Search payroll code..." class="filter-input">
                 </div>
                 <div class="flex items-end">
                     <button id="apply_filters" class="btn-filter">Apply Filters</button>

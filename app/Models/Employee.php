@@ -176,6 +176,22 @@ class Employee extends Model
             ->first();
     }
 
+    /** Branch assignment effective on a date, using already-loaded assignments when available. */
+    public function branchNameOn($date = null): string
+    {
+        $effectiveDate = Carbon::parse($date ?? now())->startOfDay();
+        $assignments = $this->relationLoaded('assignments')
+            ? $this->assignments
+            : $this->assignments()->with('branch')->get();
+
+        $assignment = $assignments->first(function ($assignment) use ($effectiveDate) {
+            return $assignment->from_date?->lte($effectiveDate)
+                && (!$assignment->to_date || $assignment->to_date->gte($effectiveDate));
+        });
+
+        return $assignment?->branch?->name ?? 'Unassigned';
+    }
+
     public function scopeAtBranch(Builder $query, $branchId, $date = null): Builder
     {
         $date = Carbon::parse($date ?? now())->toDateString();

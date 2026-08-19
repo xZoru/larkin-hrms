@@ -7,6 +7,7 @@ use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
@@ -15,12 +16,13 @@ use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use Carbon\Carbon;
 
-class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidths, WithEvents
+class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidths, WithEvents, WithTitle
 {
     protected $payrollId;
     protected $payrollItems;
     protected $company;
     protected $payroll;
+    protected $sheetTitle;
 
     // Number of employee data rows (not counting the totals row). Set inside
     // collection() and used by registerEvents() to know where the table lands
@@ -30,16 +32,22 @@ class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidt
     // Kina accounting number format used throughout the summary boxes.
     protected $kinaFormat = '_-"K"* #,##0.00_-;\-"K"* #,##0.00_-;_-"K"* "-"??_-;_-@_-';
 
-    public function __construct($payrollId)
+    public function __construct($payrollId, ?string $sheetTitle = null)
     {
         $this->payrollId = $payrollId;
+        $this->sheetTitle = $sheetTitle;
         $this->loadData();
+    }
+
+    public function title(): string
+    {
+        return $this->sheetTitle ?? 'Payroll Summary';
     }
 
     protected function loadData()
     {
-        $this->payroll = \App\Models\Payroll::with(['items.employee', 'company'])->findOrFail($this->payrollId);
-        $this->payrollItems = $this->payroll->items()->with('employee')->get();
+        $this->payroll = \App\Models\Payroll::with(['items.employee.assignments.branch', 'company'])->findOrFail($this->payrollId);
+        $this->payrollItems = $this->payroll->items;
         $this->company = $this->payroll->company;
 
         // Add FN Rate to each item
@@ -132,7 +140,7 @@ class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidt
 
     public function styles(Worksheet $sheet)
     {
-        $sheet->setTitle('Payroll Summary');
+        $sheet->setTitle($this->title());
 
         return [];
     }
@@ -298,11 +306,12 @@ class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidt
                     }
                 }
 
-                // Site / department breakdown
-                $locationTotals = [];
+                // Use the branch assigned for this payroll period, rather than
+                // the legacy employee.location field.
+                $branchTotals = [];
                 foreach ($this->payrollItems as $item) {
-                    $location = $item->employee->location ?? 'Other';
-                    $locationTotals[$location] = ($locationTotals[$location] ?? 0) + (float) ($item->net_pay ?? 0);
+                    $branch = $item->employee?->branchNameOn($this->payroll->period_end) ?? 'Unassigned';
+                    $branchTotals[$branch] = ($branchTotals[$branch] ?? 0) + (float) ($item->net_pay ?? 0);
                 }
 
                 $row = 4;
@@ -318,13 +327,13 @@ class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidt
                 $row++;
                 $row++; // blank spacer row between the nationality split and site breakdown
 
-                $sheet->setCellValue("T{$row}", 'By Location');
+                $sheet->setCellValue("T{$row}", 'By Branch');
                 $sheet->getStyle("T{$row}")->getFont()->setItalic(true);
                 $row++;
 
                 $grandTotal = $nationalTotal + $expatTotal;
-                foreach ($locationTotals as $location => $amount) {
-                    $sheet->setCellValue("T{$row}", $location);
+                foreach ($branchTotals as $branch => $amount) {
+                    $sheet->setCellValue("T{$row}", $branch);
                     $sheet->setCellValue("U{$row}", $amount);
                     $row++;
                 }
