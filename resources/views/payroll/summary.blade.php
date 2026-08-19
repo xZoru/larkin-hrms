@@ -1294,6 +1294,7 @@
                 }
                 const url = new URL(window.location.href);
                 url.searchParams.set('fortnight', this.value);
+                url.searchParams.delete('payroll_id');
                 window.location.href = url.toString();
             });
         }

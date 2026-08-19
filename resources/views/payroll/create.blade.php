@@ -263,6 +263,7 @@
                     </select>
                     <select name="branch_id" class="filter-select">
                         <option value="">All Branches / Sites</option>
+                        <option value="unassigned" {{ request('branch_id') === 'unassigned' ? 'selected' : '' }}>Main Office / Unassigned</option>
                         @foreach($branches as $branch)<option value="{{ $branch->id }}" {{ request('branch_id') == $branch->id ? 'selected' : '' }}>{{ $branch->name }}</option>@endforeach
                     </select>
                 </div>

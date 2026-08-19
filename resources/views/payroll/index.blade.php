@@ -407,7 +407,7 @@
                                         <span>Actions</span>
                                     </button>
                                     <div class="dropdown-menu">
-                                        <a href="{{ route('payroll.summary', ['fortnight' => $payroll->fortnight_number]) }}" class="dropdown-item">
+                                        <a href="{{ route('payroll.summary', ['payroll_id' => $payroll->id]) }}" class="dropdown-item">
                                             <i class="fas fa-chart-bar"></i> View Summary
                                         </a>
                                         
