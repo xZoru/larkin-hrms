@@ -92,7 +92,7 @@ class Payroll extends Model
     {
         // Manual ABA entries are payment instructions only. Keep them attached
         // to the payrun for ABA generation, but exclude them from payroll totals.
-        $items = $this->items->get()->reject(function (PayrollItem $item) {
+        $items = $this->items()->get()->reject(function (PayrollItem $item) {
             $details = $item->details ?? [];
 
             return is_array($details) && ($details['type'] ?? null) === 'manual_entry';
