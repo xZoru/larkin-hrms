@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Position;
 use Illuminate\Database\Eloquent\Builder;
+use Carbon\Carbon;
 
 class Employee extends Model
 {
@@ -155,6 +156,52 @@ class Employee extends Model
     public function department()
     {
         return $this->belongsTo(Department::class);
+    }
+
+    public function assignments()
+    {
+        return $this->hasMany(EmployeeAssignment::class)->orderByDesc('from_date');
+    }
+
+    /** Assignment effective on a given date (today by default). */
+    public function assignmentOn($date = null)
+    {
+        $date = Carbon::parse($date ?? now())->toDateString();
+        return $this->assignments()
+            ->with('branch')
+            ->whereDate('from_date', '<=', $date)
+            ->where(function ($query) use ($date) {
+                $query->whereNull('to_date')->orWhereDate('to_date', '>=', $date);
+            })
+            ->first();
+    }
+
+    /** Branch assignment effective on a date, using already-loaded assignments when available. */
+    public function branchNameOn($date = null): string
+    {
+        $effectiveDate = Carbon::parse($date ?? now())->startOfDay();
+        $assignments = $this->relationLoaded('assignments')
+            ? $this->assignments
+            : $this->assignments()->with('branch')->get();
+
+        $assignment = $assignments->first(function ($assignment) use ($effectiveDate) {
+            return $assignment->from_date?->lte($effectiveDate)
+                && (!$assignment->to_date || $assignment->to_date->gte($effectiveDate));
+        });
+
+        return $assignment?->branch?->name ?? 'Unassigned';
+    }
+
+    public function scopeAtBranch(Builder $query, $branchId, $date = null): Builder
+    {
+        $date = Carbon::parse($date ?? now())->toDateString();
+        return $query->whereHas('assignments', function ($assignment) use ($branchId, $date) {
+            $assignment->where('branch_id', $branchId)
+                ->whereDate('from_date', '<=', $date)
+                ->where(function ($dates) use ($date) {
+                    $dates->whereNull('to_date')->orWhereDate('to_date', '>=', $date);
+                });
+        });
     }
 
     // SOW: Up to 2 Bank Accounts

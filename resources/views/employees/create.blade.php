@@ -103,6 +103,17 @@
                                     @error('company_id') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
+                                    <label class="block text-sm font-medium text-gray-700">Initial Branch / Outstation</label>
+                                    <select name="branch_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                                        <option value="">No location assigned yet</option>
+                                        @foreach($branches as $branch)
+                                            <option value="{{ $branch->id }}" data-company="{{ $branch->company_id }}" {{ old('branch_id') == $branch->id ? 'selected' : '' }}>{{ $branch->name }} ({{ $branch->type }})</option>
+                                        @endforeach
+                                    </select>
+                                    <p class="mt-1 text-xs text-gray-500">This creates the first dated assignment using the joining date.</p>
+                                    @error('branch_id') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
                                     <label class="block text-sm font-medium text-gray-700">Employee Number</label>
                                     <input type="text" name="employee_number" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" value="{{ old('employee_number') }}" placeholder="">
                                 </div>
@@ -680,10 +691,20 @@
             const companySelectEl = document.querySelector('select[name="company_id"]');
             if (companySelectEl) {
                 companySelectEl.addEventListener('change', function() {
+                    const branchSelect = document.querySelector('select[name="branch_id"]');
+                    if (branchSelect) {
+                        Array.from(branchSelect.options).forEach(function(option, index) {
+                            if (index === 0) return;
+                            option.hidden = option.dataset.company !== companySelectEl.value;
+                            option.disabled = option.hidden;
+                        });
+                        if (branchSelect.selectedOptions[0] && branchSelect.selectedOptions[0].disabled) branchSelect.value = '';
+                    }
                     if (fortnightSelect && fortnightSelect.value === '') {
                         window.calculateHourlyRate();
                     }
                 });
+                companySelectEl.dispatchEvent(new Event('change'));
             }
         });
     })();

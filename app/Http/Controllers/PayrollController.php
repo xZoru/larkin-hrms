@@ -8,9 +8,12 @@ use App\Models\PayrollItem;
 use App\Models\AttendanceSummary;
 use App\Models\Loan;
 use App\Models\TaxTable;
+use App\Models\Branch;
 use App\Exports\PayrollSummaryExport;
+use App\Exports\AllPayrollsExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Services\ABAGeneratorService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -19,18 +22,60 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class PayrollController extends Controller
 {
+    /** Limit a payrun to an assigned branch or to employees at Main Office. */
+    private function applyPayrollBranchFilter($query, $branchId, $effectiveDate)
+    {
+        if ($branchId === 'unassigned') {
+            $date = Carbon::parse($effectiveDate)->toDateString();
+
+            return $query->whereDoesntHave('assignments', function ($assignment) use ($date) {
+                $assignment->whereDate('from_date', '<=', $date)
+                    ->where(function ($dates) use ($date) {
+                        $dates->whereNull('to_date')->orWhereDate('to_date', '>=', $date);
+                    });
+            });
+        }
+
+        if ($branchId) {
+            return $query->atBranch($branchId, $effectiveDate);
+        }
+
+        return $query;
+    }
+
     // ============ LIST PAYROLLS ============
     public function index(Request $request)
     {
         $user = auth()->user();
         $companyId = $user->getCurrentCompanyId();
         
-        $payrolls = Payroll::where('company_id', $companyId)
+        $payrolls = Payroll::with(['company', 'branch', 'createdBy'])
+            ->where('company_id', $companyId)
+            ->when($request->filled('fortnight'), function ($query) use ($request) {
+                $query->where('fortnight_number', $request->string('fortnight')->toString());
+            })
+            ->when($request->filled('status'), function ($query) use ($request) {
+                $query->where('status', $request->string('status')->toString());
+            })
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $search = trim($request->string('search')->toString());
+                $query->where(function ($query) use ($search) {
+                    $query->where('fortnight_number', 'like', "%{$search}%");
+
+                    // The displayed payroll code ends with its database ID,
+                    // e.g. P-LKP-00042, so allow searching by that code too.
+                    if (preg_match('/(\d+)$/', $search, $matches)) {
+                        $query->orWhere('id', (int) $matches[1]);
+                    }
+                });
+            })
             ->orderBy('period_start', 'desc')
-            ->paginate(20);
+            ->paginate(20)
+            ->withQueryString();
 
         $fortnights = Payroll::where('company_id', $companyId)
             ->distinct()
+            ->orderByDesc('fortnight_number')
             ->pluck('fortnight_number')
             ->toArray();
         
@@ -51,6 +96,7 @@ class PayrollController extends Controller
         
         $fortnight = $request->fortnight ?? $this->getCurrentFortnight();
         $period = $this->getFortnightPeriod($fortnight);
+        $branches = Branch::where('company_id', $companyId)->where('is_active', true)->orderBy('name')->get();
 
         $allFortnights = $this->getAllFortnights();
         
@@ -68,8 +114,9 @@ class PayrollController extends Controller
             })
             ->with(['attendanceSummaries' => function($query) use ($fortnight) {
                 $query->where('fortnight_number', $fortnight);
-            }])
-            ->get();
+            }]);
+
+        $employees = $this->applyPayrollBranchFilter($employees, $request->branch_id, $period['end'])->get();
 
         $activeLoans = Loan::where('company_id', $companyId)
             ->where('status', 'Released')
@@ -77,20 +124,33 @@ class PayrollController extends Controller
             ->with('employee')
             ->get();
 
-        return view('payroll.create', compact('employees', 'fortnight', 'period', 'allFortnights', 'fortnightPeriods', 'activeLoans'));
+        return view('payroll.create', compact('employees', 'fortnight', 'period', 'allFortnights', 'fortnightPeriods', 'activeLoans', 'branches'));
     }
 
     // ============ STORE PAYROLL ============
     public function store(Request $request)
     {
+        $user = auth()->user();
+        $companyId = $user->getCurrentCompanyId();
+
         $request->validate([
             'fortnight' => 'required|string',
             'employee_ids' => 'required|array|min:1',
             'employee_ids.*' => 'exists:employees,id',
+            'branch_id' => [
+                'nullable',
+                function ($attribute, $value, $fail) use ($companyId) {
+                    if ($value === 'unassigned') {
+                        return;
+                    }
+
+                    if (! Branch::whereKey($value)->where('company_id', $companyId)->exists()) {
+                        $fail('The selected branch is invalid.');
+                    }
+                },
+            ],
         ]);
 
-        $user = auth()->user();
-        $companyId = $user->getCurrentCompanyId();
         $allowedTypes = $user->getAllowedEmployeeTypes();
         $fortnight = $request->fortnight;
         $period = $this->getFortnightPeriod($fortnight);
@@ -116,6 +176,7 @@ class PayrollController extends Controller
 
         $payroll = Payroll::create([
             'company_id' => $companyId,
+            'branch_id' => $request->branch_id === 'unassigned' ? null : $request->branch_id,
             'fortnight_number' => $fortnight,
             'period_start' => $period['start'],
             'period_end' => $period['end'],
@@ -123,6 +184,16 @@ class PayrollController extends Controller
             'status' => 'Draft',
             'created_by' => auth()->id(),
         ]);
+
+        $employees = Employee::where('company_id', $companyId)
+            ->whereIn('id', $request->employee_ids)
+            ->active()
+            ->whereIn('employee_type', $allowedTypes)
+            ->with(['attendanceSummaries' => function($query) use ($fortnight) {
+                $query->where('fortnight_number', $fortnight);
+            }]);
+
+        $employees = $this->applyPayrollBranchFilter($employees, $request->branch_id, $period['end'])->get();
 
         $totalGross = 0;
         $totalTax = 0;
@@ -156,7 +227,7 @@ class PayrollController extends Controller
             'total_employees' => $employees->count(),
         ]);
 
-        return redirect()->route('payroll.summary', ['fortnight' => $payroll->fortnight_number])
+        return redirect()->route('payroll.summary', ['payroll_id' => $payroll->id])
             ->with('success', 'Payroll created successfully for ' . $employees->count() . ' employees.');
     }
 
@@ -495,6 +566,7 @@ public function summary(Request $request)
     $user = auth()->user();
     $companyId = $user->getCurrentCompanyId();
     $allowedTypes = $user->getAllowedEmployeeTypes();
+    $branches = Branch::where('company_id', $companyId)->where('is_active', true)->orderBy('name')->get();
     
     $fortnights = Payroll::where('company_id', $companyId)
         ->distinct()
@@ -507,12 +579,34 @@ public function summary(Request $request)
     }
     
     $selectedFortnight = $request->fortnight;
+    $payroll = null;
+
+    // A fortnight can have separate payruns for Main Office and each branch.
+    // Prefer the explicit payrun ID so the summary always shows the one the
+    // user just created or selected.
+    if ($request->filled('payroll_id')) {
+        $payroll = Payroll::where('company_id', $companyId)
+            ->whereKey($request->integer('payroll_id'))
+            ->firstOrFail();
+        $selectedFortnight = $payroll->fortnight_number;
+    }
     
     if (!$selectedFortnight && count($fortnights) > 0) {
         $selectedFortnight = $fortnights[0];
     }
+
+    // A fortnight can contain a Main Office payrun and one payrun per branch.
+    // Expose those records to the summary page so it can switch payruns,
+    // rather than filtering the currently selected payrun's employee rows.
+    $availablePayruns = $selectedFortnight
+        ? Payroll::with('branch')
+            ->where('company_id', $companyId)
+            ->where('fortnight_number', $selectedFortnight)
+            ->orderByRaw('CASE WHEN branch_id IS NULL THEN 0 ELSE 1 END')
+            ->orderBy('id')
+            ->get()
+        : collect();
     
-    $payroll = null;
     $payrollItems = collect();
     $period = null;
     $totalEmployees = 0;
@@ -534,8 +628,10 @@ public function summary(Request $request)
     $totalRegular = 0;
     
     if ($selectedFortnight) {
-        $payroll = Payroll::where('company_id', $companyId)
+        $payroll = $payroll ?: Payroll::where('company_id', $companyId)
             ->where('fortnight_number', $selectedFortnight)
+            ->orderByRaw('CASE WHEN branch_id IS NULL THEN 0 ELSE 1 END')
+            ->orderBy('id')
             ->first();
         
         if ($payroll) {
@@ -560,7 +656,7 @@ public function summary(Request $request)
                     return $employeeGroup . '-' . ($employeeNumber === '' ? '~' : $employeeNumber);
                 }, SORT_NATURAL | SORT_FLAG_CASE)
                 ->values();
-            
+
             // Add FN Rate to each item
             $payrollItems->each(function ($item) {
                 $employee = $item->employee;
@@ -656,6 +752,8 @@ public function summary(Request $request)
         'totalBasic',
         'totalRegular',
         'employees',
+        'branches',
+        'availablePayruns',
         'taxTables' //  ADDED THIS
     ));
 }
@@ -764,7 +862,7 @@ public function summary(Request $request)
 
         $this->syncPayrollTotals($payrollItem->payroll);
 
-        return redirect()->route('payroll.summary', ['fortnight' => $payrollItem->payroll->fortnight_number])
+        return redirect()->route('payroll.summary', ['payroll_id' => $payrollItem->payroll_id])
             ->with('success', 'Allowance updated successfully.');
     }
 
@@ -944,7 +1042,7 @@ public function printSigning($payrollId)
         $payroll->approved_at = now();
         $payroll->save();
 
-        return redirect()->route('payroll.summary', ['fortnight' => $payroll->fortnight_number])
+        return redirect()->route('payroll.summary', ['payroll_id' => $payroll->id])
         ->with('success', 'Payroll approved successfully.');
     }
 
@@ -987,7 +1085,7 @@ public function printSigning($payrollId)
             $batch = $service->generate($payroll, $company, $bankDetails);
             return $service->download($batch->id);
         } catch (\Exception $e) {
-            return redirect()->route('payroll.summary', ['fortnight' => $payroll->fortnight_number])
+            return redirect()->route('payroll.summary', ['payroll_id' => $payroll->id])
                 ->with('error', 'ABA generation failed: ' . $e->getMessage());
         }
     }
@@ -1037,6 +1135,27 @@ public function printSigning($payrollId)
         );
     }
 
+    public function exportAllExcel(Request $request)
+    {
+        $companyId = auth()->user()->getCurrentCompanyId();
+        $fortnight = trim($request->string('fortnight')->toString());
+
+        if ($fortnight === '') {
+            return redirect()->route('payroll.index')
+                ->with('error', 'Select a fortnight before downloading payruns.');
+        }
+
+        if (!Payroll::where('company_id', $companyId)->where('fortnight_number', $fortnight)->exists()) {
+            return redirect()->route('payroll.index')
+                ->with('error', "There are no payruns available for fortnight {$fortnight}.");
+        }
+
+        return Excel::download(
+            new AllPayrollsExport($companyId, $fortnight),
+            'payruns_FN' . $fortnight . '_' . now()->format('Y-m-d') . '.xlsx'
+        );
+    }
+
         public function destroy(Payroll $payroll)
     {
         $user = auth()->user();
@@ -1053,11 +1172,29 @@ public function printSigning($payrollId)
                 ->with('error', 'Only draft payrolls can be deleted.');
         }
         
-        // Delete all payroll items first (cascade will handle this if set)
-        $payroll->items()->delete();
-        
-        // Delete the payroll
-        $payroll->delete();
+        DB::transaction(function () use ($payroll) {
+            // Loan deductions are recorded while the payroll is generated. A
+            // draft payroll has not been paid, so remove its payment records
+            // before deleting it and restore each affected loan from its
+            // remaining payment history.
+            $loanIds = $payroll->loanPayments()
+                ->pluck('loan_id')
+                ->unique();
+
+            Loan::whereKey($loanIds)
+                ->lockForUpdate()
+                ->get()
+                ->each(function (Loan $loan) use ($payroll) {
+                    $loan->payments()
+                        ->where('payroll_id', $payroll->id)
+                        ->delete();
+
+                    $loan->recalculatePaymentBalance();
+                });
+
+            $payroll->items()->delete();
+            $payroll->delete();
+        });
         
         return redirect()->route('payroll.index')
             ->with('success', 'Payroll deleted successfully.');

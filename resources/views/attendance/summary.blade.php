@@ -624,6 +624,17 @@
                            placeholder="Search employees..." 
                            value="{{ request('search') }}">
                 </div>
+                <div class="filter-group">
+                    <label for="branch_id"><i class="fas fa-map-marker-alt mr-1"></i> Branch / Site</label>
+                    <select name="branch_id" id="branch_id">
+                        <option value="">All Branches / Sites</option>
+                        @foreach($branches as $branch)
+                            <option value="{{ $branch->id }}" {{ request('branch_id') == $branch->id ? 'selected' : '' }}>
+                                {{ $branch->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
                 <input type="hidden" name="generated" value="1">
                 <button type="submit" class="btn-primary">
                     <i class="fas fa-sync-alt mr-1"></i> Generate
@@ -654,7 +665,7 @@
                             </span>
                         </div>
                         <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                            <a href="{{ route('attendance.export', ['fortnight' => $fortnight]) }}" 
+                            <a href="{{ route('attendance.export', ['fortnight' => $fortnight, 'branch_id' => request('branch_id'), 'search' => request('search')]) }}"
                             class="btn-export" 
                             style="background: #217346; text-decoration: none;">
                                 <i class="fas fa-file-excel"></i> Export Excel

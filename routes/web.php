@@ -19,6 +19,8 @@ use App\Http\Controllers\BackupController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\EmployeeSettlementPaymentController;
+use App\Http\Controllers\BranchController;
 use App\Http\Middleware\SuperAdminMiddleware;
 
 // OR if using the route group:
@@ -66,6 +68,9 @@ Route::prefix('aba')->name('aba.')->middleware(['auth'])->group(function () {
 Route::middleware(['auth', 'company.access'])->group(function () {
     Route::get('employees/{employee}/photo', [EmployeeController::class, 'photo'])->name('employees.photo');
     Route::resource('employees', EmployeeController::class);
+    Route::get('employees/{employee}/assignments/create', [EmployeeController::class, 'createAssignment'])->name('employees.assignments.create');
+    Route::post('employees/{employee}/assignments', [EmployeeController::class, 'storeAssignment'])->name('employees.assignments.store');
+    Route::delete('employees/{employee}/assignments/{assignment}', [EmployeeController::class, 'destroyAssignment'])->name('employees.assignments.destroy');
     Route::post('employees/{employee}/documents', [EmployeeController::class, 'uploadDocument'])->name('employees.upload-document');
     Route::get('employees/expiring-documents', [EmployeeController::class, 'getExpiringDocuments'])->name('employees.expiring-documents');
     Route::delete('employees/{employee}/documents/{document}', [EmployeeController::class, 'destroyDocument'])
@@ -93,12 +98,19 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/attendance/export', [AttendanceController::class, 'export'])->name('attendance.export');
 });
 
+Route::middleware(['auth', 'company.access'])->prefix('branches')->name('branches.')->group(function () {
+    Route::get('/', [BranchController::class, 'index'])->name('index');
+    Route::post('/', [BranchController::class, 'store'])->name('store');
+    Route::delete('/{branch}', [BranchController::class, 'destroy'])->name('destroy');
+});
+
 // ============ PAYROLL ROUTES ============
 Route::middleware(['auth'])->group(function () {
     Route::get('/payroll', [PayrollController::class, 'index'])->name('payroll.index');
     Route::get('/payroll/create', [PayrollController::class, 'create'])->name('payroll.create');
     Route::post('/payroll', [PayrollController::class, 'store'])->name('payroll.store');
     Route::get('/payroll/summary', [PayrollController::class, 'summary'])->name('payroll.summary');
+    Route::get('/payroll/export-all-excel', [PayrollController::class, 'exportAllExcel'])->name('payroll.export-all-excel');
     Route::patch('/payroll-items/{payrollItem}/allowance', [PayrollController::class, 'updateAllowance'])->name('payroll-items.allowance.update');
     Route::post('/payroll/{payroll}/approve', [PayrollController::class, 'approve'])->name('payroll.approve');
     Route::get('/payroll/{payroll}/export-aba', [PayrollController::class, 'exportABA'])->name('payroll.export-aba');
@@ -111,6 +123,12 @@ Route::middleware(['auth'])->group(function () {
     ->name('payroll.export-excel');
     Route::post('/payroll/{payroll}/update-status', [PayrollController::class, 'updateStatus'])
     ->name('payroll.update-status');
+
+    Route::get('/final-pay', [EmployeeSettlementPaymentController::class, 'createFinalPay'])->name('settlements.final-pay.create');
+    Route::post('/final-pay', [EmployeeSettlementPaymentController::class, 'storeFinalPay'])->name('settlements.final-pay.store');
+    Route::get('/annual-leave-pay', [EmployeeSettlementPaymentController::class, 'createAnnualLeavePay'])->name('settlements.annual-leave-pay.create');
+    Route::post('/annual-leave-pay', [EmployeeSettlementPaymentController::class, 'storeAnnualLeavePay'])->name('settlements.annual-leave-pay.store');
+    Route::get('/settlement-payments/{payment}/download', [EmployeeSettlementPaymentController::class, 'download'])->name('settlements.download');
 });
 
 // ============ LOAN REQUESTS ROUTES ============

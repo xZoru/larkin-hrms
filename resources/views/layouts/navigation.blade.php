@@ -34,6 +34,9 @@
                         <span>User Management</span>
                     </a>
                     @endif
+                    <a href="{{ route('branches.index') }}" class="sidebar-link submenu-link {{ request()->routeIs('branches.*') ? 'active-sub' : '' }}">
+                        <i class="fas fa-map-marker-alt"></i><span>Branches & Outstations</span>
+                    </a>
 
                     @can('view-company-bank-details')
                     <a href="{{ route('company-bank-details.index') }}" class="sidebar-link submenu-link {{ request()->routeIs('company-bank-details.*') ? 'active-sub' : '' }}">
@@ -115,11 +118,11 @@
                         <i class="fas fa-university"></i>
                         <span>ABA Bank File</span>
                     </a>
-                    <a href="#" class="sidebar-link submenu-link">
+                    <a href="{{ route('settlements.final-pay.create') }}" class="sidebar-link submenu-link {{ request()->routeIs('settlements.final-pay.*') ? 'active-sub' : '' }}">
                         <i class="fas fa-file-signature"></i>
                         <span>Final Pay Generator</span>
                     </a>
-                    <a href="#" class="sidebar-link submenu-link">
+                    <a href="{{ route('settlements.annual-leave-pay.create') }}" class="sidebar-link submenu-link {{ request()->routeIs('settlements.annual-leave-pay.*') ? 'active-sub' : '' }}">
                         <i class="fas fa-calendar-check"></i>
                         <span>Annual Leave Pay Generator</span>
                     </a>

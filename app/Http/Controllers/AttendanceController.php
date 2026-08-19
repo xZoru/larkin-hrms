@@ -8,6 +8,7 @@ use App\Models\AttendanceLog;
 use App\Models\AttendanceSummary;
 use App\Models\Holiday;
 use App\Models\Company;
+use App\Models\Branch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
@@ -53,11 +54,13 @@ class AttendanceController extends Controller
         }
 
         $period = $this->getFortnightPeriod($fortnight);
+        $branches = Branch::where('company_id', $companyId)->where('is_active', true)->orderBy('name')->get();
 
         // Get all employees for dropdown - filtered by user type and company
         $employees = Employee::where('company_id', $companyId)
             ->where('status', 'Active')
             ->whereIn('employee_type', $allowedTypes)
+            ->when($request->branch_id, fn ($query) => $query->atBranch($request->branch_id, $period['end']))
             ->orderBy('employee_number')
             ->orderBy('last_name')
             ->orderBy('first_name')
@@ -105,6 +108,7 @@ class AttendanceController extends Controller
             'currentFortnight', 
             'timesheetStatus',
             'holidayDates'
+            , 'branches'
         ));
     }
 
@@ -278,9 +282,24 @@ class AttendanceController extends Controller
             $fortnightPeriods[$fn] = $this->getFortnightPeriod($fn);
         }
 
+        $branches = Branch::where('company_id', $companyId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
         $employees = Employee::where('company_id', $companyId)
             ->where('status', 'Active')
             ->whereIn('employee_type', $allowedTypes)
+            ->when($request->branch_id, fn ($query) => $query->atBranch($request->branch_id, $period['end']))
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $search = trim($request->search);
+
+                $query->where(function ($query) use ($search) {
+                    $query->where('employee_number', 'like', "%{$search}%")
+                        ->orWhere('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%");
+                });
+            })
             ->whereHas('attendanceLogs', function ($query) use ($fortnight) {
                 $query->where('fortnight_number', $fortnight)
                     ->where('hours_worked', '>', 0);
@@ -321,7 +340,8 @@ class AttendanceController extends Controller
             'fortnights',
             'fortnightPeriods',
             'generated',
-            'holidayDates'
+            'holidayDates',
+            'branches'
         ));
     }
 
@@ -898,6 +918,16 @@ public function summaryBulkUpdate(Request $request)
         $employees = Employee::where('company_id', $companyId)
             ->where('status', 'Active')
             ->whereIn('employee_type', $allowedTypes)
+            ->when($request->branch_id, fn ($query) => $query->atBranch($request->branch_id, $period['end']))
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $search = trim($request->search);
+
+                $query->where(function ($query) use ($search) {
+                    $query->where('employee_number', 'like', "%{$search}%")
+                        ->orWhere('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%");
+                });
+            })
             ->whereHas('attendanceLogs', function ($query) use ($fortnight) {
                 $query->where('fortnight_number', $fortnight)
                     ->where('hours_worked', '>', 0);

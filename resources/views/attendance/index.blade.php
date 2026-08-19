@@ -643,6 +643,11 @@
                             @endforeach
                         </select>
 
+                        <select id="branch_selector" class="employee-selector" style="min-width:150px;">
+                            <option value="">All Branches / Sites</option>
+                            @foreach($branches as $branch)<option value="{{ $branch->id }}" {{ request('branch_id') == $branch->id ? 'selected' : '' }}>{{ $branch->name }}</option>@endforeach
+                        </select>
+
                         <!-- Employee Selector -->
                         <div class="employee-picker">
                             <input
@@ -1106,6 +1111,17 @@
                 if (employeeId) {
                     url.searchParams.set('employee_id', employeeId);
                 }
+                window.location.href = url.toString();
+            });
+        }
+
+        const branchSelector = document.getElementById('branch_selector');
+        if (branchSelector) {
+            branchSelector.addEventListener('change', function() {
+                const url = new URL(window.location.href);
+                if (this.value) url.searchParams.set('branch_id', this.value);
+                else url.searchParams.delete('branch_id');
+                url.searchParams.delete('employee_id');
                 window.location.href = url.toString();
             });
         }

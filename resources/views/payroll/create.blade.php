@@ -261,6 +261,11 @@
                             @endif
                         @endforeach
                     </select>
+                    <select name="branch_id" class="filter-select">
+                        <option value="">All Branches / Sites</option>
+                        <option value="unassigned" {{ request('branch_id') === 'unassigned' ? 'selected' : '' }}>Main Office / Unassigned</option>
+                        @foreach($branches as $branch)<option value="{{ $branch->id }}" {{ request('branch_id') == $branch->id ? 'selected' : '' }}>{{ $branch->name }}</option>@endforeach
+                    </select>
                 </div>
                 <div>
                     <button type="submit" class="btn-load">
@@ -273,6 +278,7 @@
         <form method="POST" action="{{ route('payroll.store') }}" id="payrollForm">
             @csrf
             <input type="hidden" name="fortnight" value="{{ $fortnight }}">
+            <input type="hidden" name="branch_id" value="{{ request('branch_id') }}">
 
             <!-- Payroll Stats -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">

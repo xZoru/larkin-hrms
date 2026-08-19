@@ -361,10 +361,6 @@
                                         <td class="footer-label">Bank Acct No.</td>
                                         <td>{{ $item->bank_account ?? optional($employee->bankAccounts->first())->account_number ?? '' }}</td>
                                     </tr>
-                                    <tr>
-                                        <td class="footer-label">NPF-ER:</td>
-                                        <td>{{ $item->nasfund_er ? number_format($item->nasfund_er, 2) : '-' }}</td>
-                                    </tr>
                                 </table>
 
                             </div>

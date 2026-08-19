@@ -587,7 +587,7 @@
             </div>
         </div>
 
-        @if($selectedFortnight && $payrollItems->count() > 0)
+        @if($selectedFortnight && $payroll)
             @if(session('success'))
                 <div class="alert-success">
                     <i class="fas fa-check-circle text-green-600"></i>
@@ -609,6 +609,13 @@
                                     @if($period)
                                         ({{ \Carbon\Carbon::parse($period['start'])->format('d/m/y') }} - {{ \Carbon\Carbon::parse($period['end'])->format('d/m/y') }})
                                     @endif
+                                </option>
+                            @endforeach
+                        </select>
+                        <select id="payrun_selector" class="fortnight-selector" aria-label="Select payrun branch">
+                            @foreach($availablePayruns as $availablePayrun)
+                                <option value="{{ $availablePayrun->id }}" @selected($payroll && $availablePayrun->id === $payroll->id)>
+                                    {{ $availablePayrun->branch?->name ?? 'Main Office / Unassigned' }}
                                 </option>
                             @endforeach
                         </select>
@@ -1298,6 +1305,18 @@
                 }
                 const url = new URL(window.location.href);
                 url.searchParams.set('fortnight', this.value);
+                url.searchParams.delete('payroll_id');
+                window.location.href = url.toString();
+            });
+        }
+
+        const payrunSelector = document.getElementById('payrun_selector');
+        if (payrunSelector) {
+            payrunSelector.addEventListener('change', function() {
+                if (editedFields.size > 0 && !confirm('You have unsaved changes. Are you sure you want to leave?')) return;
+                const url = new URL(window.location.href);
+                url.searchParams.set('payroll_id', this.value);
+                url.searchParams.delete('branch_id');
                 window.location.href = url.toString();
             });
         }
