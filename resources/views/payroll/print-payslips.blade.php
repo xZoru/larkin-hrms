@@ -309,7 +309,7 @@
                                     <tr>
                                         <td>PLP/ALP/FP</td>
                                         <td class="col-hours">0.00</td>
-                                        <td class="col-kina">0.00</td>
+                                        <td class="col-kina">{{ number_format($item->leave_pay ?? 0, 2) }}</td>
                                     </tr>
                                     <tr>
                                         <td>Other</td>
@@ -331,7 +331,7 @@
                                     <tr>
                                         <td>NCSL</td>
                                         <td class="col-hours"></td>
-                                        <td class="col-kina">0.00</td>
+                                        <td class="col-kina">{{ number_format($item->ncsl ?? 0, 2) }}</td>
                                     </tr>
                                     <tr>
                                         <td>Cash Adv.</td>
