@@ -388,6 +388,9 @@ class ABAGeneratorController extends Controller
                     'details' => json_encode([
                         'type' => 'manual_entry',
                         'description' => $entry['description'] ?? 'Manual Payment',
+                        'account_name' => $entry['account_name'],
+                        'account_number' => $entry['account_number'],
+                        'bsb' => str_replace('-', '', $entry['bsb']),
                     ])
                 ]);
             }
@@ -475,12 +478,23 @@ public function previewPayroll($payrollId, Request $request)
             
             if ($isManualEntry) {
                 // ✅ This is a manual entry - use details from JSON
+                $bankAccount = $item->employee?->bankAccounts->first();
+                $bsb = $details['bsb'] ?? $bankAccount?->bsb_code ?? '';
+                $bsb = preg_replace('/[^0-9]/', '', $bsb);
+                if (strlen($bsb) > 6) {
+                    $bsb = substr($bsb, 0, 6);
+                }
+                if ($bsb !== '') {
+                    $bsb = str_pad($bsb, 6, '0', STR_PAD_LEFT);
+                    $bsb = substr($bsb, 0, 3) . '-' . substr($bsb, 3, 3);
+                }
+
                 $data[] = [
                     'id' => $item->id,
-                    'bsb' => $details['bsb'] ?? '',
-                    'account_number' => $details['account_number'] ?? '',
+                    'bsb' => $bsb,
+                    'account_number' => $details['account_number'] ?? $bankAccount?->account_number ?? '',
                     'amount' => $item->net_pay,
-                    'account_name' => $details['account_name'] ?? 'MANUAL',
+                    'account_name' => $details['account_name'] ?? $bankAccount?->account_name ?? 'MANUAL',
                     'description' => $details['description'] ?? 'MANUAL',
                     'is_manual_entry' => true,
                     'is_saved_manual' => true,
