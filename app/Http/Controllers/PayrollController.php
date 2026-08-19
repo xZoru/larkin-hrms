@@ -571,6 +571,18 @@ public function summary(Request $request)
     if (!$selectedFortnight && count($fortnights) > 0) {
         $selectedFortnight = $fortnights[0];
     }
+
+    // A fortnight can contain a Main Office payrun and one payrun per branch.
+    // Expose those records to the summary page so it can switch payruns,
+    // rather than filtering the currently selected payrun's employee rows.
+    $availablePayruns = $selectedFortnight
+        ? Payroll::with('branch')
+            ->where('company_id', $companyId)
+            ->where('fortnight_number', $selectedFortnight)
+            ->orderByRaw('CASE WHEN branch_id IS NULL THEN 0 ELSE 1 END')
+            ->orderBy('id')
+            ->get()
+        : collect();
     
     $payrollItems = collect();
     $period = null;
@@ -595,7 +607,8 @@ public function summary(Request $request)
     if ($selectedFortnight) {
         $payroll = $payroll ?: Payroll::where('company_id', $companyId)
             ->where('fortnight_number', $selectedFortnight)
-            ->latest('id')
+            ->orderByRaw('CASE WHEN branch_id IS NULL THEN 0 ELSE 1 END')
+            ->orderBy('id')
             ->first();
         
         if ($payroll) {
@@ -612,13 +625,6 @@ public function summary(Request $request)
                 })
                 ->values();
 
-            if ($request->filled('branch_id')) {
-                $branchId = (int) $request->branch_id;
-                $payrollItems = $payrollItems->filter(function ($item) use ($branchId, $payroll) {
-                    return $item->employee && $item->employee->assignmentOn($payroll->period_end)?->branch_id === $branchId;
-                })->values();
-            }
-            
             // Add FN Rate to each item
             $payrollItems->each(function ($item) {
                 $employee = $item->employee;
@@ -715,6 +721,7 @@ public function summary(Request $request)
         'totalRegular',
         'employees',
         'branches',
+        'availablePayruns',
         'taxTables' //  ADDED THIS
     ));
 }

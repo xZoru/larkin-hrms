@@ -17,6 +17,8 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 class AllPayrollsExport implements FromCollection, WithColumnWidths, WithEvents, WithTitle
 {
     private array $sections = [];
+    /** @var array<int, string> Branch name keyed by the exported payroll-item object. */
+    private array $itemBranchNames = [];
     private string $kinaFormat = '_-"K"* #,##0.00_-;\-"K"* #,##0.00_-;_-"K"* "-"??_-;_-@_-';
 
     public function __construct(private int $companyId, private string $fortnight)
@@ -32,58 +34,58 @@ class AllPayrollsExport implements FromCollection, WithColumnWidths, WithEvents,
     {
         $rows = collect();
         $this->sections = [];
-        $payrolls = Payroll::with(['items.employee.assignments.branch', 'company'])
+        $payrolls = Payroll::with(['items.employee.assignments.branch', 'company', 'branch'])
             ->where('company_id', $this->companyId)
             ->where('fortnight_number', $this->fortnight)
             ->orderBy('period_start')
             ->orderBy('id')
             ->get();
 
-        foreach ($payrolls as $payroll) {
-            $baseRow = $rows->count() + 1;
-            $items = $payroll->items;
-            $branchCount = $items->map(fn ($item) => $item->employee?->branchNameOn($payroll->period_end) ?? 'POM')->unique()->count();
+        $payroll = $payrolls->first();
+        $this->itemBranchNames = [];
+        $items = $payrolls->flatMap(function ($payrun) {
+            // The payrun's branch is the authoritative source for the payout
+            // grouping. Employee assignments can change after a payrun is made.
+            $branchName = $payrun->branch?->name ?? 'Main Office / Unassigned';
 
-            // Reserve the seven-row header block used by the single-payrun export.
-            for ($row = 0; $row < 7; $row++) {
-                $rows->push(array_fill(0, 16, null));
-            }
+            return $payrun->items->each(function ($item) use ($branchName) {
+                $this->itemBranchNames[spl_object_id($item)] = $branchName;
+            });
+        })->values();
 
-            foreach ($items as $item) {
-                $employee = $item->employee;
-                $fnRate = $employee && (float) $employee->monthly_salary > 0
-                    ? (float) $employee->monthly_salary / 2
-                    : (float) ($employee?->hourly_rate ?? 0) * 84;
-
-                $rows->push([
-                    $employee?->employee_number ?? data_get($item->details, 'account_number', 'MANUAL'),
-                    $employee?->full_name ?? data_get($item->details, 'account_name', 'Manual Entry'),
-                    round($fnRate, 2), (float) ($item->basic_pay ?? 0), (float) ($item->regular_pay ?? 0),
-                    (float) ($item->overtime_pay ?? 0), (float) ($item->sunday_pay ?? 0),
-                    (float) ($item->holiday_pay ?? 0), 0, (float) ($item->allowance ?? 0),
-                    (float) ($item->gross_wage ?? 0), (float) ($item->tax ?? 0),
-                    (float) ($item->nasfund_ee ?? 0), 0, (float) ($item->loan_deduction ?? 0),
-                    (float) ($item->net_pay ?? 0),
-                ]);
-            }
-
-            $totals = [
-                'TOTAL', '', 0, 0, 0, 0, 0, 0, 0, 0,
-                (float) $items->sum('gross_wage'), (float) $items->sum('tax'),
-                (float) $items->sum('nasfund_ee'), 0, (float) $items->sum('loan_deduction'),
-                (float) $items->sum('net_pay'),
-            ];
-            $rows->push($totals);
-
-            // Keep the bank payout panel from overlapping the next payrun section.
-            $minimumRows = max(14, 10 + $branchCount);
-            while ($rows->count() < $baseRow - 1 + $minimumRows) {
-                $rows->push(array_fill(0, 16, null));
-            }
+        // Build one consolidated table. The first payrun supplies the report
+        // heading and pay date, while every payrun's employee rows contribute
+        // to the same totals and payout summary.
+        for ($row = 0; $row < 7; $row++) {
             $rows->push(array_fill(0, 16, null));
-
-            $this->sections[] = compact('baseRow', 'payroll', 'items');
         }
+
+        foreach ($items as $item) {
+            $employee = $item->employee;
+            $fnRate = $employee && (float) $employee->monthly_salary > 0
+                ? (float) $employee->monthly_salary / 2
+                : (float) ($employee?->hourly_rate ?? 0) * 84;
+
+            $rows->push([
+                $employee?->employee_number ?? data_get($item->details, 'account_number', 'MANUAL'),
+                $employee?->full_name ?? data_get($item->details, 'account_name', 'Manual Entry'),
+                round($fnRate, 2), (float) ($item->basic_pay ?? 0), (float) ($item->regular_pay ?? 0),
+                (float) ($item->overtime_pay ?? 0), (float) ($item->sunday_pay ?? 0),
+                (float) ($item->holiday_pay ?? 0), 0, (float) ($item->allowance ?? 0),
+                (float) ($item->gross_wage ?? 0), (float) ($item->tax ?? 0),
+                (float) ($item->nasfund_ee ?? 0), 0, (float) ($item->loan_deduction ?? 0),
+                (float) ($item->net_pay ?? 0),
+            ]);
+        }
+
+        $rows->push([
+            'TOTAL', '', 0, 0, 0, 0, 0, 0, 0, 0,
+            (float) $items->sum('gross_wage'), (float) $items->sum('tax'),
+            (float) $items->sum('nasfund_ee'), 0, (float) $items->sum('loan_deduction'),
+            (float) $items->sum('net_pay'),
+        ]);
+
+        $this->sections[] = ['baseRow' => 1, 'payroll' => $payroll, 'items' => $items];
 
         return $rows;
     }
@@ -197,9 +199,28 @@ class AllPayrollsExport implements FromCollection, WithColumnWidths, WithEvents,
     {
         $national = $items->filter(fn ($item) => !str_contains(strtolower($item->employee?->nationality ?? 'national'), 'expat'))->sum('net_pay');
         $expat = $items->filter(fn ($item) => str_contains(strtolower($item->employee?->nationality ?? ''), 'expat'))->sum('net_pay');
+        // Keep Main Office employees (including those without a branch
+        // assignment) distinct from the individual branch payments.
+        $mainOfficeLabels = ['', 'unassigned', 'main office', 'pom'];
+        $branchNameFor = fn ($item) => $this->itemBranchNames[spl_object_id($item)]
+            ?? $item->employee?->branchNameOn($periodEnd)
+            ?? 'Unassigned';
+        $mainOffice = $items
+            ->filter(fn ($item) => in_array(
+                strtolower(trim($branchNameFor($item))),
+                $mainOfficeLabels,
+                true
+            ))
+            ->sum('net_pay');
         $branches = $items
-            ->groupBy(fn ($item) => $item->employee?->branchNameOn($periodEnd) ?? 'Unassigned')
-            ->map(fn ($group) => $group->sum('net_pay'));
+            ->reject(fn ($item) => in_array(
+                strtolower(trim($branchNameFor($item))),
+                $mainOfficeLabels,
+                true
+            ))
+            ->groupBy($branchNameFor)
+            ->map(fn ($group) => $group->sum('net_pay'))
+            ->sortKeys();
         $row = $base + 1;
         $sheet->mergeCells("T{$row}:U{$row}");
         $sheet->setCellValue("T{$row}", 'BANK PAYOUT SUMMARY');
@@ -217,6 +238,9 @@ class AllPayrollsExport implements FromCollection, WithColumnWidths, WithEvents,
         $row += 2;
         $sheet->setCellValue("T{$row}", 'By Branch');
         $sheet->getStyle("T{$row}")->getFont()->setItalic(true);
+        $row++;
+        $sheet->setCellValue("T{$row}", 'Main Office / Unassigned');
+        $sheet->setCellValue("U{$row}", $mainOffice);
         foreach ($branches as $branch => $amount) {
             $row++;
             $sheet->setCellValue("T{$row}", $branch);
