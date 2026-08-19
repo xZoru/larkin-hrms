@@ -90,12 +90,20 @@ class Payroll extends Model
 
     public function calculateTotals()
     {
-        $this->total_gross = $this->items->sum('gross_wage');
-        $this->total_tax = $this->items->sum('tax');
-        $this->total_net = $this->items->sum('net_pay');
-        $this->total_nasfund_ee = $this->items->sum('nasfund_ee');
-        $this->total_nasfund_er = $this->items->sum('nasfund_er');
-        $this->total_deductions = $this->items->sum('loan_deduction') + $this->items->sum('other_deductions');
+        // Manual ABA entries are payment instructions only. Keep them attached
+        // to the payrun for ABA generation, but exclude them from payroll totals.
+        $items = $this->items->get()->reject(function (PayrollItem $item) {
+            $details = $item->details ?? [];
+
+            return is_array($details) && ($details['type'] ?? null) === 'manual_entry';
+        });
+
+        $this->total_gross = $items->sum('gross_wage');
+        $this->total_tax = $items->sum('tax');
+        $this->total_net = $items->sum('net_pay');
+        $this->total_nasfund_ee = $items->sum('nasfund_ee');
+        $this->total_nasfund_er = $items->sum('nasfund_er');
+        $this->total_deductions = $items->sum('loan_deduction') + $items->sum('other_deductions');
         $this->save();
     }
 

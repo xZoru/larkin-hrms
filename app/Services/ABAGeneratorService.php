@@ -261,7 +261,7 @@ class ABAGeneratorService
         $bsb = $bankAccount->bsb_code ?? '';
         $bsb = preg_replace('/[^0-9]/', '', $bsb);
         if (strlen($bsb) > 6) {
-            $bsb = substr($bsb, -6);
+            $bsb = substr($bsb, 0, 6);
         }
         $bsb = str_pad($bsb, 6, '0', STR_PAD_LEFT);
         $bsbFormatted = substr($bsb, 0, 3) . '-' . substr($bsb, 3, 3);

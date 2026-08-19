@@ -868,7 +868,13 @@ public function summary(Request $request)
 
     private function syncPayrollTotals(Payroll $payroll)
     {
-        $items = $payroll->items()->get();
+        // Manual ABA entries remain available for ABA generation, but do not
+        // form part of the payroll's employee summary or financial totals.
+        $items = $payroll->items()->get()->reject(function ($item) {
+            $details = $item->details ?? [];
+
+            return is_array($details) && ($details['type'] ?? null) === 'manual_entry';
+        });
 
         $payroll->update([
             'total_gross' => $items->sum('gross_wage'),
