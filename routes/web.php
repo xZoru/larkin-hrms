@@ -138,9 +138,11 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/loan-requests', [LoanRequestController::class, 'index'])->name('loan-requests.index');
     Route::get('/loan-requests/create', [LoanRequestController::class, 'create'])->name('loan-requests.create');
     Route::post('/loan-requests', [LoanRequestController::class, 'store'])->name('loan-requests.store');
-    Route::get('/loan-requests/{loanRequest}', [LoanRequestController::class, 'show'])->name('loan-requests.show');
+    Route::get('/loan-requests/{loanRequest}/correct-balance', [LoanRequestController::class, 'editBalance'])->name('loan-requests.edit-balance');
+    Route::patch('/loan-requests/{loanRequest}/correct-balance', [LoanRequestController::class, 'correctBalance'])->name('loan-requests.correct-balance');
     Route::get('/loan-requests/{loanRequest}/edit', [LoanRequestController::class, 'edit'])->name('loan-requests.edit');
     Route::put('/loan-requests/{loanRequest}', [LoanRequestController::class, 'update'])->name('loan-requests.update');
+    Route::get('/loan-requests/{loanRequest}', [LoanRequestController::class, 'show'])->name('loan-requests.show');
     Route::delete('/loan-requests/{loanRequest}', [LoanRequestController::class, 'destroy'])->name('loan-requests.destroy');
     
     // Status update routes

@@ -583,6 +583,11 @@
                                                 <i class="fas fa-times"></i>
                                             </button>
                                         @endif
+                                        @if(auth()->user()->isSuperAdmin() || auth()->user()->can('correct-loan-balances'))
+                                            <a href="{{ route('loan-requests.edit-balance', $loan) }}" class="btn-action" title="Edit loan balance">
+                                                <i class="fas fa-pen"></i>
+                                            </a>
+                                        @endif
                                         <form action="{{ route('loan-requests.destroy', $loan) }}" method="POST" class="inline-block" onsubmit="return confirm('Are you sure you want to delete this loan request? This cannot be undone.');">
                                             @csrf
                                             @method('DELETE')

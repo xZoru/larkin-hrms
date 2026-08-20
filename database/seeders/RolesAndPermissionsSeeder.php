@@ -40,6 +40,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'view-loans',
             'create-loans',
             'edit-loans',
+            'correct-loan-balances',
             'delete-loans',
             'approve-loans',
             'release-loans',

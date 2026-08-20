@@ -248,6 +248,61 @@ class LoanRequestController extends Controller
             ->with('success', 'Loan request updated successfully!');
     }
 
+    /**
+     * Show a controlled balance correction form for legacy payroll deductions.
+     * This is deliberately separate from editing the original loan request so
+     * released and completed loans can be corrected without changing their
+     * approval history.
+     */
+    public function editBalance(Loan $loanRequest)
+    {
+        $this->authorizeCompany($loanRequest);
+        $this->authorizeBalanceCorrection();
+
+        return view('loan-requests.correct-balance', compact('loanRequest'));
+    }
+
+    /**
+     * Record a ledger adjustment and rebuild the denormalized loan totals.
+     * A negative manual payment reverses an incorrect historical deduction,
+     * rather than silently changing the loan balance.
+     */
+    public function correctBalance(Request $request, Loan $loanRequest)
+    {
+        $this->authorizeCompany($loanRequest);
+        $this->authorizeBalanceCorrection();
+
+        $validated = $request->validate([
+            'remaining_balance' => ['required', 'numeric', 'min:0', 'max:' . $loanRequest->amount],
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+
+        DB::transaction(function () use ($loanRequest, $validated) {
+            $loan = Loan::whereKey($loanRequest->id)->lockForUpdate()->firstOrFail();
+            $recordedPaid = (float) $loan->payments()->sum('amount');
+            $targetPaid = (float) $loan->amount - (float) $validated['remaining_balance'];
+            $adjustment = round($targetPaid - $recordedPaid, 2);
+
+            if ($adjustment != 0.0) {
+                LoanPayment::create([
+                    'loan_id' => $loan->id,
+                    'payroll_id' => null,
+                    'amount' => $adjustment,
+                    'balance_before' => max(0, (float) $loan->amount - $recordedPaid),
+                    'balance_after' => (float) $validated['remaining_balance'],
+                    'payment_type' => 'manual',
+                    'processed_by' => Auth::id(),
+                    'notes' => 'Balance correction: ' . $validated['reason'],
+                ]);
+            }
+
+            $loan->recalculatePaymentBalance();
+        });
+
+        return redirect()->route('loan-requests.index')
+            ->with('success', 'Loan balance corrected successfully.');
+    }
+
     public function approve(Request $request, Loan $loanRequest)
     {
         $this->authorizeCompany($loanRequest);
@@ -475,6 +530,15 @@ class LoanRequestController extends Controller
         $companyId = $user->getCurrentCompanyId(); // ✅ FIXED: Use helper method
         if ($loanRequest->company_id !== $companyId) {
             abort(403, 'Unauthorized access to this loan request.');
+        }
+    }
+
+    private function authorizeBalanceCorrection(): void
+    {
+        $user = auth()->user();
+
+        if (!$user->isSuperAdmin() && !$user->can('correct-loan-balances')) {
+            abort(403, 'You are not authorized to correct loan balances.');
         }
     }
 }

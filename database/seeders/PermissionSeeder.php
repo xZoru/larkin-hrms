@@ -24,6 +24,7 @@ class PermissionSeeder extends Seeder
             'unlock-attendance',
             'view-payroll',
             'view-loans',
+            'correct-loan-balances',
             'view-reports',
             'view-leave',
             'view-backups',
