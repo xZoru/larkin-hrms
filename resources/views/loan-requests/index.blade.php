@@ -285,6 +285,31 @@
         background: #f1f5f9;
         cursor: not-allowed;
     }
+    .employee-search-wrapper { position: relative; }
+    .employee-search-results {
+        position: absolute;
+        z-index: 30;
+        top: calc(100% + 4px);
+        left: 0;
+        right: 0;
+        max-height: 220px;
+        overflow-y: auto;
+        background: white;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        box-shadow: 0 8px 16px rgba(15, 23, 42, 0.14);
+    }
+    .employee-search-result {
+        display: block;
+        width: 100%;
+        padding: 8px 10px;
+        text-align: left;
+        font-size: 12px;
+        color: #334155;
+        background: white;
+    }
+    .employee-search-result:hover, .employee-search-result.active { background: #eef2ff; }
+    .employee-search-result strong { color: #1e293b; }
     
     .selected-employee-display {
         font-size: 13px;
@@ -445,14 +470,11 @@
                             <tbody id="loanRows">
                                 <tr class="loan-row">
                                     <td>
-                                        <select name="loans[0][employee_id]" class="form-control-custom form-control-custom-sm searchable-select" required>
-                                            <option value="">Search employee...</option>
-                                            @foreach($employees ?? [] as $employee)
-                                                <option value="{{ $employee->id }}" data-code="{{ $employee->employee_number }}">
-                                                    {{ $employee->employee_number }} | {{ $employee->full_name ?? ($employee->first_name . ' ' . $employee->last_name) }}
-                                                </option>
-                                            @endforeach
-                                        </select>
+                                        <div class="employee-search-wrapper">
+                                            <input type="text" class="form-control-custom form-control-custom-sm employee-search-input" autocomplete="off" placeholder="Type employee name or ID" required>
+                                            <input type="hidden" name="loans[0][employee_id]" class="employee-id-input">
+                                            <div class="employee-search-results" role="listbox" hidden></div>
+                                        </div>
                                     </td>
                                     <td class="selected-employee" data-code="" data-name="">
                                         <span class="text-muted" style="font-size: 12px;">Select an employee</span>
@@ -676,7 +698,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             if (el.tagName === 'SELECT') {
                 el.selectedIndex = 0;
-            } else if (el.type === 'number' || el.type === 'text') {
+            } else {
                 el.value = '';
             }
         });
@@ -701,6 +723,12 @@ document.addEventListener('DOMContentLoaded', function() {
             selectedDisplay.innerHTML = '<span class="text-muted" style="font-size: 12px;">Select an employee</span>';
         }
 
+        var searchResults = newRow.querySelector('.employee-search-results');
+        if (searchResults) {
+            searchResults.innerHTML = '';
+            searchResults.hidden = true;
+        }
+
         document.getElementById('loanRows').appendChild(newRow);
         rowCount++;
     });
@@ -717,19 +745,125 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // ============ EMPLOYEE SELECT - Update Display ============
-    document.addEventListener('change', function(e) {
-        if (e.target.classList.contains('employee-select')) {
-            var selectedOption = e.target.options[e.target.selectedIndex];
-            var code = selectedOption.getAttribute('data-code') || '';
-            var name = selectedOption.getAttribute('data-name') || '';
-            var display = e.target.closest('tr').querySelector('.selected-employee');
-            
-            if (code && name) {
-                display.innerHTML = '<strong>' + code + '</strong> | ' + name;
-            } else {
-                display.innerHTML = '<span class="text-muted" style="font-size: 12px;">Select an employee</span>';
-            }
+    // ============ SERVER-SIDE EMPLOYEE AUTOCOMPLETE ============
+    var employeeSearchUrl = @json(route('api.employees.search'));
+
+    function clearEmployeeResults(input) {
+        var results = input.closest('.employee-search-wrapper').querySelector('.employee-search-results');
+        results.innerHTML = '';
+        results.hidden = true;
+    }
+
+    function selectEmployee(input, employee) {
+        var row = input.closest('tr');
+        var employeeIdInput = row.querySelector('.employee-id-input');
+        var display = row.querySelector('.selected-employee');
+        var name = [employee.first_name, employee.last_name].filter(Boolean).join(' ');
+        input.value = employee.employee_number + ' | ' + name;
+        employeeIdInput.value = employee.id;
+        var code = document.createElement('strong');
+        code.textContent = employee.employee_number;
+        display.replaceChildren(code, document.createTextNode(' | ' + name));
+        clearEmployeeResults(input);
+    }
+
+    function renderEmployeeResults(input, employees) {
+        var results = input.closest('.employee-search-wrapper').querySelector('.employee-search-results');
+        results.innerHTML = '';
+
+        employees.forEach(function(employee) {
+            var button = document.createElement('button');
+            var name = [employee.first_name, employee.last_name].filter(Boolean).join(' ');
+            button.type = 'button';
+            button.className = 'employee-search-result';
+            button.setAttribute('role', 'option');
+            button.dataset.employee = JSON.stringify(employee);
+            var code = document.createElement('strong');
+            code.textContent = employee.employee_number;
+            button.append(code, document.createTextNode(' | ' + name));
+            results.appendChild(button);
+        });
+
+        results.hidden = employees.length === 0;
+    }
+
+    document.addEventListener('input', function(e) {
+        if (!e.target.classList.contains('employee-search-input')) return;
+
+        var input = e.target;
+        var query = input.value.trim();
+        input.closest('tr').querySelector('.employee-id-input').value = '';
+
+        if (input.searchTimer) clearTimeout(input.searchTimer);
+        if (input.searchRequest) input.searchRequest.abort();
+
+        if (query.length < 2) {
+            clearEmployeeResults(input);
+            return;
+        }
+
+        input.searchTimer = setTimeout(function() {
+            var controller = new AbortController();
+            input.searchRequest = controller;
+
+            fetch(employeeSearchUrl + '?q=' + encodeURIComponent(query), { signal: controller.signal })
+                .then(function(response) { return response.ok ? response.json() : []; })
+                .then(function(employees) {
+                    if (input.value.trim() === query) renderEmployeeResults(input, employees);
+                })
+                .catch(function(error) {
+                    if (error.name !== 'AbortError') clearEmployeeResults(input);
+                });
+        }, 250);
+    });
+
+    document.addEventListener('click', function(e) {
+        var result = e.target.closest('.employee-search-result');
+        if (result) {
+            selectEmployee(
+                result.closest('.employee-search-wrapper').querySelector('.employee-search-input'),
+                JSON.parse(result.dataset.employee)
+            );
+        }
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (!e.target.classList.contains('employee-search-input')) return;
+        var input = e.target;
+        var options = Array.from(input.closest('.employee-search-wrapper').querySelectorAll('.employee-search-result'));
+        var activeIndex = options.findIndex(function(option) { return option.classList.contains('active'); });
+
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            if (!options.length) return;
+            e.preventDefault();
+            activeIndex = e.key === 'ArrowDown'
+                ? Math.min(activeIndex + 1, options.length - 1)
+                : Math.max(activeIndex - 1, 0);
+            options.forEach(function(option, index) { option.classList.toggle('active', index === activeIndex); });
+            options[activeIndex].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter' && activeIndex >= 0) {
+            e.preventDefault();
+            selectEmployee(input, JSON.parse(options[activeIndex].dataset.employee));
+        } else if (e.key === 'Escape') {
+            clearEmployeeResults(input);
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.employee-search-wrapper')) {
+            document.querySelectorAll('.employee-search-input').forEach(clearEmployeeResults);
+        }
+    });
+
+    document.querySelector('form[action="{{ route('loan-requests.store') }}"]').addEventListener('submit', function(e) {
+        var invalidInput = Array.from(this.querySelectorAll('.employee-search-input')).find(function(input) {
+            return !input.closest('tr').querySelector('.employee-id-input').value;
+        });
+
+        if (invalidInput) {
+            e.preventDefault();
+            invalidInput.focus();
+            alert('Please choose each employee from the search suggestions.');
         }
     });
 
@@ -881,14 +1015,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // ============ SELECT2 INITIALIZATION ============
-    if (typeof $.fn.select2 !== 'undefined') {
-        $('.employee-select').select2({
-            placeholder: 'Search employee by name or ID',
-            allowClear: true,
-            width: '100%'
-        });
-    }
 });
 </script>
 @endsection

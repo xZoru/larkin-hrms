@@ -68,20 +68,13 @@ class LoanRequestController extends Controller
     {
         $user = auth()->user();
         $companyId = $user->getCurrentCompanyId(); // FIXED: Use helper method
-        $allowedTypes = $user->getAllowedEmployeeTypes();
         
         $loans = Loan::with(['employee', 'approver', 'releaser', 'creator'])
             ->where('company_id', $companyId)
             ->orderBy('created_at', 'desc')
             ->paginate(15);
         
-        $employees = Employee::where('company_id', $companyId) //  FIXED: Use $companyId
-            ->where('status', 'Active')
-            ->whereIn('employee_type', $allowedTypes)
-            ->orderBy('last_name')
-            ->get();
-
-        return view('loan-requests.index', compact('loans', 'employees'));
+        return view('loan-requests.index', compact('loans'));
     }
 
     public function create()
