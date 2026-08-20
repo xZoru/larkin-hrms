@@ -38,6 +38,34 @@
                 <div><div class="text-xs uppercase text-indigo-600">Payroll deductions</div><div class="font-semibold text-gray-900">K {{ number_format($payrollDeductions->sum('loan_deduction'), 2) }}</div></div>
             </div>
 
+            <div class="bg-white shadow-sm rounded-lg p-6">
+                <div class="font-semibold text-gray-800">Record Manual Payment</div>
+                <p class="mt-1 text-sm text-gray-500">Use this when the employee pays outside the payroll deduction.</p>
+                <form method="POST" action="{{ url('/loan-requests') }}" data-action-template="{{ url('/loan-requests/__loan__/payment') }}" id="manualPaymentForm" class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                    @csrf
+                    <div>
+                        <label for="manual_payment_loan" class="block text-sm font-medium text-gray-700 mb-1">Released loan</label>
+                        <select id="manual_payment_loan" name="loan_id" required class="w-full rounded-md border-gray-300">
+                            <option value="">Select loan</option>
+                            @foreach($loans->where('status', 'Released')->where('remaining_balance', '>', 0) as $loan)
+                                <option value="{{ $loan->id }}">{{ $loan->loan_type }} — K {{ number_format($loan->remaining_balance, 2) }} remaining</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label for="manual_payment_amount" class="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                        <input id="manual_payment_amount" name="amount" type="number" min="0.01" step="0.01" required class="w-full rounded-md border-gray-300" placeholder="0.00">
+                    </div>
+                    <div>
+                        <button type="submit" class="w-full px-4 py-2 rounded-md bg-indigo-600 text-white">Record payment</button>
+                    </div>
+                    <div class="md:col-span-3">
+                        <label for="manual_payment_notes" class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                        <input id="manual_payment_notes" name="notes" maxlength="500" class="w-full rounded-md border-gray-300" placeholder="Receipt number or payment details">
+                    </div>
+                </form>
+            </div>
+
             <div class="bg-white shadow-sm rounded-lg overflow-hidden">
                 <div class="px-6 py-4 border-b font-semibold text-gray-800">Loan History</div>
                 <div class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-gray-50 text-left text-gray-600"><tr><th class="px-6 py-3">Date</th><th class="px-6 py-3">Type</th><th class="px-6 py-3 text-right">Amount</th><th class="px-6 py-3 text-right">Per payroll</th><th class="px-6 py-3 text-right">Paid</th><th class="px-6 py-3 text-right">Balance</th><th class="px-6 py-3">Status</th></tr></thead><tbody class="divide-y">
@@ -103,5 +131,13 @@ document.addEventListener('DOMContentLoaded', function () {
             form.submit();
         }
     });
+
+    const manualPaymentForm = document.getElementById('manualPaymentForm');
+    if (manualPaymentForm) {
+        manualPaymentForm.addEventListener('submit', function () {
+            const loanId = document.getElementById('manual_payment_loan').value;
+            this.action = this.dataset.actionTemplate.replace('__loan__', loanId);
+        });
+    }
 });
 </script>

@@ -515,10 +515,17 @@
                 </div>
             </div>
             <div class="card-body">
+                <form id="bulkLoanActionForm" method="POST" class="mb-3 flex flex-wrap items-center gap-2">
+                    @csrf
+                    <button type="submit" formaction="{{ route('loan-requests.bulk-approve') }}" class="px-3 py-2 rounded bg-green-600 text-white text-sm" onclick="return confirm('Approve all selected pending loan requests?');">Approve selected</button>
+                    <button type="submit" formaction="{{ route('loan-requests.bulk-release') }}" class="px-3 py-2 rounded bg-blue-600 text-white text-sm" onclick="return confirm('Release all selected approved loan requests?');">Release selected</button>
+                    <span class="text-sm text-gray-500">Select Pending loans to approve or Approved loans to release.</span>
+                </form>
                 <div class="overflow-x-auto">
                     <table class="table-loan-requests w-full" id="loanListTable">
                         <thead>
                             <tr>
+                                <th class="text-center"><input type="checkbox" id="selectAllLoans" aria-label="Select all loans"></th>
                                 <th class="text-left">Employee</th>
                                 <th class="text-left">Loan Type</th>
                                 <th class="text-right">Amount</th>
@@ -534,6 +541,7 @@
                         <tbody>
                             @forelse($loans as $loan)
                             <tr data-status="{{ $loan->status }}">
+                                <td class="text-center"><input type="checkbox" class="loan-select" form="bulkLoanActionForm" name="loan_ids[]" value="{{ $loan->id }}" aria-label="Select loan for {{ $loan->employee->full_name }}"></td>
                                 <td>
                                     <div class="employee-name">{{ $loan->employee->first_name ?? '' }} {{ $loan->employee->last_name ?? '' }}</div>
                                     <div class="employee-number">{{ $loan->employee->employee_number ?? 'N/A' }}</div>
@@ -600,7 +608,7 @@
                             </tr>
                             @empty
                             <tr>
-                                <td colspan="10">
+                                <td colspan="11">
                                     <div class="empty-state">
                                         <div class="icon">
                                             <i class="fas fa-hand-holding-usd"></i>
@@ -789,6 +797,15 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     });
+
+    var selectAllLoans = document.getElementById('selectAllLoans');
+    if (selectAllLoans) {
+        selectAllLoans.addEventListener('change', function () {
+            document.querySelectorAll('.loan-select').forEach(function (checkbox) {
+                checkbox.checked = selectAllLoans.checked;
+            });
+        });
+    }
 
     // ============ APPROVE LOAN ============
     document.querySelectorAll('.approve-btn').forEach(function(btn) {

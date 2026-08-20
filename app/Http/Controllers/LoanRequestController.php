@@ -320,6 +320,11 @@ class LoanRequestController extends Controller
         return response()->json(['success' => 'Loan request approved successfully!']);
     }
 
+    public function bulkApprove(Request $request)
+    {
+        return $this->bulkUpdateStatus($request, 'Pending', 'Approved', 'approved');
+    }
+
     public function release(Request $request, Loan $loanRequest)
     {
         $this->authorizeCompany($loanRequest);
@@ -335,6 +340,11 @@ class LoanRequestController extends Controller
         ]);
 
         return response()->json(['success' => 'Loan request released successfully!']);
+    }
+
+    public function bulkRelease(Request $request)
+    {
+        return $this->bulkUpdateStatus($request, 'Approved', 'Released', 'released');
     }
 
     public function reject(Request $request, Loan $loanRequest)
@@ -522,6 +532,49 @@ class LoanRequestController extends Controller
         );
 
         return back()->with('success', 'Payment recorded successfully!');
+    }
+
+    private function bulkUpdateStatus(Request $request, string $fromStatus, string $toStatus, string $action): \Illuminate\Http\RedirectResponse
+    {
+        $validated = $request->validate([
+            'loan_ids' => ['required', 'array', 'min:1'],
+            'loan_ids.*' => ['integer', 'distinct'],
+        ]);
+
+        $user = auth()->user();
+        $companyId = $user->getCurrentCompanyId();
+        $allowedTypes = $user->getAllowedEmployeeTypes();
+
+        $updated = DB::transaction(function () use ($validated, $companyId, $allowedTypes, $fromStatus, $toStatus, $action) {
+            $loans = Loan::whereIn('id', $validated['loan_ids'])
+                ->where('company_id', $companyId)
+                ->where('status', $fromStatus)
+                ->whereHas('employee', fn ($query) => $query->whereIn('employee_type', $allowedTypes))
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($loans as $loan) {
+                $values = ['status' => $toStatus];
+
+                if ($action === 'approved') {
+                    $values += ['approved_by' => Auth::id(), 'approved_date' => now()];
+                } else {
+                    $values += ['released_by' => Auth::id(), 'released_date' => now()];
+                }
+
+                $loan->update($values);
+            }
+
+            return $loans->count();
+        });
+
+        return redirect()->route('loan-requests.index')
+            ->with(
+                $updated ? 'success' : 'error',
+                $updated
+                    ? "{$updated} loan request(s) {$action} successfully."
+                    : "No eligible {$fromStatus} loan requests were selected."
+            );
     }
 
     private function authorizeCompany(Loan $loanRequest)

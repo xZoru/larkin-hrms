@@ -138,6 +138,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/loan-requests', [LoanRequestController::class, 'index'])->name('loan-requests.index');
     Route::get('/loan-requests/create', [LoanRequestController::class, 'create'])->name('loan-requests.create');
     Route::post('/loan-requests', [LoanRequestController::class, 'store'])->name('loan-requests.store');
+    Route::post('/loan-requests/bulk-approve', [LoanRequestController::class, 'bulkApprove'])->name('loan-requests.bulk-approve');
+    Route::post('/loan-requests/bulk-release', [LoanRequestController::class, 'bulkRelease'])->name('loan-requests.bulk-release');
     Route::get('/loan-requests/{loanRequest}/correct-balance', [LoanRequestController::class, 'editBalance'])->name('loan-requests.edit-balance');
     Route::patch('/loan-requests/{loanRequest}/correct-balance', [LoanRequestController::class, 'correctBalance'])->name('loan-requests.correct-balance');
     Route::get('/loan-requests/{loanRequest}/edit', [LoanRequestController::class, 'edit'])->name('loan-requests.edit');
