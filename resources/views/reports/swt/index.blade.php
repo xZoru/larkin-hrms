@@ -195,9 +195,9 @@
                     <div class="company-name">{{ $company->name ?? 'Company' }}</div>
                     <div class="report-info mt-1">
                         <span class="value">{{ count($reportData) }} employees</span>
-                        @if($selectedMonth)
+                        @if($selectedFortnight && $period)
                             <span class="text-gray-500 mx-2">|</span>
-                            <span class="value">{{ \Carbon\Carbon::createFromFormat('Y-m', $selectedMonth)->format('F Y') }}</span>
+                            <span class="value">Fortnight {{ $selectedFortnight }}: {{ $period->formatted }}</span>
                         @endif
                     </div>
                 </div>
@@ -208,12 +208,12 @@
         <div class="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
             <form action="{{ route('reports.swt.index') }}" method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Month</label>
-                    <select name="month" class="filter-select">
-                        <option value="">Select Month</option>
-                        @foreach($monthOptions as $value => $label)
-                            <option value="{{ $value }}" @selected($selectedMonth == $value)>
-                                {{ $label }}
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Fortnight</label>
+                    <select name="fortnight" class="filter-select">
+                        <option value="">Select Fortnight</option>
+                        @foreach($fortnights as $fortnight)
+                            <option value="{{ $fortnight }}" @selected($selectedFortnight == $fortnight)>
+                                Fortnight {{ $fortnight }}@if(isset($fortnightPeriods[$fortnight])) — {{ $fortnightPeriods[$fortnight]->formatted }}@endif
                             </option>
                         @endforeach
                     </select>
@@ -224,32 +224,12 @@
             </form>
         </div>
 
-        @if($selectedMonth && count($reportData) > 0)
-            <!-- Summary Stats -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div class="stat-box">
-                    <div class="stat-value purple">{{ $summary->total_employees }}</div>
-                    <div class="stat-label">Total Employees</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-value blue">K {{ number_format($summary->total_gross, 2) }}</div>
-                    <div class="stat-label">Total Gross Wages</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-value orange">K {{ number_format($summary->total_tax, 2) }}</div>
-                    <div class="stat-label">Total Tax</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-value green">{{ $summary->total_payrolls }}</div>
-                    <div class="stat-label">Total Payroll Runs</div>
-                </div>
-            </div>
-
+        @if($selectedFortnight && count($reportData) > 0)
             <!-- Export Buttons -->
             <div class="flex flex-wrap gap-3 mb-6">
                 <form action="{{ route('reports.swt.export') }}" method="POST" class="inline">
                     @csrf
-                    <input type="hidden" name="month" value="{{ $selectedMonth }}">
+                    <input type="hidden" name="fortnight" value="{{ $selectedFortnight }}">
                     <input type="hidden" name="format" value="pdf">
                     <button type="submit" class="btn-export pdf">
                         <i class="fas fa-file-pdf"></i> PDF
@@ -257,7 +237,7 @@
                 </form>
                 <form action="{{ route('reports.swt.export') }}" method="POST" class="inline">
                     @csrf
-                    <input type="hidden" name="month" value="{{ $selectedMonth }}">
+                    <input type="hidden" name="fortnight" value="{{ $selectedFortnight }}">
                     <input type="hidden" name="format" value="excel">
                     <button type="submit" class="btn-export excel">
                         <i class="fas fa-file-excel"></i> Excel
@@ -265,7 +245,7 @@
                 </form>
                 <form action="{{ route('reports.swt.export') }}" method="POST" class="inline">
                     @csrf
-                    <input type="hidden" name="month" value="{{ $selectedMonth }}">
+                    <input type="hidden" name="fortnight" value="{{ $selectedFortnight }}">
                     <input type="hidden" name="format" value="csv">
                     <button type="submit" class="btn-export csv">
                         <i class="fas fa-file-csv"></i> CSV
@@ -320,13 +300,13 @@
             <!-- Footer Info -->
             <div class="mt-4 text-sm text-gray-500 flex justify-between">
                 <span>
-                    Showing {{ count($reportData) }} employees for {{ \Carbon\Carbon::createFromFormat('Y-m', $selectedMonth)->format('F Y') }}
+                    Showing {{ count($reportData) }} employees for Fortnight {{ $selectedFortnight }} ({{ $period->formatted }})
                 </span>
                 <span>
                     Generated: {{ now()->format('d M Y H:i:s') }}
                 </span>
             </div>
-        @elseif($selectedMonth)
+        @elseif($selectedFortnight)
             <!-- Empty State - No Data -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <div class="empty-state">
@@ -334,8 +314,8 @@
                         <i class="fas fa-file-invoice"></i>
                     </div>
                     <h3>No SWT Data Found</h3>
-                    <p>No payroll records found for {{ \Carbon\Carbon::createFromFormat('Y-m', $selectedMonth)->format('F Y') }}.</p>
-                    <p class="text-sm text-gray-400 mt-2">Ensure payroll has been processed for this month.</p>
+                    <p>No paid payroll records found for Fortnight {{ $selectedFortnight }}.</p>
+                    <p class="text-sm text-gray-400 mt-2">Ensure this fortnight's payroll has been marked as paid.</p>
                 </div>
             </div>
         @else
@@ -345,8 +325,8 @@
                     <div class="icon">
                         <i class="fas fa-calendar-alt"></i>
                     </div>
-                    <h3>Select a Month</h3>
-                    <p>Choose a month from the filter above to generate the SWT report.</p>
+                    <h3>Select a Fortnight</h3>
+                    <p>Choose a fortnight from the filter above to generate the SWT report.</p>
                 </div>
             </div>
         @endif

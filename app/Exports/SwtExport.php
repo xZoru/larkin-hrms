@@ -17,16 +17,12 @@ class SwtExport implements FromCollection, WithHeadings, WithMapping, WithStyles
     protected $company;
     protected $reportData;
     protected $summary;
-    protected $month;
-    protected $monthFormatted;
     
-    public function __construct($company, $reportData, $summary, $month, $monthFormatted)
+    public function __construct($company, $reportData, $summary)
     {
         $this->company = $company;
         $this->reportData = $reportData;
         $this->summary = $summary;
-        $this->month = $month;
-        $this->monthFormatted = $monthFormatted;
     }
     
     public function collection()

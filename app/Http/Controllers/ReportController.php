@@ -29,7 +29,7 @@ class ReportController extends Controller
      */
     public function nasfundIndex(Request $request)
     {
-        $companyId = auth()->user()->company_id;
+        $companyId = $this->currentCompanyId();
         $company = Company::find($companyId);
         
         $payrollPeriods = Payroll::where('company_id', $companyId)
@@ -80,7 +80,7 @@ class ReportController extends Controller
             'format' => 'required|in:pdf,excel,csv'
         ]);
         
-        $companyId = auth()->user()->company_id;
+        $companyId = $this->currentCompanyId();
         $company = Company::find($companyId);
         $fortnight = $request->fortnight;
         $format = $request->format;
@@ -225,53 +225,47 @@ private function getNasfundData($companyId, $fortnight)
      */
     public function swtIndex(Request $request)
     {
-    $companyId = auth()->user()->company_id;
-    $company = Company::find($companyId);
+        $companyId = $this->currentCompanyId();
+        $company = Company::find($companyId);
 
-    $driver = DB::connection()->getDriverName();
-    $dateFormat = $driver === 'sqlite' ? "strftime('%Y-%m', pay_date)" : "DATE_FORMAT(pay_date, '%Y-%m')";
-    $yearFormat = $driver === 'sqlite' ? "strftime('%Y', pay_date)" : "YEAR(pay_date)";
+        $payrollPeriods = Payroll::where('company_id', $companyId)
+            ->where('status', 'Paid')
+            ->select('fortnight_number', 'period_start', 'period_end')
+            ->orderByDesc('period_start')
+            ->get()
+            ->groupBy('fortnight_number');
+        $fortnights = $payrollPeriods->keys()->values()->all();
+        $fortnightPeriods = $payrollPeriods->map(function ($payrolls) {
+            $start = $payrolls->min('period_start');
+            $end = $payrolls->max('period_end');
 
-    // Get available months from payroll data
-    $months = Payroll::where('company_id', $companyId)
-        ->where('status', 'Paid')
-        ->selectRaw("DISTINCT {$dateFormat} as month")
-        ->orderBy('month', 'desc')
-        ->pluck('month')
-        ->toArray();
+            return (object) [
+                'start' => $start,
+                'end' => $end,
+                'formatted' => Carbon::parse($start)->format('d M Y') . ' - ' . Carbon::parse($end)->format('d M Y'),
+            ];
+        })->all();
 
-    // Build month options with formatted display
-    $monthOptions = [];
-    foreach ($months as $month) {
-        $date = Carbon::createFromFormat('Y-m', $month);
-        $monthOptions[$month] = $date->format('F Y');
-    }
+        $selectedFortnight = $request->fortnight ?? ($fortnights[0] ?? null);
+        $reportData = collect();
+        $summary = (object) [];
 
-    $selectedMonth = $request->month ?? ($months[0] ?? null);
-    $reportData = [];
-    $summary = [];
+        if ($selectedFortnight) {
+            $reportData = $this->getSwtData($companyId, $selectedFortnight);
+            $summary = $this->calculateSwtSummary($reportData);
+        }
 
-    if ($selectedMonth) {
-        $reportData = $this->getSwtData($companyId, $selectedMonth);
-        $summary = $this->calculateSwtSummary($reportData);
-    }
+        $period = $selectedFortnight ? ($fortnightPeriods[$selectedFortnight] ?? null) : null;
 
-    // Get available years for filter
-    $years = Payroll::where('company_id', $companyId)
-        ->where('status', 'Paid')
-        ->selectRaw("DISTINCT {$yearFormat} as year")
-        ->orderBy('year', 'desc')
-        ->pluck('year')
-        ->toArray();
-
-    return view('reports.swt.index', compact(
-        'company',
-        'monthOptions',
-        'selectedMonth',
-        'reportData',
-        'summary',
-        'years'
-    ));
+        return view('reports.swt.index', compact(
+            'company',
+            'fortnights',
+            'fortnightPeriods',
+            'selectedFortnight',
+            'period',
+            'reportData',
+            'summary'
+        ));
     }
 
     /**
@@ -280,28 +274,28 @@ private function getNasfundData($companyId, $fortnight)
     public function exportSwt(Request $request)
     {
         $request->validate([
-            'month' => 'required|string',
+            'fortnight' => 'required|string',
             'format' => 'required|in:pdf,excel,csv'
         ]);
         
-        $companyId = auth()->user()->company_id;
+        $companyId = $this->currentCompanyId();
         $company = Company::find($companyId);
-        $month = $request->month;
+        $fortnight = $request->fortnight;
         $format = $request->format;
         
-        $reportData = $this->getSwtData($companyId, $month);
+        $reportData = $this->getSwtData($companyId, $fortnight);
         $summary = $this->calculateSwtSummary($reportData);
-        $monthFormatted = Carbon::createFromFormat('Y-m', $month)->format('F Y');
+        $period = $this->getStoredFortnightPeriod($companyId, $fortnight);
         
-        $filename = "SWT_{$company->code}_{$month}_" . date('Ymd');
+        $filename = "SWT_{$company->code}_{$fortnight}_" . date('Ymd');
         
         switch ($format) {
             case 'pdf':
-                return $this->exportSwtPDF($company, $reportData, $summary, $month, $monthFormatted, $filename);
+                return $this->exportSwtPDF($company, $reportData, $summary, $fortnight, $period, $filename);
             case 'excel':
-                return $this->exportSwtExcel($company, $reportData, $summary, $month, $monthFormatted, $filename);
+                return $this->exportSwtExcel($company, $reportData, $summary, $filename);
             case 'csv':
-                return $this->exportSwtCSV($company, $reportData, $summary, $month, $monthFormatted, $filename);
+                return $this->exportSwtCSV($company, $reportData, $summary, $filename);
             default:
                 return back()->with('error', 'Invalid export format.');
         }
@@ -310,15 +304,12 @@ private function getNasfundData($companyId, $fortnight)
     /**
      * Get SWT data with user type filter
      */
-    private function getSwtData($companyId, $month)
+    private function getSwtData($companyId, $fortnight)
     {
-        $driver = DB::connection()->getDriverName();
-        $dateFormat = $driver === 'sqlite' ? "strftime('%Y-%m', pay_date)" : "DATE_FORMAT(pay_date, '%Y-%m')";
-
-        // Get all payrolls for the month
+        // Get all paid payrolls for the selected fortnight.
         $payrolls = Payroll::where('company_id', $companyId)
             ->where('status', 'Paid')
-            ->whereRaw("{$dateFormat} = ?", [$month])
+            ->where('fortnight_number', $fortnight)
             ->with(['items.employee'])
             ->get();
         
@@ -374,14 +365,14 @@ private function getNasfundData($companyId, $fortnight)
     /**
      * Export SWT PDF
      */
-    private function exportSwtPDF($company, $reportData, $summary, $month, $monthFormatted, $filename)
+    private function exportSwtPDF($company, $reportData, $summary, $fortnight, $period, $filename)
     {
         $pdf = Pdf::loadView('reports.swt.pdf', compact(
             'company',
             'reportData',
             'summary',
-            'month',
-            'monthFormatted'
+            'fortnight',
+            'period'
         ));
         
         return $pdf->download($filename . '.pdf');
@@ -390,10 +381,10 @@ private function getNasfundData($companyId, $fortnight)
     /**
      * Export SWT Excel
      */
-    private function exportSwtExcel($company, $reportData, $summary, $month, $monthFormatted, $filename)
+    private function exportSwtExcel($company, $reportData, $summary, $filename)
     {
         return Excel::download(
-            new SwtExport($company, $reportData, $summary, $month, $monthFormatted),
+            new SwtExport($company, $reportData, $summary),
             $filename . '.xlsx'
         );
     }
@@ -401,10 +392,10 @@ private function getNasfundData($companyId, $fortnight)
     /**
      * Export SWT CSV
      */
-    private function exportSwtCSV($company, $reportData, $summary, $month, $monthFormatted, $filename)
+    private function exportSwtCSV($company, $reportData, $summary, $filename)
     {
         return Excel::download(
-            new SwtExport($company, $reportData, $summary, $month, $monthFormatted),
+            new SwtExport($company, $reportData, $summary),
             $filename . '.csv',
             \Maatwebsite\Excel\Excel::CSV
         );
@@ -421,7 +412,7 @@ private function getNasfundData($companyId, $fortnight)
      */
     public function earningsIndex(Request $request)
     {
-        $companyId = auth()->user()->company_id;
+        $companyId = $this->currentCompanyId();
         $company = Company::find($companyId);
         
         // Check driver to support both SQLite and MySQL
@@ -468,7 +459,7 @@ private function getNasfundData($companyId, $fortnight)
             'format' => 'required|in:pdf,excel,csv'
         ]);
         
-        $companyId = auth()->user()->company_id;
+        $companyId = $this->currentCompanyId();
         $company = Company::find($companyId);
         $year = $request->year;
         $format = $request->format;
@@ -655,7 +646,7 @@ private function getNasfundData($companyId, $fortnight)
      */
     public function profileIndex(Request $request)
     {
-        $companyId = auth()->user()->company_id;
+        $companyId = $this->currentCompanyId();
         $company = Company::find($companyId);
         
         // ✅ Get current user's allowed employee types
@@ -723,7 +714,7 @@ private function getNasfundData($companyId, $fortnight)
      */
     private function getEmployeeProfileData($employeeId)
     {
-        $companyId = auth()->user()->company_id;
+        $companyId = $this->currentCompanyId();
         $employee = Employee::where('company_id', $companyId)->with([
             'company',
             'department',
@@ -879,5 +870,11 @@ private function getNasfundData($companyId, $fortnight)
             'end' => $end,
             'formatted' => Carbon::parse($start)->format('d M Y') . ' - ' . Carbon::parse($end)->format('d M Y'),
         ];
+    }
+
+    /** Keep reports scoped to the company selected in this user's session. */
+    private function currentCompanyId()
+    {
+        return auth()->user()->getCurrentCompanyId();
     }
 }

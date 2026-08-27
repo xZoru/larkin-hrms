@@ -90,7 +90,7 @@
     <div class="header">
         <h1>SWT Report</h1>
         <p>{{ $company->name }}</p>
-        <p style="font-size: 12px;">Period: {{ $monthFormatted }}</p>
+        <p style="font-size: 12px;">Fortnight {{ $fortnight }}: {{ $period->formatted }}</p>
     </div>
 
     <div class="summary">
