@@ -32,18 +32,21 @@ class ReportController extends Controller
         $companyId = auth()->user()->company_id;
         $company = Company::find($companyId);
         
-        // Get available fortnights
-        $fortnights = Payroll::where('company_id', $companyId)
-            ->distinct()
-            ->orderBy('fortnight_number', 'desc')
-            ->pluck('fortnight_number')
-            ->toArray();
-        
-        // Build fortnight periods
-        $fortnightPeriods = [];
-        foreach ($fortnights as $fn) {
-            $fortnightPeriods[$fn] = $this->getFortnightPeriod($fn);
-        }
+        $payrollPeriods = Payroll::where('company_id', $companyId)
+            ->select('fortnight_number', 'period_start', 'period_end')
+            ->orderByDesc('period_start')
+            ->get()
+            ->groupBy('fortnight_number');
+        $fortnights = $payrollPeriods->keys()->values()->all();
+        $fortnightPeriods = $payrollPeriods->map(function ($payrolls) {
+            $start = $payrolls->min('period_start');
+            $end = $payrolls->max('period_end');
+            return (object) [
+                'start' => $start,
+                'end' => $end,
+                'formatted' => Carbon::parse($start)->format('d M Y') . ' - ' . Carbon::parse($end)->format('d M Y'),
+            ];
+        })->all();
         
         $selectedFortnight = $request->fortnight ?? ($fortnights[0] ?? null);
         $reportData = [];
@@ -54,11 +57,14 @@ class ReportController extends Controller
             $summary = $this->calculateNasfundSummary($reportData);
         }
         
+        $period = $selectedFortnight ? ($fortnightPeriods[$selectedFortnight] ?? null) : null;
+
         return view('reports.nasfund.index', compact(
             'company',
             'fortnights',
             'fortnightPeriods',
             'selectedFortnight',
+            'period',
             'reportData',
             'summary'
         ));
@@ -81,7 +87,7 @@ class ReportController extends Controller
         
         $reportData = $this->getNasfundData($companyId, $fortnight);
         $summary = $this->calculateNasfundSummary($reportData);
-        $period = $this->getFortnightPeriod($fortnight);
+        $period = $this->getStoredFortnightPeriod($companyId, $fortnight);
         
         $filename = "NASFUND_{$company->code}_{$fortnight}_" . date('Ymd');
         
@@ -105,9 +111,9 @@ private function getNasfundData($companyId, $fortnight)
     // Get payroll for the fortnight
     $payroll = Payroll::where('company_id', $companyId)
         ->where('fortnight_number', $fortnight)
-        ->first();
+        ->get();
     
-    if (!$payroll) {
+    if ($payroll->isEmpty()) {
         return collect(); // ✅ Return empty collection, NOT []
     }
     
@@ -116,7 +122,7 @@ private function getNasfundData($companyId, $fortnight)
     $allowedTypes = $user->getAllowedEmployeeTypes();
     
     // Get payroll items with employee data
-    $items = PayrollItem::where('payroll_id', $payroll->id)
+    $items = PayrollItem::whereIn('payroll_id', $payroll->pluck('id'))
         ->with(['employee'])
         ->get();
     
@@ -129,7 +135,17 @@ private function getNasfundData($companyId, $fortnight)
             && $item->employee->nasfund_number
             && in_array($item->employee->employee_type, $allowedTypes)) {
             
-            $result->push((object) [
+            $employeeKey = $item->employee_id;
+            if ($result->has($employeeKey)) {
+                $row = $result->get($employeeKey);
+                $row->gross_wage += $item->gross_wage;
+                $row->ee_contribution += $item->nasfund_ee;
+                $row->er_contribution += $item->nasfund_er;
+                $row->total_contribution += $item->nasfund_ee + $item->nasfund_er;
+                continue;
+            }
+
+            $result->put($employeeKey, (object) [
                 'employee_number' => $item->employee->employee_number,
                 'full_name' => $item->employee->full_name,
                 'nasfund_number' => $item->employee->nasfund_number,
@@ -218,6 +234,7 @@ private function getNasfundData($companyId, $fortnight)
 
     // Get available months from payroll data
     $months = Payroll::where('company_id', $companyId)
+        ->where('status', 'Paid')
         ->selectRaw("DISTINCT {$dateFormat} as month")
         ->orderBy('month', 'desc')
         ->pluck('month')
@@ -241,6 +258,7 @@ private function getNasfundData($companyId, $fortnight)
 
     // Get available years for filter
     $years = Payroll::where('company_id', $companyId)
+        ->where('status', 'Paid')
         ->selectRaw("DISTINCT {$yearFormat} as year")
         ->orderBy('year', 'desc')
         ->pluck('year')
@@ -299,6 +317,7 @@ private function getNasfundData($companyId, $fortnight)
 
         // Get all payrolls for the month
         $payrolls = Payroll::where('company_id', $companyId)
+            ->where('status', 'Paid')
             ->whereRaw("{$dateFormat} = ?", [$month])
             ->with(['items.employee'])
             ->get();
@@ -704,7 +723,8 @@ private function getNasfundData($companyId, $fortnight)
      */
     private function getEmployeeProfileData($employeeId)
     {
-        $employee = Employee::with([
+        $companyId = auth()->user()->company_id;
+        $employee = Employee::where('company_id', $companyId)->with([
             'company',
             'department',
             'position',
@@ -714,7 +734,7 @@ private function getNasfundData($companyId, $fortnight)
             'payIncreaseHistory',
             'disciplineRecords',
             'payrollItems' => function($query) {
-                $query->orderBy('created_at', 'desc')->limit(10);
+                $query->with('payroll')->orderBy('created_at', 'desc');
             }
         ])->find($employeeId);
         
@@ -769,7 +789,8 @@ private function getNasfundData($companyId, $fortnight)
         $earned = floor($months / 1.5);
         $earned = min($earned, 9);
         
-        $taken = $employee->leaveRecords->sum('leave_taken') ?? 0;
+        $currentYearRecord = $employee->leaveRecords->firstWhere('year', now()->year);
+        $taken = $currentYearRecord?->leave_taken ?? 0;
         $balance = max(0, $earned - $taken);
         
         return (object) [
@@ -837,6 +858,26 @@ private function getNasfundData($companyId, $fortnight)
             'start' => $start,
             'end' => $end,
             'formatted' => $start->format('d M Y') . ' - ' . $end->format('d M Y'),
+        ];
+    }
+
+    private function getStoredFortnightPeriod($companyId, $fortnight)
+    {
+        $payrolls = Payroll::where('company_id', $companyId)
+            ->where('fortnight_number', $fortnight)
+            ->get(['period_start', 'period_end']);
+
+        if ($payrolls->isEmpty()) {
+            return $this->getFortnightPeriod($fortnight);
+        }
+
+        $start = $payrolls->min('period_start');
+        $end = $payrolls->max('period_end');
+
+        return (object) [
+            'start' => $start,
+            'end' => $end,
+            'formatted' => Carbon::parse($start)->format('d M Y') . ' - ' . Carbon::parse($end)->format('d M Y'),
         ];
     }
 }
