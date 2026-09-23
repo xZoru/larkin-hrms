@@ -20,6 +20,31 @@ class EmployeeSettlementPaymentController extends Controller
         return view('settlements.annual-leave-pay', $this->formData('annual_leave_pay'));
     }
 
+    /** Display settlement-payment history for the active company. */
+    public function index(Request $request)
+    {
+        $companyId = auth()->user()->getCurrentCompanyId();
+        $type = $request->string('type')->toString();
+        $search = trim($request->string('search')->toString());
+
+        $payments = EmployeeSettlementPayment::with(['employee', 'createdBy'])
+            ->where('company_id', $companyId)
+            ->when(in_array($type, ['final_pay', 'annual_leave_pay'], true), function ($query) use ($type) {
+                $query->where('type', $type);
+            })
+            ->when($search !== '', function ($query) use ($search) {
+                $query->whereHas('employee', function ($employee) use ($search) {
+                    $employee->where('full_name', 'like', "%{$search}%")
+                        ->orWhere('employee_number', 'like', "%{$search}%");
+                });
+            })
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('settlements.index', compact('payments'));
+    }
+
     public function storeFinalPay(Request $request)
     {
         $data = $request->validate([

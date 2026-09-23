@@ -125,6 +125,10 @@
                         <i class="fas fa-calendar-check"></i>
                         <span>Annual Leave Pay Generator</span>
                     </a>
+                    <a href="{{ route('settlements.index') }}" class="sidebar-link submenu-link {{ request()->routeIs('settlements.index') ? 'active-sub' : '' }}">
+                        <i class="fas fa-history"></i>
+                        <span>Settlement Payments</span>
+                    </a>
                 </div>
             </div>
         </div>

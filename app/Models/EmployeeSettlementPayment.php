@@ -33,4 +33,9 @@ class EmployeeSettlementPayment extends Model
     {
         return $this->belongsTo(Employee::class);
     }
+
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
 }

@@ -124,6 +124,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/payroll/{payroll}/update-status', [PayrollController::class, 'updateStatus'])
     ->name('payroll.update-status');
 
+    Route::get('/settlement-payments', [EmployeeSettlementPaymentController::class, 'index'])->name('settlements.index');
     Route::get('/final-pay', [EmployeeSettlementPaymentController::class, 'createFinalPay'])->name('settlements.final-pay.create');
     Route::post('/final-pay', [EmployeeSettlementPaymentController::class, 'storeFinalPay'])->name('settlements.final-pay.store');
     Route::get('/annual-leave-pay', [EmployeeSettlementPaymentController::class, 'createAnnualLeavePay'])->name('settlements.annual-leave-pay.create');
