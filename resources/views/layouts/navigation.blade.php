@@ -3,8 +3,7 @@
     <!-- Sidebar Header / Logo -->
     <div class="sidebar-header">
         <a href="{{ route('dashboard') }}" class="sidebar-logo">
-            <i class="fas fa-building" style="font-size: 22px;"></i>
-            <span>Larkin Enterprises LTD</span>
+            <img src="{{ asset('images/larkin-nobg1.png') }}" alt="Larkin Enterprises LTD" class="sidebar-logo-image">
         </a>
     </div>
 
