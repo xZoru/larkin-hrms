@@ -178,7 +178,7 @@ class MemoController extends Controller
         ])->setPaper('a4');
 
         $path = 'memos/' . $record->memo_number . '.pdf';
-        Storage::disk('local')->put($path, $pdf->output());
+        $this->memoDisk()->put($path, $pdf->output());
         $record->update(['document_path' => $path]);
 
         return redirect()->route('memos.index')->with('success', "Memo {$record->memo_number} issued and recorded.");
@@ -187,9 +187,17 @@ class MemoController extends Controller
     public function document(DisciplineRecord $disciplineRecord)
     {
         $this->authorizeRecord($disciplineRecord);
-        abort_unless($disciplineRecord->document_path && Storage::disk('local')->exists($disciplineRecord->document_path), 404);
+        abort_unless($disciplineRecord->document_path, 404);
 
-        return Storage::disk('local')->download($disciplineRecord->document_path, $disciplineRecord->memo_number . '.pdf');
+        $diskName = config('filesystems.memo_disk', 'local');
+        $disk = Storage::disk($diskName);
+        if (!$disk->exists($disciplineRecord->document_path) && $diskName !== 'local'
+            && Storage::disk('local')->exists($disciplineRecord->document_path)) {
+            $disk = Storage::disk('local');
+        }
+        abort_unless($disk->exists($disciplineRecord->document_path), 404);
+
+        return $disk->download($disciplineRecord->document_path, $disciplineRecord->memo_number . '.pdf');
     }
 
     public function edit(DisciplineRecord $disciplineRecord)
@@ -247,7 +255,7 @@ class MemoController extends Controller
         $disciplineRecord->load(['employee.company', 'template', 'issuedBy']);
         $pdf = Pdf::loadView('memos.document', ['record' => $disciplineRecord])->setPaper('a4');
         $documentPath = $disciplineRecord->document_path ?: 'memos/' . $disciplineRecord->memo_number . '.pdf';
-        Storage::disk('local')->put($documentPath, $pdf->output());
+        $this->memoDisk()->put($documentPath, $pdf->output());
         if (!$disciplineRecord->document_path) {
             $disciplineRecord->update(['document_path' => $documentPath]);
         }
@@ -259,6 +267,7 @@ class MemoController extends Controller
     {
         $this->authorizeRecord($disciplineRecord);
         if ($disciplineRecord->document_path) {
+            $this->memoDisk()->delete($disciplineRecord->document_path);
             Storage::disk('local')->delete($disciplineRecord->document_path);
         }
         $disciplineRecord->delete();
@@ -309,6 +318,11 @@ class MemoController extends Controller
             ->where('company_id', $this->companyId())
             ->whereIn('employee_type', auth()->user()->getAllowedEmployeeTypes())
             ->exists(), 404);
+    }
+
+    private function memoDisk()
+    {
+        return Storage::disk(config('filesystems.memo_disk', 'local'));
     }
 
 }
