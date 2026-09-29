@@ -39,7 +39,7 @@
 
 <div class="memo-form-page">
     <div class="memo-form-hero">
-        <div class="memo-form-title"><span class="hero-icon"><i class="fas fa-file-signature"></i></span><div><h1>Issue a Memo</h1><p>Prepare a memo for an employee and add it to their record.</p></div></div>
+        <div class="memo-form-title"><span class="hero-icon"><i class="fas fa-file-signature"></i></span><div><h1>{{ $memoRecord ? 'Issue Memo' : 'Issue a Memo' }}</h1><p>{{ $memoRecord ? 'Update the memo details and save the revised record.' : 'Prepare a memo for an employee and add it to their record.' }}</p></div></div>
         <a href="{{ route('memos.index') }}" class="memo-back"><i class="fas fa-arrow-left me-2"></i>Memo history</a>
     </div>
 
@@ -48,9 +48,10 @@
     @endif
 
     <div class="memo-form-card">
-        <div class="memo-form-intro"><i class="fas fa-info-circle"></i><div><strong>Issuing creates the official memo record</strong><span>A PDF copy will be generated and available from memo history after submission.</span></div></div>
-        <form method="POST" action="{{ route('memos.store') }}">
+        <div class="memo-form-intro"><i class="fas fa-info-circle"></i><div><strong>{{ $memoRecord ? 'You are editing memo '.$memoRecord->memo_number : 'Issuing creates the official memo record' }}</strong><span>{{ $memoRecord ? 'Saving changes updates this memo and regenerates its PDF.' : 'A PDF copy will be generated and available from memo history after submission.' }}</span></div></div>
+        <form method="POST" action="{{ $memoRecord ? route('memos.update', $memoRecord) : route('memos.store') }}">
             @csrf
+            @if($memoRecord) @method('PUT') @endif
             <div class="memo-form-body">
                 <h2 class="memo-section-title"><span class="section-icon"><i class="fas fa-user"></i></span>Employee and memo details</h2>
                 <div class="memo-fields">
@@ -59,30 +60,25 @@
                         <select class="form-select" id="employee_id" name="employee_id" required>
                             <option value="">Choose an employee</option>
                             @foreach($employees as $employee)
-                                <option value="{{ $employee->id }}" @selected(old('employee_id') == $employee->id)>{{ $employee->employee_number }} — {{ $employee->full_name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="memo-field">
-                        <label for="memo_template_id">Memo type <span class="required">*</span></label>
-                        <select class="form-select" id="memo_template_id" name="memo_template_id" required>
-                            <option value="">Choose a memo type</option>
-                            @foreach($templates as $template)
-                                <option value="{{ $template->id }}" data-content="{{ $template->content }}" @selected(old('memo_template_id') == $template->id)>{{ $template->name }}</option>
+                            <option value="{{ $employee->id }}" @selected(old('employee_id', $memoRecord?->employee_id) == $employee->id)>{{ $employee->employee_number }} — {{ $employee->full_name }}</option>
                             @endforeach
                         </select>
                     </div>
                     <div class="memo-field">
                         <label for="date_issued">Date issued <span class="required">*</span></label>
-                        <input class="form-control" type="date" id="date_issued" name="date_issued" value="{{ old('date_issued', now()->toDateString()) }}" required>
+                        <input class="form-control" type="date" id="date_issued" name="date_issued" value="{{ old('date_issued', $memoRecord?->date_issued?->format('Y-m-d') ?? now()->toDateString()) }}" required>
+                    </div>
+                    <div class="memo-field">
+                        <label for="issuer_name">Issuer <span class="required">*</span></label>
+                        <input class="form-control" type="text" id="issuer_name" name="issuer_name" maxlength="255" value="{{ old('issuer_name', $memoRecord?->issuer_name ?? $memoRecord?->issuedBy?->name ?? auth()->user()->name) }}" required placeholder="Name of the memo issuer">
                     </div>
                     <div class="memo-field">
                         <label for="effectivity_date">Effectivity date</label>
-                        <input class="form-control" type="date" id="effectivity_date" name="effectivity_date" value="{{ old('effectivity_date') }}">
+                        <input class="form-control" type="date" id="effectivity_date" name="effectivity_date" value="{{ old('effectivity_date', $memoRecord?->effectivity_date?->format('Y-m-d')) }}">
                     </div>
                     <div class="memo-field">
                         <label for="follow_up_date">Follow-up / response due date</label>
-                        <input class="form-control" type="date" id="follow_up_date" name="follow_up_date" value="{{ old('follow_up_date') }}">
+                        <input class="form-control" type="date" id="follow_up_date" name="follow_up_date" value="{{ old('follow_up_date', $memoRecord?->follow_up_date?->format('Y-m-d')) }}">
                         <div class="hint">Optional. Use for a response deadline or review date.</div>
                     </div>
                     <div class="memo-field">
@@ -90,7 +86,7 @@
                         <select class="form-select" id="purpose_template_id" name="purpose_template_id" required>
                             <option value="">Choose a purpose</option>
                             @foreach($purposeTemplates as $item)
-                                <option value="{{ $item->id }}" @selected(old('purpose_template_id') == $item->id)>{{ $item->name }}</option>
+                                <option value="{{ $item->id }}" @selected(old('purpose_template_id', $selectedPurposeTemplateId) == $item->id)>{{ $item->name }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -100,7 +96,7 @@
                             <select class="form-select" id="reason_{{ $reasonNumber }}_template_id" name="reason_{{ $reasonNumber }}_template_id">
                                 <option value="">No reason selected</option>
                                 @foreach($reasonTemplates as $item)
-                                    <option value="{{ $item->id }}" @selected(old('reason_'.$reasonNumber.'_template_id') == $item->id)>{{ $item->name }}</option>
+                                    <option value="{{ $item->id }}" @selected(old('reason_'.$reasonNumber.'_template_id', $selectedReasonTemplateIds[$reasonNumber] ?? null) == $item->id)>{{ $item->name }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -110,75 +106,22 @@
                         <select class="form-select" id="decision_template_id" name="decision_template_id" required>
                             <option value="">Choose a decision</option>
                             @foreach($decisionTemplates as $item)
-                                <option value="{{ $item->id }}" @selected(old('decision_template_id') == $item->id)>{{ $item->name }}</option>
+                                <option value="{{ $item->id }}" @selected(old('decision_template_id', $selectedDecisionTemplateId) == $item->id)>{{ $item->name }}</option>
                             @endforeach
                         </select>
                     </div>
                 </div>
 
-                <hr class="memo-divider">
-                <h2 class="memo-section-title"><span class="section-icon"><i class="fas fa-align-left"></i></span>Memo content</h2>
-                <div class="memo-fields">
-                    <div class="memo-field full">
-                        <label for="offense_description">Incident details <span class="required">*</span></label>
-                        <textarea class="form-control" id="offense_description" name="offense_description" rows="4" required placeholder="Describe the reason or circumstances for this memo.">{{ old('offense_description') }}</textarea>
-                    </div>
-                    <div class="memo-field full">
-                        <label for="action_taken">Action required / action taken <span class="required">*</span></label>
-                        <textarea class="form-control" id="action_taken" name="action_taken" rows="4" required placeholder="State the action required, expectations, or action already taken.">{{ old('action_taken') }}</textarea>
-                    </div>
-                    <div class="memo-field full">
-                        <label for="remarks">Additional remarks</label>
-                        <textarea class="form-control" id="remarks" name="remarks" rows="3" placeholder="Optional supporting notes.">{{ old('remarks') }}</textarea>
-                    </div>
-                </div>
-
-                    <div class="template-detail-box mt-4" id="template-fields" hidden>
-                    <h2 class="memo-section-title"><span class="section-icon"><i class="fas fa-list-check"></i></span>Template-specific details</h2>
-                    <div class="memo-fields" id="template-fields-list"></div>
-                </div>
             </div>
             <div class="memo-form-actions">
                 <span class="action-note"><i class="fas fa-lock me-1"></i> This memo is recorded under the selected employee.</span>
                 <div class="d-flex gap-2">
-                    <a href="{{ route('memos.index') }}" class="memo-cancel">Cancel</a>
-                    <button type="submit" class="memo-submit" onclick="return confirm('Issue this memo and add it to the employee record?')"><i class="fas fa-paper-plane me-2"></i>Issue Memo</button>
+                <a href="{{ route('memos.index') }}" class="memo-cancel">Cancel</a>
+                    <button type="submit" class="memo-submit" onclick="return confirm('{{ $memoRecord ? 'Save changes to this memo?' : 'Issue this memo and add it to the employee record?' }}')"><i class="fas {{ $memoRecord ? 'fa-save' : 'fa-paper-plane' }} me-2"></i>{{ $memoRecord ? 'Save Changes' : 'Issue Memo' }}</button>
                 </div>
             </div>
         </form>
     </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    const select = document.getElementById('memo_template_id');
-    const wrapper = document.getElementById('template-fields');
-    const list = document.getElementById('template-fields-list');
-    const oldValues = @json(old('template_values', []));
-    const builtIn = new Set(['employee_name', 'employee_number', 'date_issued', 'offense', 'reason', 'allegations', 'action', 'issued_by', 'response_due_date']);
-    const labels = { previous_warnings: 'Previous warnings', consequences: 'Consequences', suspension_date: 'Suspension effective date', duration: 'Duration', terms: 'Terms', termination_date: 'Termination effective date', final_pay: 'Final pay details', balances: 'Outstanding balances', days: 'Response period (days)', area_of_concern: 'Area of concern', goals: 'Improvement goals', timeline: 'Timeline', support: 'Support provided', review_dates: 'Review dates' };
-    const render = () => {
-        list.replaceChildren();
-        const content = select.selectedOptions[0]?.dataset.content || '';
-        const keys = [...content.matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)].map(match => match[1]);
-        const extras = [...new Set(keys)].filter(key => !builtIn.has(key));
-        wrapper.hidden = extras.length === 0;
-        extras.forEach(key => {
-            const col = document.createElement('div');
-            col.className = 'memo-field';
-            const label = document.createElement('label');
-            label.textContent = labels[key] || key.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
-            const input = document.createElement('textarea');
-            input.className = 'form-control';
-            input.name = `template_values[${key}]`;
-            input.rows = 2;
-            input.value = oldValues[key] || '';
-            col.append(label, input);
-            list.append(col);
-        });
-    };
-    select.addEventListener('change', render);
-    render();
-});
-</script>
 @endsection

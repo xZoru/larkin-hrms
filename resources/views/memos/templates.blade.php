@@ -114,7 +114,13 @@
                                                         <option value="1" @selected($template->is_active)>Active</option>
                                                         <option value="0" @selected(!$template->is_active)>Inactive</option>
                                                     </select>
-                                                    <button class="btn btn-outline-primary" type="submit"><i class="fas fa-save me-1"></i>Save changes</button>
+                                                    <div class="d-flex flex-wrap gap-2">
+                                                        <button class="btn btn-outline-primary" type="submit"><i class="fas fa-save me-1"></i>Save changes</button>
+                                                        <button class="btn btn-outline-danger" type="submit" form="delete-template-{{ $template->id }}" onclick="return confirm('Delete this template? This cannot be undone.')"><i class="fas fa-trash-alt me-1"></i>Delete</button>
+                                                    </div>
+                                                </form>
+                                                <form id="delete-template-{{ $template->id }}" method="POST" action="{{ route('memos.templates.destroy', $template) }}" class="d-none">
+                                                    @csrf @method('DELETE')
                                                 </form>
                                             </details>
                                         </td>

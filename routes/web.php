@@ -85,7 +85,11 @@ Route::middleware(['auth', 'company.access'])->prefix('memos')->name('memos.')->
     Route::get('/templates', [MemoController::class, 'templates'])->name('templates.index');
     Route::post('/templates', [MemoController::class, 'storeTemplate'])->name('templates.store');
     Route::put('/templates/{memoTemplate}', [MemoController::class, 'updateTemplate'])->name('templates.update');
+    Route::delete('/templates/{memoTemplate}', [MemoController::class, 'destroyTemplate'])->name('templates.destroy');
     Route::post('/', [MemoController::class, 'store'])->name('store');
+    Route::get('/{disciplineRecord}/edit', [MemoController::class, 'edit'])->name('edit');
+    Route::put('/{disciplineRecord}', [MemoController::class, 'update'])->name('update');
+    Route::delete('/{disciplineRecord}', [MemoController::class, 'destroy'])->name('destroy');
     Route::get('/{disciplineRecord}/document', [MemoController::class, 'document'])->name('document');
 });
 

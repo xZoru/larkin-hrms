@@ -31,6 +31,11 @@
     .memo-cell-text { display:block; max-width:190px; overflow:hidden; color:#475569; text-overflow:ellipsis; white-space:nowrap; }
     .memo-download { padding:5px 9px; border:1px solid #dbeafe; border-radius:6px; color:#2563eb; background:#eff6ff; font-size:11px; font-weight:600; text-decoration:none; white-space:nowrap; }
     .memo-download:hover { color:#1d4ed8; background:#dbeafe; }
+    .memo-actions { display:flex; justify-content:flex-end; gap:6px; }
+    .memo-action { display:inline-flex; align-items:center; gap:5px; padding:5px 8px; border:1px solid #dbeafe; border-radius:6px; color:#2563eb; background:#eff6ff; font-size:11px; font-weight:600; text-decoration:none; white-space:nowrap; }
+    .memo-action:hover { color:#1d4ed8; background:#dbeafe; }
+    .memo-action.delete { border-color:#fee2e2; color:#b91c1c; background:#fef2f2; }
+    .memo-action.delete:hover { color:#991b1b; background:#fee2e2; }
     .memo-empty { padding:48px 16px!important; text-align:center; }
     .memo-empty i { display:block; margin-bottom:12px; color:#cbd5e1; font-size:30px; }
     .memo-empty strong { display:block; color:#334155; font-size:14px; }
@@ -67,15 +72,23 @@
                         <tr>
                             <td><span class="memo-number">{{ $record->memo_number }}</span></td>
                             <td><span class="memo-employee">{{ $record->employee?->full_name ?? 'Employee unavailable' }}</span><span class="memo-sub">{{ $record->employee?->employee_number }}</span></td>
-                            <td><span class="memo-cell-text" title="{{ $record->purpose }}">{{ $record->purpose ?: $record->template?->name ?? 'Memo' }}</span></td>
-                            <td><span class="memo-cell-text" title="{{ $record->reason_1 }}">{{ $record->reason_1 ?: $record->offense_description ?: '—' }}</span></td>
-                            <td><span class="memo-cell-text" title="{{ $record->reason_2 }}">{{ $record->reason_2 ?: $record->action_taken ?: '—' }}</span></td>
-                            <td><span class="memo-cell-text" title="{{ $record->reason_3 }}">{{ $record->reason_3 ?: $record->remarks ?: '—' }}</span></td>
+                            <td><span class="memo-cell-text" title="{{ $record->purpose }}">{{ $record->purpose_template_name ?: $record->purpose ?: $record->template?->name ?? 'Memo' }}</span></td>
+                            <td><span class="memo-cell-text" title="{{ $record->reason_1 }}">{{ $record->reason_1_template_name ?: $record->reason_1 ?: $record->offense_description ?: '—' }}</span></td>
+                            <td><span class="memo-cell-text" title="{{ $record->reason_2 }}">{{ $record->reason_2_template_name ?: $record->reason_2 ?: $record->action_taken ?: '—' }}</span></td>
+                            <td><span class="memo-cell-text" title="{{ $record->reason_3 }}">{{ $record->reason_3_template_name ?: $record->reason_3 ?: $record->remarks ?: '—' }}</span></td>
                             <td class="memo-date">{{ $record->effectivity_date?->format('d M Y') ?? '—' }}</td>
-                            <td><span class="memo-cell-text" title="{{ $record->decision }}">{{ $record->decision ?: '—' }}</span></td>
+                            <td><span class="memo-cell-text" title="{{ $record->decision }}">{{ $record->decision_template_name ?: $record->decision ?: '—' }}</span></td>
                             <td class="memo-date">{{ $record->created_at?->format('d M Y, h:i A') }}</td>
-                            <td class="memo-user">{{ $record->issuedBy?->name ?? '—' }}</td>
-                            <td class="text-end"><a class="memo-download" href="{{ route('memos.document', $record) }}"><i class="fas fa-download me-1"></i>PDF</a></td>
+                            <td class="memo-user">{{ $record->issuer_name ?: ($record->issuedBy?->name ?? '—') }}</td>
+                            <td>
+                                <div class="memo-actions">
+                                    <a class="memo-action" href="{{ route('memos.edit', $record) }}"><i class="fas fa-edit"></i>Edit</a>
+                                    <form method="POST" action="{{ route('memos.destroy', $record) }}" onsubmit="return confirm('Delete memo {{ $record->memo_number }}? This will also delete its PDF and cannot be undone.')">
+                                        @csrf @method('DELETE')
+                                        <button class="memo-action delete" type="submit"><i class="fas fa-trash-alt"></i>Delete</button>
+                                    </form>
+                                </div>
+                            </td>
                         </tr>
                     @empty
                         <tr><td colspan="11" class="memo-empty"><i class="far fa-file-alt"></i><strong>No memos issued yet</strong><span>Issued memos will appear here for this company.</span></td></tr>

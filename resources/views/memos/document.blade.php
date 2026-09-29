@@ -10,7 +10,6 @@
     .section { margin-top: 22px; }
     .section h3 { font-size: 13px; margin: 0 0 6px; }
     .text { white-space: pre-wrap; }
-    .memo-content { white-space: pre-wrap; margin-top: 24px; }
     .signatures { margin-top: 65px; width: 100%; }
     .signatures td { width: 50%; padding-right: 35px; vertical-align: top; }
     .line { border-top: 1px solid #555; padding-top: 6px; }
@@ -31,11 +30,10 @@
     @foreach(['Reason 1' => $record->reason_1, 'Reason 2' => $record->reason_2, 'Reason 3' => $record->reason_3] as $label => $reason)
         @if($reason)<div class="section"><h3>{{ $label }}</h3><div class="text">{{ $reason }}</div></div>@endif
     @endforeach
-    <div class="memo-content">{{ $memoContent }}</div>
     @if($record->decision)<div class="section"><h3>Decision</h3><div class="text">{{ $record->decision }}</div></div>@endif
     @if($record->remarks)<div class="section"><h3>Additional Remarks</h3><div class="text">{{ $record->remarks }}</div></div>@endif
     <table class="signatures"><tr>
-        <td><div class="line">Issued by: {{ $record->issuedBy->name ?? '' }}<br><span class="muted">Authorized representative</span></div></td>
+        <td><div class="line">Issued by: {{ $record->issuer_name ?: ($record->issuedBy->name ?? '') }}<br><span class="muted">Authorized representative</span></div></td>
         <td><div class="line">Received by: {{ $record->employee->full_name }}<br><span class="muted">Date: ____________________</span></div></td>
     </tr></table>
 </body></html>

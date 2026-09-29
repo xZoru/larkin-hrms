@@ -26,6 +26,12 @@ class DisciplineRecord extends Model
         'reason_3',
         'decision',
         'effectivity_date',
+        'purpose_template_name',
+        'reason_1_template_name',
+        'reason_2_template_name',
+        'reason_3_template_name',
+        'decision_template_name',
+        'issuer_name',
     ];
 
     protected $casts = [

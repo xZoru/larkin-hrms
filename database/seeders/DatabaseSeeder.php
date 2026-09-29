@@ -17,7 +17,6 @@ class DatabaseSeeder extends Seeder
             EmployeeSeeder::class,        
             NotificationSeeder::class,
             PermissionSeeder::class,
-            MemoTemplateSeeder::class,
         ]);
     }
 }
