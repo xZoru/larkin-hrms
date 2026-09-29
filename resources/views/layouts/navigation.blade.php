@@ -198,15 +198,29 @@
         </div>
         @endcan
 
-        <!-- Backup -->
-        @can('view-backups')
+        <!-- Memos -->
+        @if(auth()->user()->isSuperAdmin() || auth()->user()->can('manage-discipline'))
         <div class="nav-section">
-            <a href="{{ route('backup.index') }}" class="sidebar-link {{ request()->routeIs('backup.*') ? 'active' : '' }}">
-                <i class="fas fa-database"></i>
-                <span>Backup</span>
-            </a>
+            <div class="sidebar-dropdown" x-data="{ open: {{ request()->routeIs('memos.*') ? 'true' : 'false' }} }">
+                <button @click="open = !open" class="sidebar-link" :class="{ 'active': open }" type="button">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Memos</span>
+                    <i class="fas fa-chevron-down dropdown-arrow" :class="{ 'rotated': open }"></i>
+                </button>
+                <div x-show="open" x-collapse class="sidebar-submenu">
+                    <a href="{{ route('memos.create') }}" class="sidebar-link submenu-link {{ request()->routeIs('memos.create') ? 'active-sub' : '' }}">
+                        <i class="fas fa-file-signature"></i><span>Issue Memo</span>
+                    </a>
+                    <a href="{{ route('memos.index') }}" class="sidebar-link submenu-link {{ request()->routeIs('memos.index') || request()->routeIs('memos.document') ? 'active-sub' : '' }}">
+                        <i class="fas fa-list"></i><span>Memo History</span>
+                    </a>
+                    <a href="{{ route('memos.templates.index') }}" class="sidebar-link submenu-link {{ request()->routeIs('memos.templates.*') ? 'active-sub' : '' }}">
+                        <i class="fas fa-layer-group"></i><span>Templates</span>
+                    </a>
+                </div>
+            </div>
         </div>
-        @endcan
+        @endif
     </nav>
 
     <!-- Footer Section (Company Switcher + User) -->

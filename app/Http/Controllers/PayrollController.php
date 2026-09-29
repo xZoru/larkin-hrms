@@ -298,8 +298,8 @@ class PayrollController extends Controller
         $nasfundEE = 0;
         $nasfundER = 0;
         if ($employee->nasfund_number) {
-            $nasfundEE = $grossPayBeforeTax * 0.06;
-            $nasfundER = $grossPayBeforeTax * 0.084;
+            $nasfundEE = round($basicPay * 0.06, 2);
+            $nasfundER = round($basicPay * 0.084, 2);
         }
 
         $loanDeduction = $this->calculateLoanDeduction($employee, $payrollId);
@@ -377,8 +377,8 @@ class PayrollController extends Controller
         $ncsl = (float) ($values['ncsl'] ?? 0);
 
         $earnings = $basicPay + $overtimePay + $sundayPay + $holidayPay + $leavePay + $allowance;
-        $nasfundEE = $employee->nasfund_number ? round($earnings * 0.06, 2) : 0;
-        $nasfundER = $employee->nasfund_number ? round($earnings * 0.084, 2) : 0;
+        $nasfundEE = $employee->nasfund_number ? round($basicPay * 0.06, 2) : 0;
+        $nasfundER = $employee->nasfund_number ? round($basicPay * 0.084, 2) : 0;
         $preTaxDeductions = $nasfundEE + $ncsl + $loanDeduction + $otherDeductions;
 
         if ($employee->employee_type === 'Expatriate') {
@@ -485,7 +485,7 @@ class PayrollController extends Controller
             $tax = $this->calculateNationalTax(null, $grossPay);
         }
         
-        $nasfund = $grossPay * 0.06;
+        $nasfund = (float) $request->input('basic_pay', $grossPay) * 0.06;
         
         return response()->json([
             'success' => true,

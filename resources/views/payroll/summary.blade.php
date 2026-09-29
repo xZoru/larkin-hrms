@@ -1024,7 +1024,7 @@
             // Calculate NASFUND (6%) - ONLY if employee has NASFUND
             const nasfundField = row.querySelector('[name$="[nasfund_ee]"]');
             const originalNasfund = parseFloat(nasfundField?.dataset?.original) || 0;
-            const nasfund = originalNasfund > 0 ? gross * 0.06 : 0;
+            const nasfund = originalNasfund > 0 ? basicPay * 0.06 : 0;
             
             if (nasfundField) {
                 nasfundField.value = nasfund.toFixed(2);
@@ -1080,7 +1080,7 @@
 
         const earnings = basicPay + overtimePay + sundayPay + holidayPay + leavePay + otherEarnings;
         const hasNasfund = row.dataset.hasNasfund === 'true';
-        const nasfund = hasNasfund ? earnings * 0.06 : 0;
+        const nasfund = hasNasfund ? basicPay * 0.06 : 0;
         const preTaxDeductions = nasfund + ncsl + loan + otherDeductions;
         const taxBase = employeeType === 'Expatriate'
             ? earnings - preTaxDeductions

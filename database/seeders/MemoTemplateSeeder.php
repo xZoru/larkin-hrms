@@ -59,6 +59,76 @@ class MemoTemplateSeeder extends Seeder
                 'category' => 'Performance',
                 'is_active' => true
             ],
+            [
+                'name' => 'Attendance and punctuality',
+                'title' => 'Attendance and punctuality',
+                'content' => 'To address attendance and punctuality concerns.',
+                'category' => 'Purpose',
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Conduct and policy compliance',
+                'title' => 'Conduct and policy compliance',
+                'content' => 'To address workplace conduct or policy compliance concerns.',
+                'category' => 'Purpose',
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Performance improvement',
+                'title' => 'Performance improvement',
+                'content' => 'To set clear expectations and support improvement in work performance.',
+                'category' => 'Purpose',
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Repeated lateness',
+                'title' => 'Repeated lateness',
+                'content' => 'Repeated lateness has been recorded on the dates described below.',
+                'category' => 'Reason',
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Failure to follow procedure',
+                'title' => 'Failure to follow procedure',
+                'content' => 'An established work procedure was not followed as described below.',
+                'category' => 'Reason',
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Performance below expectations',
+                'title' => 'Performance below expectations',
+                'content' => 'Work performance did not meet the stated expectations as described below.',
+                'category' => 'Reason',
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Verbal warning',
+                'title' => 'Verbal warning',
+                'content' => 'Verbal warning',
+                'category' => 'Decision',
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Written warning',
+                'title' => 'Written warning',
+                'content' => 'Written warning',
+                'category' => 'Decision',
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Final written warning',
+                'title' => 'Final written warning',
+                'content' => 'Final written warning',
+                'category' => 'Decision',
+                'is_active' => true,
+            ],
+            [
+                'name' => 'No disciplinary action',
+                'title' => 'No disciplinary action',
+                'content' => 'No disciplinary action',
+                'category' => 'Decision',
+                'is_active' => true,
+            ],
         ];
 
         foreach ($templates as $template) {

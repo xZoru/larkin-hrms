@@ -259,29 +259,6 @@
             </div>
         </div>
 
-        <!-- Statistics Cards -->
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-            <div class="stat-box">
-                <div class="stat-value pending">{{ $statistics->pending }}</div>
-                <div class="stat-label">Pending</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-value approved">{{ $statistics->approved }}</div>
-                <div class="stat-label">Approved</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-value rejected">{{ $statistics->rejected }}</div>
-                <div class="stat-label">Rejected</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-value cancelled">{{ $statistics->cancelled }}</div>
-                <div class="stat-label">Cancelled</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-value balance">{{ number_format($statistics->total_balance, 1) }}</div>
-                <div class="stat-label">Total Balance</div>
-            </div>
-        </div>
 
         <!-- Filters -->
         <div class="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">

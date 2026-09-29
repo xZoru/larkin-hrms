@@ -18,6 +18,7 @@ use App\Http\Controllers\LeaveController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\MemoController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\EmployeeSettlementPaymentController;
 use App\Http\Controllers\BranchController;
@@ -75,6 +76,17 @@ Route::middleware(['auth', 'company.access'])->group(function () {
     Route::get('employees/expiring-documents', [EmployeeController::class, 'getExpiringDocuments'])->name('employees.expiring-documents');
     Route::delete('employees/{employee}/documents/{document}', [EmployeeController::class, 'destroyDocument'])
     ->name('employees.document.destroy');
+});
+
+// ============ MEMO ISSUANCE ============
+Route::middleware(['auth', 'company.access'])->prefix('memos')->name('memos.')->group(function () {
+    Route::get('/', [MemoController::class, 'index'])->name('index');
+    Route::get('/create', [MemoController::class, 'create'])->name('create');
+    Route::get('/templates', [MemoController::class, 'templates'])->name('templates.index');
+    Route::post('/templates', [MemoController::class, 'storeTemplate'])->name('templates.store');
+    Route::put('/templates/{memoTemplate}', [MemoController::class, 'updateTemplate'])->name('templates.update');
+    Route::post('/', [MemoController::class, 'store'])->name('store');
+    Route::get('/{disciplineRecord}/document', [MemoController::class, 'document'])->name('document');
 });
 
 // ============ API ROUTES ============

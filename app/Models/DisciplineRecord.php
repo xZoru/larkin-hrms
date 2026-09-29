@@ -19,12 +19,19 @@ class DisciplineRecord extends Model
         'issued_by',
         'follow_up_date',
         'remarks',
-        'document_path'
+        'document_path',
+        'purpose',
+        'reason_1',
+        'reason_2',
+        'reason_3',
+        'decision',
+        'effectivity_date',
     ];
 
     protected $casts = [
         'date_issued' => 'date',
-        'follow_up_date' => 'date'
+        'follow_up_date' => 'date',
+        'effectivity_date' => 'date',
     ];
 
     // SOW: Employee Discipline Records

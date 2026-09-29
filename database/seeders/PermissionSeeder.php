@@ -28,6 +28,7 @@ class PermissionSeeder extends Seeder
             'view-reports',
             'view-leave',
             'view-backups',
+            'manage-discipline',
         ];
 
         foreach ($permissions as $permission) {
