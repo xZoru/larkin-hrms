@@ -31,11 +31,14 @@
     .memo-cell-text { display:block; max-width:190px; overflow:hidden; color:#475569; text-overflow:ellipsis; white-space:nowrap; }
     .memo-download { padding:5px 9px; border:1px solid #dbeafe; border-radius:6px; color:#2563eb; background:#eff6ff; font-size:11px; font-weight:600; text-decoration:none; white-space:nowrap; }
     .memo-download:hover { color:#1d4ed8; background:#dbeafe; }
-    .memo-actions { display:flex; justify-content:flex-end; gap:6px; }
-    .memo-action { display:inline-flex; align-items:center; gap:5px; padding:5px 8px; border:1px solid #dbeafe; border-radius:6px; color:#2563eb; background:#eff6ff; font-size:11px; font-weight:600; text-decoration:none; white-space:nowrap; }
-    .memo-action:hover { color:#1d4ed8; background:#dbeafe; }
-    .memo-action.delete { border-color:#fee2e2; color:#b91c1c; background:#fef2f2; }
-    .memo-action.delete:hover { color:#991b1b; background:#fee2e2; }
+    .memo-actions { position:relative; display:flex; justify-content:flex-end; }
+    .memo-action-toggle { display:inline-flex; align-items:center; gap:7px; padding:6px 10px; border:1px solid #dbe3ef; border-radius:6px; color:#334155; background:#fff; font-size:11px; font-weight:600; }
+    .memo-action-toggle:hover { border-color:#a5b4fc; color:#4338ca; background:#f8faff; }
+    .memo-action-menu { position:fixed; z-index:2000; min-width:145px; padding:5px; border:1px solid #e2e8f0; border-radius:7px; background:#fff; box-shadow:0 8px 20px rgba(15,23,42,.12); }
+    .memo-action-menu a, .memo-action-menu button { display:flex; width:100%; align-items:center; gap:9px; padding:8px 9px; border:0; border-radius:5px; color:#334155; background:transparent; font-size:11px; text-align:left; text-decoration:none; }
+    .memo-action-menu a:hover, .memo-action-menu button:hover { background:#f1f5f9; }
+    .memo-action-menu .delete-action { color:#b91c1c; }
+    .memo-action-menu form { margin:0; }
     .memo-empty { padding:48px 16px!important; text-align:center; }
     .memo-empty i { display:block; margin-bottom:12px; color:#cbd5e1; font-size:30px; }
     .memo-empty strong { display:block; color:#334155; font-size:14px; }
@@ -81,12 +84,18 @@
                             <td class="memo-date">{{ $record->created_at?->format('d M Y, h:i A') }}</td>
                             <td class="memo-user">{{ $record->issuer_name ?: ($record->issuedBy?->name ?? '—') }}</td>
                             <td>
-                                <div class="memo-actions">
-                                    <a class="memo-action" href="{{ route('memos.edit', $record) }}"><i class="fas fa-edit"></i>Edit</a>
-                                    <form method="POST" action="{{ route('memos.destroy', $record) }}" onsubmit="return confirm('Delete memo {{ $record->memo_number }}? This will also delete its PDF and cannot be undone.')">
-                                        @csrf @method('DELETE')
-                                        <button class="memo-action delete" type="submit"><i class="fas fa-trash-alt"></i>Delete</button>
-                                    </form>
+                                <div class="memo-actions" x-data="{ open: false, placeMenu() { this.$nextTick(() => { const button = this.$refs.toggle.getBoundingClientRect(); const menu = this.$refs.menu; const height = menu.offsetHeight; const width = menu.offsetWidth; const openAbove = window.innerHeight - button.bottom < height + 12; const left = Math.max(8, Math.min(button.right - width, window.innerWidth - width - 8)); menu.style.left = left + 'px'; menu.style.top = openAbove ? 'auto' : (button.bottom + 5) + 'px'; menu.style.bottom = openAbove ? (window.innerHeight - button.top + 5) + 'px' : 'auto'; }); } }" @click.away="open = false" @scroll.window="open = false" @resize.window="open = false">
+                                    <button x-ref="toggle" class="memo-action-toggle" type="button" @click="open = !open; if (open) placeMenu()" :aria-expanded="open.toString()">
+                                        Actions <i class="fas fa-chevron-down"></i>
+                                    </button>
+                                    <div x-ref="menu" class="memo-action-menu" x-show="open" x-cloak>
+                                        <a href="{{ route('memos.document', $record) }}"><i class="fas fa-download"></i>Download PDF</a>
+                                        <a href="{{ route('memos.edit', $record) }}"><i class="fas fa-edit"></i>Edit Memo</a>
+                                        <form method="POST" action="{{ route('memos.destroy', $record) }}" onsubmit="return confirm('Delete memo {{ $record->memo_number }}? This will also delete its PDF and cannot be undone.')">
+                                            @csrf @method('DELETE')
+                                            <button class="delete-action" type="submit"><i class="fas fa-trash-alt"></i>Delete Memo</button>
+                                        </form>
+                                    </div>
                                 </div>
                             </td>
                         </tr>
