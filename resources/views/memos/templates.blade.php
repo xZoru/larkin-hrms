@@ -9,7 +9,7 @@
     .template-hero .hero-icon { display:inline-flex; width:40px; height:40px; align-items:center; justify-content:center; margin-right:12px; border-radius:9px; color:#c7d2fe; background:rgba(255,255,255,.12); }
     .template-back { padding:8px 12px; border:1px solid rgba(255,255,255,.28); border-radius:6px; color:white; font-size:12px; text-decoration:none; white-space:nowrap; }
     .template-back:hover { color:white; background:rgba(255,255,255,.1); }
-    .template-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; align-items:start; }
+    .template-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; align-items:start; }
     .template-card { overflow:hidden; border:1px solid #e5e7eb; border-radius:9px; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.04); }
     .template-card-head { display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid #e5e7eb; background:#f8fafc; }
     .template-card-head .cat-icon { display:flex; width:30px; height:30px; align-items:center; justify-content:center; border-radius:7px; color:#4f46e5; background:#eef2ff; font-size:12px; }
@@ -53,18 +53,18 @@
 
 <div class="template-page">
     <div class="template-hero">
-        <div class="d-flex align-items-center"><span class="hero-icon"><i class="fas fa-layer-group"></i></span><div><h1>Memo Templates</h1><p>Manage the reusable purpose, reason, and decision choices for memo issuance.</p></div></div>
-        <a href="{{ route('memos.index') }}" class="template-back"><i class="fas fa-arrow-left me-2"></i>Memo history</a>
+        <div class="d-flex align-items-center"><span class="hero-icon"><i class="fas fa-layer-group"></i></span><div><h1>Letter Templates</h1><p>Manage reusable employee letter content.</p></div></div>
+        <a href="{{ route('memos.letters.create') }}" class="template-back"><i class="fas fa-file-signature me-2"></i>Issue a letter</a>
     </div>
 
     @if(session('success'))<div class="alert alert-success border-0 shadow-sm"><i class="fas fa-check-circle me-2"></i>{{ session('success') }}</div>@endif
     @if($errors->any())<div class="alert alert-danger border-0 shadow-sm"><strong>Please check the template details.</strong><ul class="mb-0 mt-2">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
 
     <div class="template-grid">
-        @foreach(['Purpose', 'Reason', 'Decision'] as $category)
+        @foreach(['Letter'] as $category)
             @php
-                $icon = ['Purpose' => 'fa-bullseye', 'Reason' => 'fa-list-check', 'Decision' => 'fa-gavel'][$category];
-                $help = ['Purpose' => 'Why the memo is being issued', 'Reason' => 'Reusable reason statements', 'Decision' => 'Outcome or action selected'][$category];
+                $icon = ['Purpose' => 'fa-bullseye', 'Reason' => 'fa-list-check', 'Decision' => 'fa-gavel', 'Letter' => 'fa-file-alt'][$category];
+                $help = ['Purpose' => 'Why the memo is being issued', 'Reason' => 'Reusable reason statements', 'Decision' => 'Outcome or action selected', 'Letter' => 'Full editable letters with employee placeholders'][$category];
             @endphp
             <section class="template-card">
                 <div class="template-card-head"><span class="cat-icon"><i class="fas {{ $icon }}"></i></span><div><h2>{{ $category }} templates</h2><span>{{ $help }}</span></div></div>
@@ -75,8 +75,8 @@
                         <input type="hidden" name="category" value="{{ $category }}">
                         <label for="new-{{ strtolower($category) }}-name">Template name</label>
                         <input id="new-{{ strtolower($category) }}-name" class="form-control" name="name" maxlength="255" required placeholder="e.g. Attendance concern">
-                        <label for="new-{{ strtolower($category) }}-content">Text inserted into the memo</label>
-                        <textarea id="new-{{ strtolower($category) }}-content" class="form-control" name="content" maxlength="10000" placeholder="Enter reusable text for this option (optional)"></textarea>
+                        <label for="new-{{ strtolower($category) }}-content">{{ $category === 'Letter' ? 'Letter body' : 'Text inserted into the memo' }}</label>
+                        <textarea id="new-{{ strtolower($category) }}-content" class="form-control" name="content" maxlength="30000" placeholder="{{ $category === 'Letter' ? 'Write the letter. Placeholders: {employee_name}, {employee_number}, {position}, {salary}, {date}' : 'Enter reusable text for this option (optional)' }}"></textarea>
                         <button class="btn btn-primary" type="submit"><i class="fas fa-plus me-1"></i>Add template</button>
                     </form>
                 </div>
@@ -86,8 +86,8 @@
 
     <section class="saved-templates">
         <div class="saved-templates-head"><h2><i class="fas fa-folder-open text-primary me-2"></i>Created Templates</h2><p>Review and edit the templates already in the library.</p></div>
-        @foreach(['Purpose', 'Reason', 'Decision'] as $category)
-            @php $icon = ['Purpose' => 'fa-bullseye', 'Reason' => 'fa-list-check', 'Decision' => 'fa-gavel'][$category]; @endphp
+        @foreach(['Letter'] as $category)
+            @php $icon = ['Purpose' => 'fa-bullseye', 'Reason' => 'fa-list-check', 'Decision' => 'fa-gavel', 'Letter' => 'fa-file-alt'][$category]; @endphp
             <div class="saved-category">
                 <div class="saved-category-head"><i class="fas {{ $icon }}"></i><strong>{{ $category }} templates</strong><span>{{ $templateGroups->get($category, collect())->count() }} template(s)</span></div>
                 @if($templateGroups->get($category, collect())->isNotEmpty())
@@ -107,8 +107,8 @@
                                                     @csrf @method('PUT')
                                                     <label for="name-{{ $template->id }}">Template name</label>
                                                     <input id="name-{{ $template->id }}" class="form-control" name="name" value="{{ $template->name }}" maxlength="255" required>
-                                                    <label for="content-{{ $template->id }}">Text inserted into the memo</label>
-                                                    <textarea id="content-{{ $template->id }}" class="form-control" name="content" maxlength="10000">{{ $template->content }}</textarea>
+                                                    <label for="content-{{ $template->id }}">{{ $category === 'Letter' ? 'Letter body' : 'Text inserted into the memo' }}</label>
+                                                    <textarea id="content-{{ $template->id }}" class="form-control" name="content" maxlength="30000">{{ $template->content }}</textarea>
                                                     <label for="active-{{ $template->id }}">Availability</label>
                                                     <select id="active-{{ $template->id }}" class="form-select" name="is_active" required>
                                                         <option value="1" @selected($template->is_active)>Active</option>

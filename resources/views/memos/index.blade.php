@@ -51,9 +51,9 @@
     <div class="memo-hero">
         <div class="d-flex align-items-center">
             <span class="hero-icon"><i class="fas fa-file-signature"></i></span>
-            <div><h1>Memo Issuance</h1><p>Create, issue, and review employee memos.</p></div>
+            <div><h1>Letters &amp; Memos</h1><p>Create, issue, and review employee letters and memos.</p></div>
         </div>
-        <a href="{{ route('memos.create') }}" class="btn btn-primary"><i class="fas fa-plus me-2"></i>Issue Memo</a>
+        <a href="{{ route('memos.letters.create') }}" class="btn btn-primary"><i class="fas fa-envelope me-2"></i>Issue Letter or Memo</a>
     </div>
 
     @if(session('success'))
@@ -62,50 +62,22 @@
 
     <div class="memo-summary">
         <div class="memo-summary-icon"><i class="fas fa-folder-open"></i></div>
-        <div><div class="memo-summary-value">{{ number_format($records->total()) }}</div><div class="memo-summary-label">Issued memos</div></div>
+        <div><div class="memo-summary-value">{{ number_format($memoLetters->total()) }}</div><div class="memo-summary-label">Issued memos</div></div>
     </div>
 
     <div class="memo-table-card">
         <div class="memo-table-head"><h2><i class="fas fa-list-ul me-2 text-primary"></i>Memo history</h2><span>Latest issued memos for the selected company</span></div>
-        <div class="table-responsive">
-            <table class="memo-table">
-                <thead><tr><th>Request #</th><th>Employee</th><th>Purpose</th><th>Reason 1</th><th>Reason 2</th><th>Reason 3</th><th>Effectivity Date</th><th>Decision</th><th>Created At</th><th>Issuer</th><th class="text-end">Action</th></tr></thead>
-                <tbody>
-                    @forelse($records as $record)
-                        <tr>
-                            <td><span class="memo-number">{{ $record->memo_number }}</span></td>
-                            <td><span class="memo-employee">{{ $record->employee?->full_name ?? 'Employee unavailable' }}</span><span class="memo-sub">{{ $record->employee?->employee_number }}</span></td>
-                            <td><span class="memo-cell-text" title="{{ $record->purpose }}">{{ $record->purpose_template_name ?: $record->purpose ?: $record->template?->name ?? 'Memo' }}</span></td>
-                            <td><span class="memo-cell-text" title="{{ $record->reason_1 }}">{{ $record->reason_1_template_name ?: $record->reason_1 ?: $record->offense_description ?: '—' }}</span></td>
-                            <td><span class="memo-cell-text" title="{{ $record->reason_2 }}">{{ $record->reason_2_template_name ?: $record->reason_2 ?: $record->action_taken ?: '—' }}</span></td>
-                            <td><span class="memo-cell-text" title="{{ $record->reason_3 }}">{{ $record->reason_3_template_name ?: $record->reason_3 ?: $record->remarks ?: '—' }}</span></td>
-                            <td class="memo-date">{{ $record->effectivity_date?->format('d M Y') ?? '—' }}</td>
-                            <td><span class="memo-cell-text" title="{{ $record->decision }}">{{ $record->decision_template_name ?: $record->decision ?: '—' }}</span></td>
-                            <td class="memo-date">{{ $record->created_at?->format('d M Y, h:i A') }}</td>
-                            <td class="memo-user">{{ $record->issuer_name ?: ($record->issuedBy?->name ?? '—') }}</td>
-                            <td>
-                                <div class="memo-actions" x-data="{ open: false, placeMenu() { this.$nextTick(() => { const button = this.$refs.toggle.getBoundingClientRect(); const menu = this.$refs.menu; const height = menu.offsetHeight; const width = menu.offsetWidth; const openAbove = window.innerHeight - button.bottom < height + 12; const left = Math.max(8, Math.min(button.right - width, window.innerWidth - width - 8)); menu.style.left = left + 'px'; menu.style.top = openAbove ? 'auto' : (button.bottom + 5) + 'px'; menu.style.bottom = openAbove ? (window.innerHeight - button.top + 5) + 'px' : 'auto'; }); } }" @click.away="open = false" @scroll.window="open = false" @resize.window="open = false">
-                                    <button x-ref="toggle" class="memo-action-toggle" type="button" @click="open = !open; if (open) placeMenu()" :aria-expanded="open.toString()">
-                                        Actions <i class="fas fa-chevron-down"></i>
-                                    </button>
-                                    <div x-ref="menu" class="memo-action-menu" x-show="open" x-cloak>
-                                        <a href="{{ route('memos.document', $record) }}"><i class="fas fa-download"></i>Download PDF</a>
-                                        <a href="{{ route('memos.edit', $record) }}"><i class="fas fa-edit"></i>Edit Memo</a>
-                                        <form method="POST" action="{{ route('memos.destroy', $record) }}" onsubmit="return confirm('Delete memo {{ $record->memo_number }}? This will also delete its PDF and cannot be undone.')">
-                                            @csrf @method('DELETE')
-                                            <button class="delete-action" type="submit"><i class="fas fa-trash-alt"></i>Delete Memo</button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="11" class="memo-empty"><i class="far fa-file-alt"></i><strong>No memos issued yet</strong><span>Issued memos will appear here for this company.</span></td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-        @if($records->hasPages())<div class="memo-pagination">{{ $records->links() }}</div>@endif
+        <div class="table-responsive"><table class="memo-table" style="min-width:720px"><thead><tr><th>Memo #</th><th>Employee</th><th>Type</th><th>Date issued</th><th>Issued by</th><th class="text-end">PDF</th></tr></thead><tbody>
+        @forelse($memoLetters as $memoLetter)<tr><td class="memo-number">{{ $memoLetter->letter_number }}</td><td><span class="memo-employee">{{ $memoLetter->employee?->full_name ?? 'Employee unavailable' }}</span><span class="memo-sub">{{ $memoLetter->employee?->employee_number }}</span></td><td>Memo</td><td class="memo-date">{{ $memoLetter->date_issued?->format('d M Y') }}</td><td class="memo-user">{{ $memoLetter->issuedBy?->name ?? '�' }}</td><td class="text-end"><a class="memo-download" href="{{ route('memos.letters.document', $memoLetter) }}"><i class="fas fa-download me-1"></i>Download</a></td></tr>
+        @empty<tr><td colspan="6" class="memo-empty"><i class="far fa-file-alt"></i><strong>No memos issued yet</strong><span>Issued memos will appear here for this company.</span></td></tr>@endforelse
+        </tbody></table></div>@if($memoLetters->hasPages())<div class="memo-pagination">{{ $memoLetters->links() }}</div>@endif
+    </div>
+    <div class="memo-table-card mt-4">
+        <div class="memo-table-head"><h2><i class="fas fa-envelope-open-text me-2 text-primary"></i>Issued employee letters</h2><span>Employment, salary, bank, travel, and custom letters</span></div>
+        <div class="table-responsive"><table class="memo-table" style="min-width:720px"><thead><tr><th>Letter #</th><th>Employee</th><th>Letter type</th><th>Date issued</th><th class="text-end">PDF</th></tr></thead><tbody>
+        @forelse($letters as $letter)<tr><td class="memo-number">{{ $letter->letter_number }}</td><td><span class="memo-employee">{{ $letter->employee?->full_name }}</span><span class="memo-sub">{{ $letter->employee?->employee_number }}</span></td><td>{{ $letter->letter_type }}</td><td class="memo-date">{{ $letter->date_issued?->format('d M Y') }}</td><td class="text-end"><a class="memo-download" href="{{ route('memos.letters.document', $letter) }}"><i class="fas fa-download me-1"></i>Download</a></td></tr>
+        @empty<tr><td colspan="5" class="memo-empty"><i class="far fa-file-alt"></i><strong>No employee letters issued yet</strong><span>Issued letters will appear here.</span></td></tr>@endforelse
+        </tbody></table></div>@if($letters->hasPages())<div class="memo-pagination">{{ $letters->links() }}</div>@endif
     </div>
 </div>
 @endsection

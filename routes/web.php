@@ -19,6 +19,7 @@ use App\Http\Controllers\BackupController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MemoController;
+use App\Http\Controllers\LetterController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\EmployeeSettlementPaymentController;
 use App\Http\Controllers\BranchController;
@@ -80,6 +81,10 @@ Route::middleware(['auth', 'company.access'])->group(function () {
 
 // ============ MEMO ISSUANCE ============
 Route::middleware(['auth', 'company.access'])->prefix('memos')->name('memos.')->group(function () {
+    Route::get('/letters/create', [LetterController::class, 'create'])->name('letters.create');
+    Route::post('/letters', [LetterController::class, 'store'])->name('letters.store');
+    Route::get('/letters/{letterIssuance}/document', [LetterController::class, 'document'])->name('letters.document');
+    Route::post('/letter-templates', [LetterController::class, 'templates'])->name('letters.templates.store');
     Route::get('/', [MemoController::class, 'index'])->name('index');
     Route::get('/create', [MemoController::class, 'create'])->name('create');
     Route::get('/templates', [MemoController::class, 'templates'])->name('templates.index');

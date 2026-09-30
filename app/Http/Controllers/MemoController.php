@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\DisciplineRecord;
 use App\Models\Employee;
 use App\Models\MemoTemplate;
+use App\Models\LetterIssuance;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -21,14 +22,18 @@ class MemoController extends Controller
 
     public function index()
     {
-        $records = DisciplineRecord::with(['employee', 'template', 'issuedBy'])
+        $memoLetters = LetterIssuance::with(['employee', 'issuedBy'])
+            ->where('letter_type', 'Memo')
             ->whereHas('employee', fn ($query) => $query
                 ->where('company_id', $this->companyId())
                 ->whereIn('employee_type', auth()->user()->getAllowedEmployeeTypes()))
-            ->latest('date_issued')
-            ->paginate(15);
+            ->latest('date_issued')->paginate(10, ['*'], 'memo_letters_page');
+        $letters = LetterIssuance::with('employee')->where('letter_type', '!=', 'Memo')->whereHas('employee', fn ($query) => $query
+            ->where('company_id', $this->companyId())
+            ->whereIn('employee_type', auth()->user()->getAllowedEmployeeTypes()))
+            ->latest('date_issued')->paginate(10, ['*'], 'letters_page');
 
-        return view('memos.index', compact('records'));
+        return view('memos.index', compact('memoLetters', 'letters'));
     }
 
     public function create(Request $request)
@@ -66,7 +71,7 @@ class MemoController extends Controller
     public function templates()
     {
         $this->companyId();
-        $templateGroups = MemoTemplate::whereIn('category', ['Purpose', 'Reason', 'Decision'])
+        $templateGroups = MemoTemplate::whereIn('category', ['Purpose', 'Reason', 'Decision', 'Letter'])
             ->orderBy('category')->orderBy('name')->get()->groupBy('category');
 
         return view('memos.templates', compact('templateGroups'));
@@ -76,9 +81,9 @@ class MemoController extends Controller
     {
         $this->companyId();
         $data = $request->validate([
-            'category' => ['required', Rule::in(['Purpose', 'Reason', 'Decision'])],
+            'category' => ['required', Rule::in(['Purpose', 'Reason', 'Decision', 'Letter'])],
             'name' => ['required', 'string', 'max:255'],
-            'content' => ['nullable', 'string', 'max:10000'],
+            'content' => ['nullable', 'string', 'max:30000'],
         ]);
 
         MemoTemplate::create([
@@ -94,11 +99,11 @@ class MemoController extends Controller
     public function updateTemplate(Request $request, MemoTemplate $memoTemplate)
     {
         $this->companyId();
-        abort_unless(in_array($memoTemplate->category, ['Purpose', 'Reason', 'Decision'], true), 404);
+        abort_unless(in_array($memoTemplate->category, ['Purpose', 'Reason', 'Decision', 'Letter'], true), 404);
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'content' => ['nullable', 'string', 'max:10000'],
+            'content' => ['nullable', 'string', 'max:30000'],
             'is_active' => ['required', 'boolean'],
         ]);
 
@@ -114,7 +119,7 @@ class MemoController extends Controller
     public function destroyTemplate(MemoTemplate $memoTemplate)
     {
         $this->companyId();
-        abort_unless(in_array($memoTemplate->category, ['Purpose', 'Reason', 'Decision'], true), 404);
+        abort_unless(in_array($memoTemplate->category, ['Purpose', 'Reason', 'Decision', 'Letter'], true), 404);
 
         $memoTemplate->delete();
 
