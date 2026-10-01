@@ -561,7 +561,7 @@ class LoanRequestController extends Controller
             return $loans->count();
         });
 
-        return redirect()->route('loan-requests.index')
+        return redirect()->route('loan-requests.index', ['page' => max(1, (int) $request->input('page', 1))])
             ->with(
                 $updated ? 'success' : 'error',
                 $updated

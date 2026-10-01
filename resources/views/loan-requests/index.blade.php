@@ -539,7 +539,8 @@
             <div class="card-body">
                 <form id="bulkLoanActionForm" method="POST" class="mb-3 flex flex-wrap items-center gap-2">
                     @csrf
-                    <button type="submit" formaction="{{ route('loan-requests.bulk-approve') }}" class="px-3 py-2 rounded bg-green-600 text-white text-sm" onclick="return confirm('Approve all selected pending loan requests?');">Approve selected</button>
+                    <input type="hidden" name="page" value="{{ request('page', 1) }}">
+                    <button type="submit" formaction="{{ route('loan-requests.bulk-approve') }}" class="px-3 py-2 rounded bg-green-600 text-white text-sm">Approve selected</button>
                     <button type="submit" formaction="{{ route('loan-requests.bulk-release') }}" class="px-3 py-2 rounded bg-blue-600 text-white text-sm" onclick="return confirm('Release all selected approved loan requests?');">Release selected</button>
                     <span class="text-sm text-gray-500">Select Pending loans to approve or Approved loans to release.</span>
                 </form>

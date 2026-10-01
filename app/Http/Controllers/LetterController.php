@@ -77,7 +77,7 @@ class LetterController extends Controller
             '{salary}' => number_format((float) ($employee->monthly_salary ?? $employee->base_salary ?? 0), 2),
             '{fortnightly_salary}' => number_format((float) ($employee->base_salary ?? 0), 2),
             '{date}' => date('F j, Y', strtotime($data['date_issued'])),
-            '{company_name}' => $employee->company?->name ?? config('app.name'),
+            '{company_name}' => $this->letterCompanyName($employee->company),
             '{signatory_name}' => $data['signatory_name'],
             '{signatory_title}' => $data['signatory_title'] ?? '[Title]',
         ]);
@@ -133,5 +133,31 @@ class LetterController extends Controller
         }
         $mime = mime_content_type($logoFile) ?: 'image/png';
         return 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($logoFile));
+    }
+
+    private function letterCompanyName(?Company $company): string
+    {
+        $names = [
+            'LKE-POM' => 'Larkin Enterprises Limited', 'LKE-LAE' => 'Larkin Enterprises Limited',
+            'YJS-POM' => 'Yellow Jacket Security Limited', 'YJS-LAE' => 'Yellow Jacket Security Limited',
+            'PARA' => 'Paragon Tech Limited', 'ADF' => 'Larkin Enterprises t/a Ad Focus',
+            'WAVE' => 'Wave Restaurant', 'CARO' => "Caroline's Diner", 'HYVE' => 'Hyve',
+        ];
+        if (isset($names[$company?->code ?? ''])) {
+            return $names[$company->code];
+        }
+
+        $companyName = strtolower($company?->name ?? '');
+        if (str_contains($companyName, 'ad focus')) {
+            return 'Larkin Enterprises t/a Ad Focus';
+        }
+        if (str_contains($companyName, 'larkin')) {
+            return 'Larkin Enterprises Limited';
+        }
+        if (str_contains($companyName, 'yellow jacket')) {
+            return 'Yellow Jacket Security Limited';
+        }
+
+        return $company?->name ?? config('app.name');
     }
 }
