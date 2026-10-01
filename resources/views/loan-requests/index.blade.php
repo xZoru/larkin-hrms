@@ -541,7 +541,7 @@
                     @csrf
                     <input type="hidden" name="page" value="{{ request('page', 1) }}">
                     <button type="submit" formaction="{{ route('loan-requests.bulk-approve') }}" class="px-3 py-2 rounded bg-green-600 text-white text-sm">Approve selected</button>
-                    <button type="submit" formaction="{{ route('loan-requests.bulk-release') }}" class="px-3 py-2 rounded bg-blue-600 text-white text-sm" onclick="return confirm('Release all selected approved loan requests?');">Release selected</button>
+                    <button type="submit" formaction="{{ route('loan-requests.bulk-release') }}" class="px-3 py-2 rounded bg-blue-600 text-white text-sm">Release selected</button>
                     <span class="text-sm text-gray-500">Select Pending loans to approve or Approved loans to release.</span>
                 </form>
                 <div class="overflow-x-auto">
