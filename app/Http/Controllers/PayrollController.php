@@ -471,7 +471,7 @@ class PayrollController extends Controller
     {
         $request->validate([
             'gross_pay' => 'required|numeric|min:0',
-            'basic_pay' => 'required|numeric|min:0',
+            'basic_pay' => 'nullable|numeric|min:0',
             'employee_type' => 'required|string',
             'employee_id' => 'nullable|exists:employees,id',
         ]);
@@ -487,7 +487,7 @@ class PayrollController extends Controller
         }
         
         // NASFUND is based on basic pay, regardless of the gross used for tax.
-        $nasfund = (float) $request->basic_pay * 0.06;
+        $nasfund = (float) $request->input('basic_pay', 0) * 0.06;
         
         return response()->json([
             'success' => true,
