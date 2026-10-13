@@ -126,6 +126,7 @@ class LeaveController extends Controller
 
         $leaveRequest = LeaveRequest::create([
             'employee_id' => $request->employee_id,
+            'leave_type' => $request->leave_type,
             'start_date' => $request->start_date,
             'end_date' => $request->end_date,
             'days_requested' => $days,

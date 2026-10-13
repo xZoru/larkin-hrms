@@ -2,77 +2,41 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Employee;
 use App\Models\LeaveRequest;
-use App\Models\Payroll;
-use App\Models\Loan;
-use Carbon\Carbon;
-use App\Services\NotificationService;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(): View
     {
         $companyId = auth()->user()->getCurrentCompanyId();
-        $user = auth()->user();
-        $allowedTypes = $user->getAllowedEmployeeTypes();
-        
-        // Stat data - filtered by user type
-        $totalEmployees = Employee::where('company_id', $companyId)
-            ->active()
-            ->whereIn('employee_type', $allowedTypes)
-            ->count();
-        
-        $pendingLeaves = LeaveRequest::whereHas('employee', function($q) use ($companyId, $allowedTypes) {
-            $q->where('company_id', $companyId)
-              ->active()
-              ->whereIn('employee_type', $allowedTypes);
-        })->where('status', 'Pending')->count();
-        
-        $currentFortnight = $this->getCurrentFortnight();
-        $totalPayroll = Payroll::where('company_id', $companyId)
-            ->where('fortnight_number', $currentFortnight)
-            ->sum('total_net') ?? 0;
-        
-        $activeLoans = Loan::where('company_id', $companyId)
-            ->where('status', 'Active')
-            ->count();
-        
-        // Recent data - filtered by user type
-        $recentEmployees = Employee::where('company_id', $companyId)
-            ->active()
-            ->whereIn('employee_type', $allowedTypes)
-            ->orderBy('created_at', 'desc')
+        $allowedTypes = auth()->user()->getAllowedEmployeeTypes();
+
+        $recentLeaveRequests = LeaveRequest::with('employee')
+            ->whereHas('employee', function ($query) use ($companyId, $allowedTypes) {
+                $query->where('company_id', $companyId)
+                    ->active()
+                    ->whereIn('employee_type', $allowedTypes);
+            })
+            ->where('status', 'Pending')
+            ->orderByDesc('created_at')
             ->limit(5)
             ->get();
-        
-        $recentLeaveRequests = LeaveRequest::whereHas('employee', function($q) use ($companyId, $allowedTypes) {
-            $q->where('company_id', $companyId)
-              ->active()
-              ->whereIn('employee_type', $allowedTypes);
-        })->where('status', 'Pending')
-          ->orderBy('created_at', 'desc')
-          ->limit(5)
-          ->get();
-        
-        return view('dashboard', compact(
-            'totalEmployees',
-            'pendingLeaves',
-            'totalPayroll',
-            'activeLoans',
-            'recentEmployees',
-            'recentLeaveRequests'
-        ));
-    }
-    private function getCurrentFortnight(): string
-    {
-        $year = date('y');
-        $start = Carbon::createFromDate(date('Y') - 1, 12, 25);
-        $daysSinceStart = $start->diffInDays(now()) + 1;
-        $fortnight = (int) ceil($daysSinceStart / 14);
 
-        return $year . str_pad((string) $fortnight, 2, '0', STR_PAD_LEFT);
+        $today = now()->toDateString();
+        $expatriatesOnLeave = LeaveRequest::with('employee')
+            ->where('status', 'Approved')
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
+            ->whereHas('employee', function ($query) use ($companyId) {
+                $query->where('company_id', $companyId)
+                    ->active()
+                    ->where('employee_type', 'Expatriate');
+            })
+            ->orderBy('end_date')
+            ->limit(10)
+            ->get();
+
+        return view('dashboard', compact('recentLeaveRequests', 'expatriatesOnLeave'));
     }
 }
