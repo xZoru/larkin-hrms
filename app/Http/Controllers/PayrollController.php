@@ -486,7 +486,7 @@ class PayrollController extends Controller
             $tax = $this->calculateNationalTax(null, $grossPay);
         }
         
-        // NASFUND is based on basic pay, regardless of the gross used for tax.
+        // NASFUND is based on basic pay.
         $nasfund = (float) $request->input('basic_pay', 0) * 0.06;
         
         return response()->json([

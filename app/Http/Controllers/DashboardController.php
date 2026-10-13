@@ -6,6 +6,7 @@ use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\Payroll;
 use App\Models\Loan;
+use Carbon\Carbon;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,7 +15,7 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $companyId = auth()->user()->company_id;
+        $companyId = auth()->user()->getCurrentCompanyId();
         $user = auth()->user();
         $allowedTypes = $user->getAllowedEmployeeTypes();
         
@@ -30,7 +31,7 @@ class DashboardController extends Controller
               ->whereIn('employee_type', $allowedTypes);
         })->where('status', 'Pending')->count();
         
-        $currentFortnight = getCurrentFortnight();
+        $currentFortnight = $this->getCurrentFortnight();
         $totalPayroll = Payroll::where('company_id', $companyId)
             ->where('fortnight_number', $currentFortnight)
             ->sum('total_net') ?? 0;
@@ -64,5 +65,14 @@ class DashboardController extends Controller
             'recentEmployees',
             'recentLeaveRequests'
         ));
+    }
+    private function getCurrentFortnight(): string
+    {
+        $year = date('y');
+        $start = Carbon::createFromDate(date('Y') - 1, 12, 25);
+        $daysSinceStart = $start->diffInDays(now()) + 1;
+        $fortnight = (int) ceil($daysSinceStart / 14);
+
+        return $year . str_pad((string) $fortnight, 2, '0', STR_PAD_LEFT);
     }
 }

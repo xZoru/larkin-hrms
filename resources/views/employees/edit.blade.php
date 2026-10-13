@@ -1033,13 +1033,6 @@
                         <p class="text-gray-500 text-sm">Assets (0) coming soon...</p>
                     </div>
 
-                    <!-- ============ SAVE BUTTONS ============ -->
-                    <div class="mt-8 border-t border-gray-200 pt-6 flex items-center justify-end space-x-3">
-                        <a href="{{ route('employees.index') }}" class="btn-secondary">Cancel</a>
-                        <button type="button" name="action" value="update" class="btn-success" onclick="document.getElementById('employeeForm').submit();">Update</button>
-                        <button type="button" name="action" value="update_stay" class="btn-primary" onclick="document.getElementById('employeeForm').submit();">Update & Stay</button>
-                    </div>
-
                 </form>
                 <!-- ============ MAIN FORM ENDS HERE ============ -->
 
@@ -1138,11 +1131,11 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div class="form-group">
                                     <label class="form-label">Passport Number</label>
-                                    <input type="text" name="passport_number" class="form-input" value="{{ old('passport_number', $employee->passport_number) }}">
+                                    <input type="text" form="employeeForm" name="passport_number" class="form-input" value="{{ old('passport_number', $employee->passport_number) }}">
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Passport Expiry</label>
-                                    <input type="text" 
+                                    <input type="text" form="employeeForm" 
                                         name="passport_expiry" 
                                         id="passport_expiry"
                                         class="flatpickr-input form-input" 
@@ -1151,11 +1144,11 @@
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Work Permit Number</label>
-                                    <input type="text" name="work_permit_number" class="form-input" value="{{ old('work_permit_number', $employee->work_permit_number) }}">
+                                    <input type="text" form="employeeForm" name="work_permit_number" class="form-input" value="{{ old('work_permit_number', $employee->work_permit_number) }}">
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Work Permit Expiry</label>
-                                    <input type="text" 
+                                    <input type="text" form="employeeForm" 
                                         name="work_permit_expiry" 
                                         id="work_permit_expiry"
                                         class="flatpickr-input form-input" 
@@ -1164,11 +1157,11 @@
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Visa Number</label>
-                                    <input type="text" name="visa_number" class="form-input" value="{{ old('visa_number', $employee->visa_number) }}">
+                                    <input type="text" form="employeeForm" name="visa_number" class="form-input" value="{{ old('visa_number', $employee->visa_number) }}">
                                 </div>
                             <div class="form-group">
                                 <label class="form-label">Visa Expiry</label>
-                                <input type="text" 
+                                <input type="text" form="employeeForm" 
                                     name="visa_expiry" 
                                     id="visa_expiry"
                                     class="flatpickr-input form-input" 
@@ -1178,6 +1171,12 @@
                             </div>
                         </div>
                     </div>
+                </div>
+
+                <div id="employee-save-actions" class="mt-8 border-t border-gray-200 pt-6 flex items-center justify-end space-x-3">
+                    <a href="{{ route('employees.index') }}" class="btn-secondary">Cancel</a>
+                    <button type="submit" form="employeeForm" name="action" value="update" class="btn-success">Update</button>
+                    <button type="submit" form="employeeForm" name="action" value="update_stay" class="btn-primary">Update &amp; Stay</button>
                 </div>
 
             </div>
