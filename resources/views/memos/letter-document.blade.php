@@ -33,22 +33,10 @@
         $letterBody = preg_replace('/^\*\*CONFIRMATION OF EMPLOYMENT\*\*\R*/', '', $letterBody, 1);
     }
     $letterBody = preg_replace('/\R*(?:Yours sincerely,?|Sincerely,)\s*[\s\S]*$/i', '', $letterBody);
+    $company = $record->employee->company;
+    $letterAddress = 'Portion 3205C Fungi Street, Taurama Road Port Moresby, NCD papua new guinea';
 @endphp
 <div class="page">
-    @php($company = $record->employee->company)
-    @php
-        $letterCompanyNames = ['LKE-POM' => 'Larkin Enterprises Limited', 'LKE-LAE' => 'Larkin Enterprises Limited', 'YJS-POM' => 'Yellow Jacket Security Limited', 'YJS-LAE' => 'Yellow Jacket Security Limited', 'PARA' => 'Paragon Tech Limited', 'ADF' => 'Larkin Enterprises t/a Ad Focus', 'WAVE' => 'Wave Restaurant', 'CARO' => "Caroline's Diner", 'HYVE' => 'Hyve'];
-        $letterCompanyName = $letterCompanyNames[$company?->code ?? ''] ?? ($company->name ?? config('app.name'));
-        $normalizedCompanyName = strtolower($company->name ?? '');
-        if (str_contains($normalizedCompanyName, 'ad focus')) {
-            $letterCompanyName = 'Larkin Enterprises t/a Ad Focus';
-        } elseif (str_contains($normalizedCompanyName, 'larkin')) {
-            $letterCompanyName = 'Larkin Enterprises Limited';
-        } elseif (str_contains($normalizedCompanyName, 'yellow jacket')) {
-            $letterCompanyName = 'Yellow Jacket Security Limited';
-        }
-        $letterAddress = 'Portion 3205C Fungi Street, Taurama Road Port Moresby, NCD papua new guinea';
-    @endphp
     <table class="letterhead"><tr>
         <td class="letterhead-logo">@if(!empty($logoDataUri))<img src="{{ $logoDataUri }}" alt="">@endif</td>
         <td class="letterhead-info">

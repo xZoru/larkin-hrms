@@ -89,8 +89,10 @@ class LetterController extends Controller
             'signatory_name' => $data['signatory_name'], 'signatory_title' => $data['signatory_title'] ?? null,
         ]);
         $record->load('employee.company');
-        $logoDataUri = $this->companyLogoDataUri($record->employee->company);
-        $pdf = Pdf::loadView('memos.letter-document', compact('record', 'logoDataUri'))->setPaper('a4');
+        $company = $record->employee->company;
+        $logoDataUri = $this->companyLogoDataUri($company);
+        $letterCompanyName = $this->letterCompanyName($company);
+        $pdf = Pdf::loadView('memos.letter-document', compact('record', 'logoDataUri', 'letterCompanyName'))->setPaper('a4');
         $path = 'letters/' . $number . '.pdf';
         Storage::disk(config('filesystems.memo_disk', 'local'))->put($path, $pdf->output());
         $record->update(['document_path' => $path]);
@@ -110,8 +112,11 @@ class LetterController extends Controller
         $this->companyId();
         abort_unless($letterIssuance->employee()->where('company_id', auth()->user()->getCurrentCompanyId())->whereIn('employee_type', auth()->user()->getAllowedEmployeeTypes())->exists(), 404);
         $letterIssuance->load('employee.company');
-        $logoDataUri = $this->companyLogoDataUri($letterIssuance->employee->company);
-        $pdf = Pdf::loadView('memos.letter-document', ['record' => $letterIssuance, 'logoDataUri' => $logoDataUri])->setPaper('a4');
+        $record = $letterIssuance;
+        $company = $record->employee->company;
+        $logoDataUri = $this->companyLogoDataUri($company);
+        $letterCompanyName = $this->letterCompanyName($company);
+        $pdf = Pdf::loadView('memos.letter-document', compact('record', 'logoDataUri', 'letterCompanyName'))->setPaper('a4');
         $disk = Storage::disk(config('filesystems.memo_disk', 'local'));
         $path = $letterIssuance->document_path ?: 'letters/' . $letterIssuance->letter_number . '.pdf';
         $disk->put($path, $pdf->output());
