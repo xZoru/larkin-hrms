@@ -9,6 +9,8 @@ use App\Models\AttendanceSummary;
 use App\Models\Holiday;
 use App\Models\Company;
 use App\Models\Branch;
+use App\Models\LeaveRequest;
+use App\Services\SickLeavePolicy;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
@@ -70,11 +72,14 @@ class AttendanceController extends Controller
         $selectedEmployee = null;
         $selectedDayLogs = collect();
         $timesheetStatus = 'Draft';
+        $sickLeaveBalance = null;
 
         if ($selectedEmployeeId) {
             $selectedEmployee = Employee::find($selectedEmployeeId);
             
             if ($selectedEmployee) {
+                $sickLeaveBalance = app(SickLeavePolicy::class)->balanceOn($selectedEmployee, $period['end']);
+
                 // Get logs for selected employee and fortnight
                 $selectedDayLogs = AttendanceLog::where('employee_id', $selectedEmployeeId)
                     ->where('fortnight_number', $fortnight)
@@ -107,6 +112,7 @@ class AttendanceController extends Controller
             'selectedDayLogs',
             'currentFortnight', 
             'timesheetStatus',
+            'sickLeaveBalance',
             'holidayDates'
             , 'branches'
         ));
@@ -155,6 +161,31 @@ class AttendanceController extends Controller
                 'fortnight' => $fortnight,
                 'employee_id' => $employeeId
             ])->with('error', 'You are not authorized to manage this employee.');
+        }
+
+        $sickLeaveDates = [];
+        foreach ($attendanceData as $dateKey => $data) {
+            if (($data['type'] ?? 'Work') === 'Sick Leave') {
+                $sickLeaveDates[] = $dateKey;
+            }
+        }
+        if ($sickLeaveDates) {
+            $existingLogIds = AttendanceLog::where('employee_id', $employeeId)
+                ->whereIn('date', $sickLeaveDates)
+                ->pluck('id')
+                ->all();
+            $policyError = app(SickLeavePolicy::class)->validateDates(
+                $employee,
+                $sickLeaveDates,
+                null,
+                $existingLogIds
+            );
+            if ($policyError) {
+                return redirect()->route('attendance.index', [
+                    'fortnight' => $fortnight,
+                    'employee_id' => $employeeId,
+                ])->with('error', $policyError);
+            }
         }
 
         // Check current status
@@ -242,13 +273,32 @@ class AttendanceController extends Controller
                 // Don't change status
             }
 
-            AttendanceLog::updateOrCreate(
+            $attendanceLog = AttendanceLog::updateOrCreate(
                 [
                     'employee_id' => $employeeId,
                     'date' => $dateKey,
                 ],
                 $updateData
             );
+
+            if ($type === 'Sick Leave') {
+                LeaveRequest::updateOrCreate(
+                    ['source_attendance_log_id' => $attendanceLog->id],
+                    [
+                        'employee_id' => $employeeId,
+                        'leave_type' => 'Sick',
+                        'start_date' => $dateKey,
+                        'end_date' => $dateKey,
+                        'days_requested' => 1,
+                        'reason' => 'Recorded from timesheet entry',
+                        'status' => 'Approved',
+                        'approved_date' => $dateKey,
+                        'approved_by' => null,
+                    ]
+                );
+            } else {
+                LeaveRequest::where('source_attendance_log_id', $attendanceLog->id)->delete();
+            }
         }
 
         // Update the summary after saving logs

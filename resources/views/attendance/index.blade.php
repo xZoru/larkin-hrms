@@ -721,6 +721,30 @@
                     </div>
                 </div>
 
+                @if($sickLeaveBalance)
+                    <div class="mb-4 p-4 rounded-lg border {{ $sickLeaveBalance['available'] > 0 ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50' }}">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <div class="font-semibold text-gray-900">Sick leave available</div>
+                                <div class="text-sm text-gray-600">
+                                    As of {{ $period['end']->format('d/m/Y') }}
+                                    @if($sickLeaveBalance['resets_on'])
+                                        · Resets {{ $sickLeaveBalance['resets_on']->format('d/m/Y') }}
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="text-2xl font-bold {{ $sickLeaveBalance['available'] > 0 ? 'text-emerald-700' : 'text-amber-700' }}">
+                                {{ $sickLeaveBalance['available'] }} <span class="text-sm font-medium">of {{ $sickLeaveBalance['allowance'] }} days</span>
+                            </div>
+                        </div>
+                        @if(!$selectedEmployee->joining_date)
+                            <div class="mt-2 text-sm text-amber-800">Add the employee’s joining date to calculate eligibility.</div>
+                        @elseif(!$sickLeaveBalance['is_eligible'])
+                            <div class="mt-2 text-sm text-amber-800">Eligible from {{ $sickLeaveBalance['eligible_from']->format('d/m/Y') }} after 3 months of service.</div>
+                        @endif
+                    </div>
+                @endif
+
                 <!-- ============ TIMESHEET TABLE - 2 WEEKS SPLIT ============ -->
                 <form method="POST" action="{{ route('attendance.bulk.update') }}" id="timesheetForm">
                     @csrf

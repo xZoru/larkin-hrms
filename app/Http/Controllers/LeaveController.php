@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveRecord;
+use App\Services\SickLeavePolicy;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
@@ -100,6 +101,17 @@ class LeaveController extends Controller
         $start = Carbon::parse($request->start_date);
         $end = Carbon::parse($request->end_date);
         $days = $start->diffInDays($end) + 1;
+
+        if ($request->leave_type === 'Sick') {
+            $sickLeaveDates = [];
+            for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+                $sickLeaveDates[] = $date->toDateString();
+            }
+            $policyError = app(SickLeavePolicy::class)->validateDates($employee, $sickLeaveDates);
+            if ($policyError) {
+                return back()->withInput()->with('error', $policyError);
+            }
+        }
 
         if ($request->leave_type === 'Annual') {
             $balance = $this->calculateLeaveBalance($request->employee_id);
@@ -201,6 +213,21 @@ class LeaveController extends Controller
         $end = Carbon::parse($request->end_date);
         $days = $start->diffInDays($end) + 1;
 
+        if ($leaveRequest->leave_type === 'Sick') {
+            $sickLeaveDates = [];
+            for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+                $sickLeaveDates[] = $date->toDateString();
+            }
+            $policyError = app(SickLeavePolicy::class)->validateDates(
+                $leaveRequest->employee,
+                $sickLeaveDates,
+                $leaveRequest->id
+            );
+            if ($policyError) {
+                return back()->withInput()->with('error', $policyError);
+            }
+        }
+
         $leaveRequest->update([
             'start_date' => $request->start_date,
             'end_date' => $request->end_date,
@@ -247,6 +274,23 @@ class LeaveController extends Controller
             if ($balance->balance < $leaveRequest->days_requested) {
                 return redirect()->route('leave.index')
                     ->with('error', 'Employee has insufficient leave balance.');
+            }
+        }
+
+        if ($leaveRequest->leave_type === 'Sick') {
+            $sickLeaveDates = [];
+            $start = Carbon::parse($leaveRequest->start_date);
+            $end = Carbon::parse($leaveRequest->end_date);
+            for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+                $sickLeaveDates[] = $date->toDateString();
+            }
+            $policyError = app(SickLeavePolicy::class)->validateDates(
+                $leaveRequest->employee,
+                $sickLeaveDates,
+                $leaveRequest->id
+            );
+            if ($policyError) {
+                return redirect()->route('leave.index')->with('error', $policyError);
             }
         }
 
