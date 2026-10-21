@@ -538,6 +538,22 @@ class EmployeeController extends Controller
         ]);
     }
 
+    public function document(Employee $employee, $documentId)
+    {
+        $user = auth()->user();
+        abort_unless($user->isSuperAdmin() || $user->canViewEmployee($employee), 403);
+
+        $document = $employee->documents()->findOrFail($documentId);
+        $disk = Storage::disk('public');
+        abort_unless($disk->exists($document->file_path), 404);
+
+        return $disk->response($document->file_path, $document->file_name, [
+            'Content-Disposition' => 'inline',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'private, max-age=3600',
+        ]);
+    }
+
     public function uploadDocument(Request $request, Employee $employee)
     {
         $user = auth()->user();
