@@ -6,6 +6,7 @@ use App\Exports\ABAExport;
 use App\Models\Company;
 use App\Models\Payroll;
 use App\Models\ABABatch;
+use App\Models\ABAPaymentOverride;
 use App\Models\Employee;
 use App\Models\PayrollItem;
 use App\Models\BankAccount;
@@ -163,7 +164,14 @@ class ABAGeneratorController extends Controller
                     ->with('error', 'This ABA batch is not linked to a payroll and cannot be exported.');
             }
             
+            $amountOverrides = ABAPaymentOverride::where('payroll_id', $batch->payroll_id)
+                ->pluck('amount', 'payroll_item_id');
             $payrollItems = $batch->payroll->items
+                ->each(function ($item) use ($amountOverrides) {
+                    if ($amountOverrides->has($item->id)) {
+                        $item->net_pay = $amountOverrides->get($item->id);
+                    }
+                })
                 ->filter(fn ($item) => (float) $item->net_pay > 0)
                 ->filter(function($item) {
                     $details = $item->details ?? [];
@@ -462,6 +470,8 @@ public function previewPayroll($payrollId, Request $request)
         }])->findOrFail($payrollId);
         
         $debitDescription = $request->get('debit_description', '');
+        $amountOverrides = ABAPaymentOverride::where('payroll_id', $payroll->id)
+            ->pluck('amount', 'payroll_item_id');
         
         // Use the already eager-loaded collection so employee.bankAccounts stays
         // constrained/ordered by is_preferred — a fresh items() query here would
@@ -519,7 +529,7 @@ public function previewPayroll($payrollId, Request $request)
                     'id' => $item->id,
                     'bsb' => $bsb,
                     'account_number' => $bankAccount->account_number ?? '',
-                    'amount' => $item->net_pay,
+                    'amount' => $amountOverrides[$item->id] ?? $item->net_pay,
                     'account_name' => strtoupper($bankAccount->account_name ?? $item->employee->full_name),
                     'description' => strtoupper($debitDescription ?: ($payroll->fortnight_number ? 'FN' . $payroll->fortnight_number : '')),
                     'is_manual_entry' => false,
@@ -568,15 +578,13 @@ public function saveAllEntries(Request $request)
         foreach ($entries as $entry) {
             if ($entry['type'] === 'payroll_item' && isset($entry['payroll_item_id'])) {
                 // ✅ Update existing payroll item
-                $payrollItem = PayrollItem::find($entry['payroll_item_id']);
-                if ($payrollItem) {
-                    $oldAmount = $payrollItem->net_pay;
-                    $newAmount = $entry['amount'];
-                    $difference = $newAmount - $oldAmount;
-                    
-                    $payrollItem->net_pay = $newAmount;
-                    $payrollItem->gross_wage = $payrollItem->gross_wage + $difference;
-                    $payrollItem->save();
+                $payrollItem = PayrollItem::where('payroll_id', $payroll->id)
+                    ->find($entry['payroll_item_id']);
+                if ($payrollItem && $payrollItem->employee_id !== null) {
+                    ABAPaymentOverride::updateOrCreate(
+                        ['payroll_item_id' => $payrollItem->id],
+                        ['payroll_id' => $payroll->id, 'amount' => $entry['amount']]
+                    );
                     $updatedCount++;
                 }
         } else {

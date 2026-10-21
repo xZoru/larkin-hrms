@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Payroll;
 use App\Models\Company;
 use App\Models\ABABatch;
+use App\Models\ABAPaymentOverride;
 use App\Models\PayrollItem;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -33,6 +34,16 @@ class ABAGeneratorService
                 
                 return !is_null($activeAccount);
             });
+
+        // ABA amount edits are stored separately from payroll calculations.
+        // Apply them only to the in-memory payment rows used to build this file.
+        $amountOverrides = ABAPaymentOverride::where('payroll_id', $payroll->id)
+            ->pluck('amount', 'payroll_item_id');
+        $regularItems->each(function ($item) use ($amountOverrides) {
+            if ($amountOverrides->has($item->id)) {
+                $item->net_pay = $amountOverrides->get($item->id);
+            }
+        });
 
         // 2. Get manual entries (employee_id = null)
         $manualItems = $payroll->items()
