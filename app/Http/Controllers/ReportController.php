@@ -211,7 +211,7 @@ private function nasfundConsolidatedCompanies()
             'summary',
             'period',
             'fortnight'
-        ));
+        ))->setPaper('a4', 'landscape');
         
         return $pdf->download($filename . '.pdf');
     }
