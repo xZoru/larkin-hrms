@@ -22,7 +22,7 @@ class NasfundUploadExport
         $totalStyles = [];
         for ($column = 1; $column <= 20; $column++) {
             $letter = Coordinate::stringFromColumnIndex($column);
-            $totalStyles[$letter] = clone $sheet->getStyle("{$letter}40");
+            $totalStyles[$letter] = $sheet->getStyle("{$letter}40")->exportArray();
         }
 
         // Keep the employer name, number, registration date, and bank reference
@@ -106,7 +106,7 @@ class NasfundUploadExport
     private function writeTotals($sheet, int $targetRow, int $firstDataRow, int $lastDataRow, array $totalStyles): void
     {
         foreach ($totalStyles as $column => $style) {
-            $sheet->duplicateStyle($style, "{$column}{$targetRow}");
+            $sheet->getStyle("{$column}{$targetRow}")->applyFromArray($style);
         }
 
         $sheet->setCellValue("A{$targetRow}", 5);
