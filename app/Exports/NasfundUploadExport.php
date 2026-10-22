@@ -5,7 +5,6 @@ namespace App\Exports;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 /** Fills the client's FN upload workbook without rebuilding its layout or styles. */
@@ -68,8 +67,8 @@ class NasfundUploadExport
             $sheet->setCellValue("R{$row}", "=SUM(L{$row}:Q{$row})");
             $sheet->setCellValue("S{$row}", $this->excelDate($item->joining_date ?? null));
 
-            // Keep the template's original A:S appearance, and tint only the
-            // added source-company cell so consolidated rows remain identifiable.
+            // Keep a company marker in a hidden column so the visible upload
+            // sheet retains the exact A:S layout of the client's template.
             $companyLabel = match ($item->company_code ?? '') {
                 'LKE-POM' => 'Larkin POM',
                 'LKE-LAE' => 'Larkin LAE',
@@ -77,28 +76,13 @@ class NasfundUploadExport
                 default => $item->company_name ?? '',
             };
             $sheet->setCellValue("T{$row}", $companyLabel);
-            $sheet->duplicateStyle($sheet->getStyle("S{$row}"), "T{$row}");
             $sheet->getStyle("T{$row}")->getNumberFormat()->setFormatCode('General');
-            $sheet->getStyle("T{$row}")->getAlignment()->setHorizontal('left');
-            $color = match ($item->company_code ?? '') {
-                'LKE-POM' => 'FFF1F7FF',
-                'LKE-LAE' => 'FFF1F9F2',
-                'ADF' => 'FFFFF8E8',
-                default => null,
-            };
-            if ($color) {
-                $sheet->getStyle("T{$row}")->getFill()->setFillType(Fill::FILL_SOLID)
-                    ->getStartColor()->setARGB($color);
-            }
         }
 
-        // The supplied sheet has no Company column; append it without changing
-        // any of the original upload columns or their formatting.
+        // Preserve the source company without adding a visible column to the
+        // client template's A:S upload layout.
         $sheet->setCellValue('T3', 'Company');
-        $sheet->duplicateStyle($sheet->getStyle('S3'), 'T3');
-        $sheet->getStyle('T3')->getNumberFormat()->setFormatCode('General');
-        $sheet->getStyle('T3')->getAlignment()->setHorizontal('left');
-        $sheet->getColumnDimension('T')->setWidth(14);
+        $sheet->getColumnDimension('T')->setVisible(false);
 
         if (count($this->reportData) > 0) {
             $this->writeTotals($sheet, $totalRow, $firstRow, $totalRow - 1, $totalStyles);
