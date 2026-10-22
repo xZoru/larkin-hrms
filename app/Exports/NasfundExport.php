@@ -39,6 +39,7 @@ class NasfundExport implements FromCollection, WithHeadings, WithMapping, WithSt
             $rows->push([
                 $item->employee_number,
                 $item->full_name,
+                $item->company_name ?? '',
                 $item->nasfund_number,
                 number_format($item->gross_wage, 2),
                 number_format($item->ee_contribution, 2),
@@ -51,6 +52,7 @@ class NasfundExport implements FromCollection, WithHeadings, WithMapping, WithSt
         $rows->push([
             'TOTAL',
             $this->summary->total_employees . ' Employees',
+            '',
             '',
             number_format($this->summary->total_gross, 2),
             number_format($this->summary->total_ee, 2),
@@ -66,6 +68,7 @@ class NasfundExport implements FromCollection, WithHeadings, WithMapping, WithSt
         return [
             'Employee #',
             'Employee Name',
+            'Company',
             'NASFUND #',
             'Gross Wage',
             'EE Contribution (6%)',

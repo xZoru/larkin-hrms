@@ -29,10 +29,11 @@ class ReportController extends Controller
      */
     public function nasfundIndex(Request $request)
     {
-        $companyId = $this->currentCompanyId();
-        $company = Company::find($companyId);
+        $companies = $this->nasfundConsolidatedCompanies();
+        $company = (object) ['name' => 'Larkin POM, Larkin LAE & Ad Focus'];
+        $companyIds = $companies->pluck('id');
         
-        $payrollPeriods = Payroll::where('company_id', $companyId)
+        $payrollPeriods = Payroll::whereIn('company_id', $companyIds)
             ->select('fortnight_number', 'period_start', 'period_end')
             ->orderByDesc('period_start')
             ->get()
@@ -53,7 +54,7 @@ class ReportController extends Controller
         $summary = [];
         
         if ($selectedFortnight) {
-            $reportData = $this->getNasfundData($companyId, $selectedFortnight);
+            $reportData = $this->getNasfundData($companyIds, $selectedFortnight);
             $summary = $this->calculateNasfundSummary($reportData);
         }
         
@@ -80,16 +81,17 @@ class ReportController extends Controller
             'format' => 'required|in:pdf,excel,csv'
         ]);
         
-        $companyId = $this->currentCompanyId();
-        $company = Company::find($companyId);
+        $companies = $this->nasfundConsolidatedCompanies();
+        $company = (object) ['name' => 'Larkin POM, Larkin LAE & Ad Focus'];
+        $companyIds = $companies->pluck('id');
         $fortnight = $request->fortnight;
         $format = $request->format;
         
-        $reportData = $this->getNasfundData($companyId, $fortnight);
+        $reportData = $this->getNasfundData($companyIds, $fortnight);
         $summary = $this->calculateNasfundSummary($reportData);
-        $period = $this->getStoredFortnightPeriod($companyId, $fortnight);
+        $period = $this->getStoredFortnightPeriod($companyIds, $fortnight);
         
-        $filename = "NASFUND_{$company->code}_{$fortnight}_" . date('Ymd');
+        $filename = "NASFUND_LARKIN_GROUP_{$fortnight}_" . date('Ymd');
         
         switch ($format) {
             case 'pdf':
@@ -106,10 +108,10 @@ class ReportController extends Controller
 /**
  * Get NASFUND data with user type filter
  */
-private function getNasfundData($companyId, $fortnight)
+private function getNasfundData($companyIds, $fortnight)
 {
     // Get payroll for the fortnight
-    $payroll = Payroll::where('company_id', $companyId)
+    $payroll = Payroll::whereIn('company_id', $companyIds)
         ->where('fortnight_number', $fortnight)
         ->get();
     
@@ -123,7 +125,7 @@ private function getNasfundData($companyId, $fortnight)
     
     // Get payroll items with employee data
     $items = PayrollItem::whereIn('payroll_id', $payroll->pluck('id'))
-        ->with(['employee'])
+        ->with(['employee.company'])
         ->get();
     
     // ✅ Always return a Collection, not an array
@@ -148,6 +150,12 @@ private function getNasfundData($companyId, $fortnight)
             $result->put($employeeKey, (object) [
                 'employee_number' => $item->employee->employee_number,
                 'full_name' => $item->employee->full_name,
+                'first_name' => $item->employee->first_name,
+                'last_name' => $item->employee->last_name,
+                'date_of_birth' => $item->employee->date_of_birth,
+                'joining_date' => $item->employee->joining_date,
+                'company_name' => $item->employee->company->name ?? '',
+                'company_code' => $item->employee->company->code ?? '',
                 'nasfund_number' => $item->employee->nasfund_number,
                 'gross_wage' => $item->gross_wage,
                 'ee_contribution' => $item->nasfund_ee,
@@ -159,6 +167,22 @@ private function getNasfundData($companyId, $fortnight)
     }
     
     return $result; // ✅ Always returns a Collection
+}
+
+/** Companies included in the consolidated NASFUND report. */
+private function nasfundConsolidatedCompanies()
+{
+    $companies = Company::whereIn('code', ['LKE-POM', 'LKE-LAE', 'ADF'])->get();
+    abort_unless($companies->count() === 3, 404, 'One or more NASFUND report companies are not configured.');
+
+    $user = auth()->user();
+    if (!$user->isSuperAdmin()) {
+        foreach ($companies as $company) {
+            abort_unless($user->belongsToCompany($company->id), 403);
+        }
+    }
+
+    return $companies;
 }
     
     /**
@@ -197,7 +221,7 @@ private function getNasfundData($companyId, $fortnight)
     private function exportNasfundExcel($company, $reportData, $summary, $period, $fortnight, $filename)
     {
         return Excel::download(
-            new NasfundExport($company, $reportData, $summary, $period, $fortnight),
+            new NasfundUploadExport($company, $reportData),
             $filename . '.xlsx'
         );
     }
@@ -854,7 +878,14 @@ private function getNasfundData($companyId, $fortnight)
 
     private function getStoredFortnightPeriod($companyId, $fortnight)
     {
-        $payrolls = Payroll::where('company_id', $companyId)
+        $query = Payroll::query();
+        if (is_array($companyId) || $companyId instanceof \Illuminate\Support\Collection) {
+            $query->whereIn('company_id', $companyId);
+        } else {
+            $query->where('company_id', $companyId);
+        }
+
+        $payrolls = $query
             ->where('fortnight_number', $fortnight)
             ->get(['period_start', 'period_end']);
 
