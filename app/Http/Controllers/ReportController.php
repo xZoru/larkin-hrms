@@ -141,7 +141,7 @@ private function getNasfundData($companyIds, $fortnight)
             $employeeKey = $item->employee_id;
             if ($result->has($employeeKey)) {
                 $row = $result->get($employeeKey);
-                $row->gross_wage += $item->gross_wage;
+                $row->gross_pay += $item->basic_pay;
                 $row->ee_contribution += $item->nasfund_ee;
                 $row->er_contribution += $item->nasfund_er;
                 $row->total_contribution += $item->nasfund_ee + $item->nasfund_er;
@@ -158,7 +158,7 @@ private function getNasfundData($companyIds, $fortnight)
                 'company_name' => $item->employee->company->name ?? '',
                 'company_code' => $item->employee->company->code ?? '',
                 'nasfund_number' => $item->employee->nasfund_number,
-                'gross_wage' => $item->gross_wage,
+                'gross_pay' => $item->basic_pay,
                 'ee_contribution' => $item->nasfund_ee,
                 'er_contribution' => $item->nasfund_er,
                 'total_contribution' => $item->nasfund_ee + $item->nasfund_er,
@@ -193,7 +193,7 @@ private function nasfundConsolidatedCompanies()
     {
         return (object) [
             'total_employees' => $reportData->count(),
-            'total_gross' => $reportData->sum('gross_wage'),
+            'total_gross' => $reportData->sum('gross_pay'),
             'total_ee' => $reportData->sum('ee_contribution'),
             'total_er' => $reportData->sum('er_contribution'),
             'total_contributions' => $reportData->sum('total_contribution'),

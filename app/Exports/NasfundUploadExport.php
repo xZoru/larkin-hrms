@@ -55,7 +55,7 @@ class NasfundUploadExport
             $sheet->setCellValue("D{$row}", $item->first_name ?? $item->full_name ?? '');
             $sheet->setCellValue("E{$row}", $item->employee_number ?? '');
             $sheet->setCellValue("F{$row}", $this->excelDate($item->date_of_birth ?? null));
-            $sheet->setCellValue("G{$row}", (float) ($item->gross_wage ?? 0));
+            $sheet->setCellValue("G{$row}", (float) ($item->gross_pay ?? 0));
             foreach (['H', 'I', 'J', 'K'] as $column) {
                 $sheet->setCellValue("{$column}{$row}", 0);
             }

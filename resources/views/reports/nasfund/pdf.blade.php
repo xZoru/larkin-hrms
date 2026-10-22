@@ -105,7 +105,7 @@
             <div class="value">{{ $summary->total_employees }}</div>
         </div>
         <div class="summary-card">
-            <div class="label">Total Gross Wage</div>
+            <div class="label">Total Gross Pay</div>
             <div class="value">K {{ number_format($summary->total_gross, 2) }}</div>
         </div>
         <div class="summary-card">
@@ -126,7 +126,7 @@
                 <th>Employee Name</th>
                 <th>Company</th>
                 <th>NASFUND #</th>
-                <th style="text-align: right;">Gross Wage</th>
+                <th style="text-align: right;">Gross Pay</th>
                 <th style="text-align: right;">EE (6%)</th>
                 <th style="text-align: right;">ER (8.4%)</th>
                 <th style="text-align: right;">Total</th>
@@ -148,7 +148,7 @@
                     <td>{{ $item->full_name }}</td>
                     <td>{{ $item->company_name }}</td>
                     <td>{{ $item->nasfund_number }}</td>
-                    <td class="text-right">K {{ number_format($item->gross_wage, 2) }}</td>
+                    <td class="text-right">K {{ number_format($item->gross_pay, 2) }}</td>
                     <td class="text-right text-green">K {{ number_format($item->ee_contribution, 2) }}</td>
                     <td class="text-right text-blue">K {{ number_format($item->er_contribution, 2) }}</td>
                     <td class="text-right">K {{ number_format($item->total_contribution, 2) }}</td>
