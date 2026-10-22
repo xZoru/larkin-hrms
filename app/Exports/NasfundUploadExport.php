@@ -42,8 +42,9 @@ class NasfundUploadExport
             }
         }
 
-        foreach ($this->reportData as $index => $item) {
-            $row = $firstRow + $index;
+        $employeeOffset = 0;
+        foreach ($this->reportData as $item) {
+            $row = $firstRow + $employeeOffset++;
             if ($row > $templateLastEmployeeRow) {
                 $this->copyRowStyle($sheet, $templateLastEmployeeRow, $row, 20);
             }
