@@ -221,10 +221,8 @@ private function nasfundConsolidatedCompanies()
      */
     private function exportNasfundExcel($company, $reportData, $summary, $period, $fortnight, $filename)
     {
-        return Excel::download(
-            new NasfundUploadExport($company, $reportData),
-            $filename . '.xlsx'
-        );
+        return (new NasfundUploadExport($company, $reportData))
+            ->download($filename . '.xlsx');
     }
     
     /**

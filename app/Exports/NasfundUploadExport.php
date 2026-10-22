@@ -2,120 +2,137 @@
 
 namespace App\Exports;
 
-use Maatwebsite\Excel\Concerns\FromArray;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Concerns\WithTitle;
-use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
-/** XLSX layout matching the client's FN upload workbook. */
-class NasfundUploadExport implements FromArray, WithEvents, WithTitle
+/** Fills the client's FN upload workbook without rebuilding its layout or styles. */
+class NasfundUploadExport
 {
     public function __construct(private $company, private $reportData)
     {
     }
 
-    public function array(): array
+    public function download(string $filename)
     {
-        $rows = [
-            ['00', 'Employer Name', 'Employer Number', 'Date of Reg', 'Bank Statement Reference'],
-            ['01', $this->company->name ?? '', '', '', ''],
-            [
-                '02', 'Client Number', 'Member Surname', 'Given Name(s)', 'Payroll Number',
-                'Date of Birth', 'Gross Pay', 'Housing %', 'Mem Vol %', 'Emp Vol %',
-                'Sal Sac %', 'Employer Cont', 'Member Cont', 'Housing Rep', 'Member Vol',
-                'Employer Vol', 'Salary Sac', 'Total Cont', 'Date Employed', 'Company',
-            ],
-        ];
-
-        foreach ($this->reportData as $item) {
-            $row = count($rows) + 1;
-            $rows[] = [
-                '03',
-                $item->nasfund_number ?? '',
-                $item->last_name ?? '',
-                $item->first_name ?? $item->full_name ?? '',
-                $item->employee_number ?? '',
-                $this->excelDate($item->date_of_birth ?? null),
-                (float) ($item->gross_wage ?? 0),
-                0, 0, 0, 0,
-                "=ROUND(G{$row}*8.4%,2)",
-                "=ROUND(G{$row}*6%,2)",
-                "=ROUND(G{$row}*H{$row}%,2)",
-                "=ROUND(G{$row}*I{$row}%,2)",
-                "=ROUND(G{$row}*J{$row}%,2)",
-                "=ROUND(G{$row}*K{$row}%,2)",
-                "=SUM(L{$row}:Q{$row})",
-                $this->excelDate($item->joining_date ?? null),
-                $item->company_name ?? '',
-            ];
+        $template = resource_path('templates/FN15 - Upload.xlsx');
+        $spreadsheet = IOFactory::load($template);
+        $sheet = $spreadsheet->getSheetByName('FN14') ?? $spreadsheet->getActiveSheet();
+        $totalStyles = [];
+        for ($column = 1; $column <= 20; $column++) {
+            $letter = Coordinate::stringFromColumnIndex($column);
+            $totalStyles[$letter] = clone $sheet->getStyle("{$letter}40");
         }
 
-        $lastEmployeeRow = count($rows);
-        $hasEmployees = $lastEmployeeRow > 3;
-        $totals = [5, '', '', '', '', '', $hasEmployees ? "=SUM(G4:G{$lastEmployeeRow})" : 0];
-        foreach (['H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R'] as $column) {
-            $totals[] = $hasEmployees ? "=SUM({$column}4:{$column}{$lastEmployeeRow})" : 0;
+        // Keep the employer name, number, registration date, and bank reference
+        // supplied in the client's template intact.
+
+        $firstRow = 4;
+        $templateLastEmployeeRow = 39;
+        $totalRow = $firstRow + count($this->reportData);
+        $lastRowToClear = max($templateLastEmployeeRow + 1, $totalRow);
+
+        // Remove the sample employees while retaining all template formatting.
+        for ($row = $firstRow; $row <= $lastRowToClear; $row++) {
+            for ($column = 1; $column <= 20; $column++) {
+                $cell = Coordinate::stringFromColumnIndex($column) . $row;
+                $sheet->setCellValue($cell, null);
+            }
         }
-        $totals[] = '';
-        $totals[] = '';
-        $rows[] = $totals;
 
-        return $rows;
+        foreach ($this->reportData as $index => $item) {
+            $row = $firstRow + $index;
+            if ($row > $templateLastEmployeeRow) {
+                $this->copyRowStyle($sheet, $templateLastEmployeeRow, $row, 20);
+            }
+
+            $sheet->setCellValue("A{$row}", '03');
+            $sheet->setCellValue("B{$row}", $item->nasfund_number ?? '');
+            $sheet->setCellValue("C{$row}", $item->last_name ?? '');
+            $sheet->setCellValue("D{$row}", $item->first_name ?? $item->full_name ?? '');
+            $sheet->setCellValue("E{$row}", $item->employee_number ?? '');
+            $sheet->setCellValue("F{$row}", $this->excelDate($item->date_of_birth ?? null));
+            $sheet->setCellValue("G{$row}", (float) ($item->gross_wage ?? 0));
+            foreach (['H', 'I', 'J', 'K'] as $column) {
+                $sheet->setCellValue("{$column}{$row}", 0);
+            }
+            $sheet->setCellValue("L{$row}", "=ROUND(G{$row}*8.4%,2)");
+            $sheet->setCellValue("M{$row}", "=ROUND(G{$row}*6%,2)");
+            $sheet->setCellValue("N{$row}", "=ROUND(G{$row}*H{$row}%,2)");
+            $sheet->setCellValue("O{$row}", "=ROUND(G{$row}*I{$row}%,2)");
+            $sheet->setCellValue("P{$row}", "=ROUND(G{$row}*J{$row}%,2)");
+            $sheet->setCellValue("Q{$row}", "=ROUND(G{$row}*K{$row}%,2)");
+            $sheet->setCellValue("R{$row}", "=SUM(L{$row}:Q{$row})");
+            $sheet->setCellValue("S{$row}", $this->excelDate($item->joining_date ?? null));
+
+            // Keep the template's original A:S appearance, and tint only the
+            // added source-company cell so consolidated rows remain identifiable.
+            $sheet->setCellValue("T{$row}", $item->company_name ?? '');
+            $sheet->duplicateStyle($sheet->getStyle("S{$row}"), "T{$row}");
+            $color = match ($item->company_code ?? '') {
+                'LKE-POM' => 'FFF1F7FF',
+                'LKE-LAE' => 'FFF1F9F2',
+                'ADF' => 'FFFFF8E8',
+                default => null,
+            };
+            if ($color) {
+                $sheet->getStyle("T{$row}")->getFill()->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB($color);
+            }
+        }
+
+        // The supplied sheet has no Company column; append it without changing
+        // any of the original upload columns or their formatting.
+        $sheet->setCellValue('T3', 'Company');
+        $sheet->duplicateStyle($sheet->getStyle('S3'), 'T3');
+        $sheet->getColumnDimension('T')->setWidth(34);
+
+        if (count($this->reportData) > 0) {
+            $this->writeTotals($sheet, $totalRow, $firstRow, $totalRow - 1, $totalStyles);
+        } else {
+            $this->writeTotals($sheet, $firstRow, $firstRow, $firstRow - 1, $totalStyles);
+            foreach (range('G', 'R') as $column) {
+                $sheet->setCellValue("{$column}{$firstRow}", 0);
+            }
+        }
+
+        $spreadsheet->getCalculationEngine()->disableCalculationCache();
+        $spreadsheet->getProperties()->setTitle('NASFUND FN Upload');
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            (new Xlsx($spreadsheet))->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
     }
 
-    public function title(): string
+    private function writeTotals($sheet, int $targetRow, int $firstDataRow, int $lastDataRow, array $totalStyles): void
     {
-        return 'FN Upload';
+        foreach ($totalStyles as $column => $style) {
+            $sheet->duplicateStyle($style, "{$column}{$targetRow}");
+        }
+
+        $sheet->setCellValue("A{$targetRow}", 5);
+        foreach (['G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R'] as $column) {
+            $sheet->setCellValue("{$column}{$targetRow}", $lastDataRow >= $firstDataRow
+                ? "=SUM({$column}{$firstDataRow}:{$column}{$lastDataRow})"
+                : 0);
+        }
     }
 
-    public function registerEvents(): array
+    private function copyRowStyle($sheet, int $sourceRow, int $targetRow, int $lastColumn): void
     {
-        return [
-            AfterSheet::class => function (AfterSheet $event) {
-                $sheet = $event->sheet->getDelegate();
-                $lastRow = $sheet->getHighestRow();
-                $sheet->getStyle('A1:T3')->getFont()->setBold(true);
-                $sheet->getStyle('A1:T3')->getFill()->setFillType(Fill::FILL_SOLID)
-                    ->getStartColor()->setARGB('FFE8EDF3');
-                $sheet->getStyle("A1:T{$lastRow}")->getBorders()->getAllBorders()
-                    ->setBorderStyle(Border::BORDER_THIN)->getColor()->setARGB('FFD0D7DE');
-                $sheet->getStyle("A4:T{$lastRow}")->getAlignment()
-                    ->setVertical(Alignment::VERTICAL_CENTER);
-                $sheet->getStyle("F4:F{$lastRow}")->getNumberFormat()->setFormatCode('dd/mm/yy');
-                $sheet->getStyle("S4:S{$lastRow}")->getNumberFormat()->setFormatCode('dd/mm/yy');
-                $sheet->getStyle("G4:G{$lastRow}")->getNumberFormat()->setFormatCode('#,##0.00');
-                $sheet->getStyle("L4:R{$lastRow}")->getNumberFormat()->setFormatCode('#,##0.00');
-                $sheet->getStyle("A{$lastRow}:T{$lastRow}")->getFont()->setBold(true);
-                foreach ($this->reportData as $index => $item) {
-                    $row = $index + 4;
-                    $color = match ($item->company_code ?? '') {
-                        'LKE-POM' => 'FFF1F7FF',
-                        'LKE-LAE' => 'FFF1F9F2',
-                        'ADF' => 'FFFFF8E8',
-                        default => null,
-                    };
-                    if ($color) {
-                        $sheet->getStyle("A{$row}:T{$row}")->getFill()
-                            ->setFillType(Fill::FILL_SOLID)
-                            ->getStartColor()->setARGB($color);
-                    }
-                }
-                $sheet->freezePane('A4');
-                $sheet->setAutoFilter('A3:T' . max(3, $lastRow - 1));
-                foreach (range(1, 20) as $column) {
-                    $letter = Coordinate::stringFromColumnIndex($column);
-                    $sheet->getColumnDimension($letter)->setAutoSize(true);
-                }
-            },
-        ];
+        for ($column = 1; $column <= $lastColumn; $column++) {
+            $letter = Coordinate::stringFromColumnIndex($column);
+            $sheet->duplicateStyle($sheet->getStyle("{$letter}{$sourceRow}"), "{$letter}{$targetRow}");
+        }
+        $sheet->getRowDimension($targetRow)->setRowHeight($sheet->getRowDimension($sourceRow)->getRowHeight());
     }
 
-    private function excelDate($value): ?string
+    private function excelDate($value): ?float
     {
-        return $value ? \Carbon\Carbon::parse($value)->format('d/m/y') : null;
+        return $value ? ExcelDate::PHPToExcel(\Carbon\Carbon::parse($value)) : null;
     }
 }
