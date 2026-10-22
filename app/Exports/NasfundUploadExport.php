@@ -90,6 +90,20 @@ class NasfundUploadExport implements FromArray, WithEvents, WithTitle
                 $sheet->getStyle("G4:G{$lastRow}")->getNumberFormat()->setFormatCode('#,##0.00');
                 $sheet->getStyle("L4:R{$lastRow}")->getNumberFormat()->setFormatCode('#,##0.00');
                 $sheet->getStyle("A{$lastRow}:T{$lastRow}")->getFont()->setBold(true);
+                foreach ($this->reportData as $index => $item) {
+                    $row = $index + 4;
+                    $color = match ($item->company_code ?? '') {
+                        'LKE-POM' => 'FFF1F7FF',
+                        'LKE-LAE' => 'FFF1F9F2',
+                        'ADF' => 'FFFFF8E8',
+                        default => null,
+                    };
+                    if ($color) {
+                        $sheet->getStyle("A{$row}:T{$row}")->getFill()
+                            ->setFillType(Fill::FILL_SOLID)
+                            ->getStartColor()->setARGB($color);
+                    }
+                }
                 $sheet->freezePane('A4');
                 $sheet->setAutoFilter('A3:T' . max(3, $lastRow - 1));
                 foreach (range(1, 20) as $column) {

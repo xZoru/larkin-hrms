@@ -318,7 +318,15 @@
                         </thead>
                         <tbody>
                             @foreach($reportData as $index => $item)
-                            <tr>
+                            @php
+                                $companyRowClass = match ($item->company_code ?? '') {
+                                    'LKE-POM' => 'bg-blue-50/60',
+                                    'LKE-LAE' => 'bg-green-50/60',
+                                    'ADF' => 'bg-amber-50/60',
+                                    default => '',
+                                };
+                            @endphp
+                            <tr class="{{ $companyRowClass }}">
                                 <td>{{ $loop->iteration }}</td>
                                 <td>
                                     <div class="employee-number">{{ $item->employee_number }}</div>

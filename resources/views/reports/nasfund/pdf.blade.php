@@ -134,7 +134,15 @@
         </thead>
         <tbody>
             @foreach($reportData as $index => $item)
-                <tr>
+                @php
+                    $companyRowColor = match ($item->company_code ?? '') {
+                        'LKE-POM' => '#f1f7ff',
+                        'LKE-LAE' => '#f1f9f2',
+                        'ADF' => '#fff8e8',
+                        default => '#ffffff',
+                    };
+                @endphp
+                <tr style="background-color: {{ $companyRowColor }};">
                     <td>{{ $loop->iteration }}</td>
                     <td>{{ $item->employee_number }}</td>
                     <td>{{ $item->full_name }}</td>
