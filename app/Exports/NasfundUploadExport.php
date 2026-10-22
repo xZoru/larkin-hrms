@@ -70,8 +70,16 @@ class NasfundUploadExport
 
             // Keep the template's original A:S appearance, and tint only the
             // added source-company cell so consolidated rows remain identifiable.
-            $sheet->setCellValue("T{$row}", $item->company_name ?? '');
+            $companyLabel = match ($item->company_code ?? '') {
+                'LKE-POM' => 'Larkin POM',
+                'LKE-LAE' => 'Larkin LAE',
+                'ADF' => 'Ad Focus',
+                default => $item->company_name ?? '',
+            };
+            $sheet->setCellValue("T{$row}", $companyLabel);
             $sheet->duplicateStyle($sheet->getStyle("S{$row}"), "T{$row}");
+            $sheet->getStyle("T{$row}")->getNumberFormat()->setFormatCode('General');
+            $sheet->getStyle("T{$row}")->getAlignment()->setHorizontal('left');
             $color = match ($item->company_code ?? '') {
                 'LKE-POM' => 'FFF1F7FF',
                 'LKE-LAE' => 'FFF1F9F2',
@@ -88,7 +96,9 @@ class NasfundUploadExport
         // any of the original upload columns or their formatting.
         $sheet->setCellValue('T3', 'Company');
         $sheet->duplicateStyle($sheet->getStyle('S3'), 'T3');
-        $sheet->getColumnDimension('T')->setWidth(34);
+        $sheet->getStyle('T3')->getNumberFormat()->setFormatCode('General');
+        $sheet->getStyle('T3')->getAlignment()->setHorizontal('left');
+        $sheet->getColumnDimension('T')->setWidth(14);
 
         if (count($this->reportData) > 0) {
             $this->writeTotals($sheet, $totalRow, $firstRow, $totalRow - 1, $totalStyles);
