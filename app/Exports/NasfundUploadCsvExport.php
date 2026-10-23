@@ -38,7 +38,7 @@ class NasfundUploadCsvExport
 
                 $write([
                     '03', $item->nasfund_number ?? '', $item->last_name ?? '',
-                    $item->first_name ?? $item->full_name ?? '', $item->employee_number ?? '',
+                    $item->first_name ?? $item->full_name ?? '', $this->payrollNumber($item->employee_number ?? ''),
                     $this->date($item->date_of_birth ?? null), $this->grossMoney($gross),
                     '', '', '', '', $this->contributionMoney($employer), $this->contributionMoney($member),
                     '0', '0', '0', '0', $this->contributionMoney($total),
@@ -58,6 +58,13 @@ class NasfundUploadCsvExport
     private function date($value): string
     {
         return $value ? \Carbon\Carbon::parse($value)->format('d/m/Y') : '';
+    }
+
+    private function payrollNumber($value): string
+    {
+        $value = (string) $value;
+
+        return preg_match('/^LKP-(\d+)$/i', $value, $matches) ? $matches[1] : $value;
     }
 
     private function grossMoney(float $value): string
