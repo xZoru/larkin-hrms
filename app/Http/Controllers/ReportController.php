@@ -17,8 +17,8 @@ use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\NasfundExport;
 use App\Exports\NasfundUploadExport;
+use App\Exports\NasfundUploadCsvExport;
 use App\Exports\SwtExport;
 use App\Exports\EarningsExport;
 use App\Exports\ProfileExport;
@@ -230,11 +230,7 @@ private function nasfundConsolidatedCompanies()
      */
     private function exportNasfundCSV($company, $reportData, $summary, $period, $fortnight, $filename)
     {
-        return Excel::download(
-            new NasfundExport($company, $reportData, $summary, $period, $fortnight),
-            $filename . '.csv',
-            \Maatwebsite\Excel\Excel::CSV
-        );
+        return (new NasfundUploadCsvExport($reportData))->download($filename . '.csv');
     }
     
     /**
