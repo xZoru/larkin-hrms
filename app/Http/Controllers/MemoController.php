@@ -204,6 +204,10 @@ class MemoController extends Controller
         }
         abort_unless($disk->exists($disciplineRecord->document_path), 404);
 
+        $disciplineRecord->load(['employee.company', 'template', 'issuedBy']);
+        $pdf = Pdf::loadView('memos.document', ['record' => $disciplineRecord])->setPaper('a4');
+        $disk->put($disciplineRecord->document_path, $pdf->output());
+
         return $disk->download($disciplineRecord->document_path, $disciplineRecord->memo_number . '.pdf');
     }
 

@@ -18,7 +18,6 @@
         <h1>{{ $record->employee->company->name ?? 'Company' }}</h1>
         <div class="muted">{{ $record->template?->category ?? 'Human Resources' }}</div>
     </div>
-    <h2 style="text-align:center">{{ $record->template?->title ?? 'Memo' }}</h2>
     <table class="meta">
         <tr><td class="label">Memo Number</td><td>{{ $record->memo_number }}</td></tr>
         <tr><td class="label">Date Issued</td><td>{{ $record->date_issued?->format('d F Y') }}</td></tr>
