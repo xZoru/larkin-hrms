@@ -139,6 +139,7 @@
                 }
             }
         </style>
+        @stack('styles')
     </head>
     <body>
         <div class="app-wrapper">
@@ -221,5 +222,6 @@
                 });
             };
         </script>
+        @stack('scripts')
     </body>
 </html>

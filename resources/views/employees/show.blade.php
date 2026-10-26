@@ -4,32 +4,31 @@
 <div class="container-fluid employee-show px-4 py-3">
 
     <!-- HEADER -->
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-body">
-            <div class="d-flex align-items-center">
+    <div class="card employee-hero mb-4">
+        <div class="card-body d-flex align-items-center">
                 <div class="me-3">
                     @if($employee->photo_path)
-                        <img src="{{ $employee->photo_url }}" class="rounded-circle" style="width: 56px; height: 56px; object-fit: cover;">
+                        <img src="{{ $employee->photo_url }}" class="employee-avatar rounded-circle" alt="{{ $employee->full_name }}">
                     @else
-                        <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold" style="width: 56px; height: 56px; font-size: 22px; background: #6366f1;">
+                        <div class="employee-avatar employee-avatar-fallback rounded-circle d-flex align-items-center justify-content-center text-white fw-bold">
                             {{ substr($employee->full_name, 0, 1) }}
                         </div>
                     @endif
                 </div>
-                <div>
+                <div class="employee-identity">
+                    <div class="employee-eyebrow">Employee profile</div>
                     <div class="d-flex align-items-center gap-2">
-                        <h4 class="fw-bold mb-0">{{ $employee->full_name }}</h4>
-                        <span class="badge bg-success">{{ $employee->status }}</span>
+                        <h1 class="fw-bold mb-0">{{ $employee->full_name }}</h1>
+                        <span class="badge rounded-pill bg-success-subtle text-success-emphasis">{{ $employee->status }}</span>
                     </div>
                     <div class="text-muted" style="font-size: 13px;">
                         {{ $employee->employee_number }} | {{ $employee->position_name ?? 'N/A' }} | {{ $employee->company->name ?? 'N/A' }} | {{ $employee->employee_type }} • Age: {{ $employee->age ?? 'N/A' }}
                     </div>
                 </div>
-                <div class="ms-auto">
-                    <a href="{{ route('employees.edit', $employee) }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></a>
-                    <button onclick="confirmDelete()" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                <div class="employee-actions ms-auto">
+                    <a href="{{ route('employees.edit', $employee) }}" class="btn btn-outline-primary"><i class="fas fa-edit me-1"></i> Edit profile</a>
+                    <button onclick="confirmDelete()" class="btn btn-outline-danger" aria-label="Delete employee"><i class="fas fa-trash"></i></button>
                 </div>
-            </div>
         </div>
     </div>
 
@@ -451,6 +450,17 @@
     .btn-outline-primary:hover { background-color: #6366f1; color: white; }
     
     .employee-show { color: #1f2937; }
+    .employee-show .employee-hero { background: linear-gradient(115deg, #fff 0%, #f7f9ff 100%); border-color: #e4e9f2 !important; }
+    .employee-show .employee-hero .card-body { padding: 24px !important; }
+    .employee-avatar { width: 72px; height: 72px; object-fit: cover; box-shadow: 0 0 0 4px #fff, 0 0 0 5px #e4e9f2; }
+    .employee-avatar-fallback { font-size: 26px; background: linear-gradient(135deg, #6366f1, #4f46e5); }
+    .employee-identity h1 { font-size: clamp(1.35rem, 2.4vw, 1.8rem); color: #172033; letter-spacing: -.03em; }
+    .employee-eyebrow { margin-bottom: 4px; color: #64748b; font-size: .7rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    .employee-identity > .text-muted { margin-top: 8px; line-height: 1.6; }
+    .employee-actions { display: flex; align-items: center; gap: 8px; }
+    .employee-actions .btn { padding: .55rem .8rem; font-weight: 600; }
+    .employee-show > .row .card { transition: transform .18s ease, box-shadow .18s ease; }
+    .employee-show > .row .card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(15, 23, 42, .08) !important; }
     .employee-show .card {
         height: 100%;
         border-radius: 12px !important;
@@ -485,6 +495,11 @@
     .employee-show .btn { border-radius: 7px; }
     @media (max-width: 767.98px) {
         .employee-show { padding-left: .75rem !important; padding-right: .75rem !important; }
+        .employee-show .employee-hero .card-body { align-items: flex-start !important; flex-wrap: wrap; padding: 18px !important; }
+        .employee-avatar { width: 58px; height: 58px; }
+        .employee-identity { flex: 1; min-width: 0; }
+        .employee-actions { width: 100%; margin: 12px 0 0 !important; }
+        .employee-actions .btn:first-child { flex: 1; }
         .employee-details-grid { grid-template-columns: 1fr; gap: 12px; }
         .employee-details-grid > .card:has(.table-responsive),
         .employee-details-grid > .card:has(.table) { grid-column: auto; }
