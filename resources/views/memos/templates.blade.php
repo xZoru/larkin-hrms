@@ -75,6 +75,8 @@
                         <input type="hidden" name="category" value="{{ $category }}">
                         <label for="new-{{ strtolower($category) }}-name">Template name</label>
                         <input id="new-{{ strtolower($category) }}-name" class="form-control" name="name" maxlength="255" required placeholder="e.g. Attendance concern">
+                        <label for="new-{{ strtolower($category) }}-title">Document heading</label>
+                        <input id="new-{{ strtolower($category) }}-title" class="form-control" name="title" maxlength="255" placeholder="e.g. Confirmation of Employment">
                         <label for="new-{{ strtolower($category) }}-content">{{ $category === 'Letter' ? 'Letter body' : 'Text inserted into the memo' }}</label>
                         <textarea id="new-{{ strtolower($category) }}-content" class="form-control" name="content" maxlength="30000" placeholder="{{ $category === 'Letter' ? 'Write the letter. Placeholders: {employee_name}, {employee_number}, {position}, {salary}, {date}' : 'Enter reusable text for this option (optional)' }}"></textarea>
                         <button class="btn btn-primary" type="submit"><i class="fas fa-plus me-1"></i>Add template</button>
@@ -86,7 +88,7 @@
 
     <section class="saved-templates">
         <div class="saved-templates-head"><h2><i class="fas fa-folder-open text-primary me-2"></i>Created Templates</h2><p>Review and edit the templates already in the library.</p></div>
-        @foreach(['Letter'] as $category)
+        @foreach(['Purpose', 'Reason', 'Decision', 'Letter'] as $category)
             @php $icon = ['Purpose' => 'fa-bullseye', 'Reason' => 'fa-list-check', 'Decision' => 'fa-gavel', 'Letter' => 'fa-file-alt'][$category]; @endphp
             <div class="saved-category">
                 <div class="saved-category-head"><i class="fas {{ $icon }}"></i><strong>{{ $category }} templates</strong><span>{{ $templateGroups->get($category, collect())->count() }} template(s)</span></div>
@@ -107,6 +109,8 @@
                                                     @csrf @method('PUT')
                                                     <label for="name-{{ $template->id }}">Template name</label>
                                                     <input id="name-{{ $template->id }}" class="form-control" name="name" value="{{ $template->name }}" maxlength="255" required>
+                                                    <label for="title-{{ $template->id }}">Document heading</label>
+                                                    <input id="title-{{ $template->id }}" class="form-control" name="title" value="{{ $template->title }}" maxlength="255" placeholder="Optional">
                                                     <label for="content-{{ $template->id }}">{{ $category === 'Letter' ? 'Letter body' : 'Text inserted into the memo' }}</label>
                                                     <textarea id="content-{{ $template->id }}" class="form-control" name="content" maxlength="30000">{{ $template->content }}</textarea>
                                                     <label for="active-{{ $template->id }}">Availability</label>

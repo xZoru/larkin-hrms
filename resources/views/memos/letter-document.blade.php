@@ -3,17 +3,17 @@
 <head>
     <meta charset="utf-8">
     <style>
-        @page{margin:38px 48px 66px}
-        body{font-family:DejaVu Sans,sans-serif;font-size:10pt;line-height:1.45;color:#222}
-        .page{padding-bottom:26px}.letterhead{width:100%;border-collapse:collapse;margin-bottom:18px}
+        @page{size:A4;margin:30px 42px 52px}
+        body{font-family:DejaVu Sans,sans-serif;font-size:9.5pt;line-height:1.35;color:#222}
+        .page{padding-bottom:12px}.letterhead{width:100%;border-collapse:collapse;margin-bottom:12px}
         .letterhead-logo{width:60%;vertical-align:bottom;padding-right:12px}.letterhead-logo img{width:250px;max-height:82px;height:auto;object-fit:contain;object-position:left bottom}
         .letterhead-info{width:40%;vertical-align:bottom;text-align:right}.company-name{font-size:10px;font-weight:bold;color:#222;margin-bottom:5px}
         .contact-line{font-size:8px;font-style:italic;color:#222;line-height:1.4}.contact-icon{display:none}
         .divider{height:5px;border-top:3px solid #171717;border-bottom:1px solid #bd272d;margin:12px 0 26px}
-        .reference{font-size:10px;line-height:1.9;margin-bottom:26px}.date{margin-top:2px}
-        .address{margin-bottom:22px}.body{white-space:pre-wrap;text-align:left;line-height:1.45}
-        .body strong{font-weight:bold}.employment-heading{text-align:center;font-weight:bold;letter-spacing:1px;line-height:1.5;margin:30px 0 36px;padding:8px 0}
-        .sign{margin-top:55px}.sign strong,.sign-title{display:block}.signature-line{display:block;width:180px;height:1px;border-bottom:1px solid #222;margin:24px 0 8px}
+        .reference{font-size:10px;line-height:1.7;margin-bottom:16px}.date{margin-top:2px}
+        .address{margin-bottom:14px}.body{white-space:pre-wrap;text-align:left;line-height:1.35}
+        .body strong{font-weight:bold}.employment-heading{text-align:center;font-weight:bold;letter-spacing:1px;line-height:1.4;margin:16px 0 20px;padding:5px 0}
+        .sign{margin-top:28px;page-break-inside:avoid}.sign strong,.sign-title{display:block}.signature-line{display:block;width:180px;height:1px;border-bottom:1px solid #222;margin:16px 0 6px}
         .footer{position:fixed;left:0;right:0;bottom:-44px;border-top:1px solid #bd272d;padding-top:8px;text-align:center;color:#244b9b;font-size:8px}
     </style>
 </head>
@@ -21,7 +21,7 @@
 @php
     $letterBody = $record->body;
     $isEmploymentConfirmation = str_starts_with($letterBody, '**CONFIRMATION OF EMPLOYMENT**');
-    $letterTitle = match ($record->letter_type) {
+    $letterTitle = $record->template?->title ?: match ($record->letter_type) {
         'Employment' => 'CONFIRMATION OF EMPLOYMENT',
         'Salary' => 'CONFIRMATION OF SALARY',
         'Bank / Loan' => 'LETTER OF CONFIRMATION FOR BANKING PURPOSES',

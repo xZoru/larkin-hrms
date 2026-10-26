@@ -83,12 +83,13 @@ class MemoController extends Controller
         $data = $request->validate([
             'category' => ['required', Rule::in(['Purpose', 'Reason', 'Decision', 'Letter'])],
             'name' => ['required', 'string', 'max:255'],
+            'title' => ['nullable', 'string', 'max:255'],
             'content' => ['nullable', 'string', 'max:30000'],
         ]);
 
         MemoTemplate::create([
             ...$data,
-            'title' => $data['name'],
+            'title' => $data['title'] ?: $data['name'],
             'content' => $data['content'] ?? '',
             'is_active' => true,
         ]);
@@ -103,13 +104,14 @@ class MemoController extends Controller
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'title' => ['nullable', 'string', 'max:255'],
             'content' => ['nullable', 'string', 'max:30000'],
             'is_active' => ['required', 'boolean'],
         ]);
 
         $memoTemplate->update([
             ...$data,
-            'title' => $data['name'],
+            'title' => $data['title'] ?: $data['name'],
             'content' => $data['content'] ?? '',
         ]);
 

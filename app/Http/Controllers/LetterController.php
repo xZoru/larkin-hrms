@@ -102,8 +102,8 @@ class LetterController extends Controller
     public function templates(Request $request)
     {
         $this->companyId();
-        $data = $request->validate(['category' => ['required', Rule::in(['Letter'])], 'name' => ['required', 'string', 'max:255'], 'content' => ['nullable', 'string', 'max:30000']]);
-        MemoTemplate::create(['name' => $data['name'], 'title' => $data['name'], 'content' => $data['content'] ?? '', 'category' => 'Letter', 'is_active' => true]);
+        $data = $request->validate(['category' => ['required', Rule::in(['Letter'])], 'name' => ['required', 'string', 'max:255'], 'title' => ['nullable', 'string', 'max:255'], 'content' => ['nullable', 'string', 'max:30000']]);
+        MemoTemplate::create(['name' => $data['name'], 'title' => $data['title'] ?: $data['name'], 'content' => $data['content'] ?? '', 'category' => 'Letter', 'is_active' => true]);
         return redirect()->route('memos.templates.index')->with('success', 'Letter template added.');
     }
 
