@@ -298,6 +298,28 @@ class EmployeeController extends Controller
         return view('employees.show', compact('employee', 'expiringDocs', 'pastEarnings'));
     }
 
+    public function updateNotes(Request $request, Employee $employee)
+    {
+        $user = $request->user();
+        abort_unless($user->isSuperAdmin() || $user->canViewEmployee($employee), 403, 'You are not authorized to update notes for this employee.');
+
+        $validated = $request->validate([
+            'internal_notes' => ['nullable', 'string', 'max:10000'],
+            'remove_notes' => ['sometimes', 'boolean'],
+        ]);
+
+        $employee->update([
+            'internal_notes' => $request->boolean('remove_notes')
+                ? null
+                : ($validated['internal_notes'] ?? null),
+        ]);
+
+        return redirect()->route('employees.show', $employee)->with(
+            'success',
+            $request->boolean('remove_notes') ? 'Employee notes removed.' : 'Employee notes saved.'
+        );
+    }
+
     public function createAssignment(Employee $employee)
     {
         abort_unless($employee->company_id === $this->getCompanyId() || auth()->user()->isSuperAdmin(), 403);

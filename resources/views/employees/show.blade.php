@@ -97,6 +97,42 @@
     </div>
     @endif
 
+    <div class="card employee-notes-card mb-4">
+        <div class="card-header d-flex align-items-center gap-2">
+            <span class="employee-notes-icon"><i class="fas fa-note-sticky"></i></span>
+            <div>
+                <h6 class="mb-0 fw-bold">Internal notes</h6>
+                <small class="text-muted">Keep useful context for the team on this employee’s profile.</small>
+            </div>
+        </div>
+        <div class="card-body">
+            @if(session('success'))
+                <div class="alert alert-success py-2" role="status">{{ session('success') }}</div>
+            @endif
+            <form method="POST" action="{{ route('employees.notes.update', $employee) }}">
+                @csrf
+                @method('PATCH')
+                <label for="internal_notes" class="form-label fw-semibold">Notes</label>
+                <textarea id="internal_notes" name="internal_notes" rows="5" maxlength="10000"
+                    class="form-control employee-notes-input @error('internal_notes') is-invalid @enderror"
+                    placeholder="Add a note about this employee…">{{ old('internal_notes', $employee->internal_notes) }}</textarea>
+                @error('internal_notes')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                <div class="d-flex justify-content-between align-items-center mt-3 gap-3 flex-wrap">
+                    <small class="text-muted">Visible to users with access to this employee profile.</small>
+                    <div class="d-flex gap-2">
+                        @if($employee->internal_notes)
+                            <button type="submit" name="remove_notes" value="1" class="btn btn-outline-danger"
+                                onclick="return confirm('Remove the note from this employee profile?')">
+                                <i class="fas fa-trash-alt me-1"></i> Remove note
+                            </button>
+                        @endif
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i> Save notes</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="employee-details-grid">
 
     <!-- 1. Personal Information -->
@@ -450,6 +486,10 @@
     .btn-outline-primary:hover { background-color: #6366f1; color: white; }
     
     .employee-show { color: #1f2937; }
+    .employee-show .employee-notes-card { height: auto; }
+    .employee-notes-icon { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 10px; color: #4f46e5; background: #eef2ff; }
+    .employee-notes-input { min-height: 128px; resize: vertical; border-color: #dbe2ea; line-height: 1.65; }
+    .employee-notes-input:focus { border-color: #818cf8; box-shadow: 0 0 0 .2rem rgba(99, 102, 241, .12); }
     .employee-show .employee-hero { background: linear-gradient(115deg, #fff 0%, #f7f9ff 100%); border-color: #e4e9f2 !important; }
     .employee-show .employee-hero .card-body { padding: 24px !important; }
     .employee-avatar { width: 72px; height: 72px; object-fit: cover; box-shadow: 0 0 0 4px #fff, 0 0 0 5px #e4e9f2; }

@@ -60,6 +60,7 @@ class Employee extends Model
         
         // SOW: Status
         'status',
+        'internal_notes',
         
         // SOW: Multi-Company
         'company_id'
