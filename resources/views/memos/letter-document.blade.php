@@ -12,7 +12,7 @@
         .divider{height:5px;border-top:3px solid #171717;border-bottom:1px solid #bd272d;margin:12px 0 26px}
         .reference{font-size:10px;line-height:1.7;margin-bottom:16px}.date{margin-top:2px}
         .address{margin-bottom:14px}.body{white-space:pre-wrap;text-align:left;line-height:1.35}
-        .body strong{font-weight:bold}.employment-heading{text-align:center;font-weight:bold;letter-spacing:1px;line-height:1.4;margin:16px 0 20px;padding:5px 0}
+        .body strong{font-weight:bold}
         .sign{margin-top:28px;page-break-inside:avoid}.sign strong,.sign-title{display:block}.signature-line{display:block;width:180px;height:1px;border-bottom:1px solid #222;margin:16px 0 6px}
         .footer{position:fixed;left:0;right:0;bottom:-44px;border-top:1px solid #bd272d;padding-top:8px;text-align:center;color:#244b9b;font-size:8px}
     </style>
@@ -21,14 +21,6 @@
 @php
     $letterBody = $record->body;
     $isEmploymentConfirmation = str_starts_with($letterBody, '**CONFIRMATION OF EMPLOYMENT**');
-    $letterTitle = $record->template?->title ?: match ($record->letter_type) {
-        'Employment' => 'CONFIRMATION OF EMPLOYMENT',
-        'Salary' => 'CONFIRMATION OF SALARY',
-        'Bank / Loan' => 'LETTER OF CONFIRMATION FOR BANKING PURPOSES',
-        'Visa / Travel' => 'LETTER OF SUPPORT FOR VISA APPLICATION',
-        'Custom Letter' => 'CONFIRMATION LETTER',
-        default => null,
-    };
     if ($isEmploymentConfirmation) {
         $letterBody = preg_replace('/^\*\*CONFIRMATION OF EMPLOYMENT\*\*\R*/', '', $letterBody, 1);
     }
@@ -46,7 +38,6 @@
     </tr></table>
     <div class="divider"></div>
     <div class="reference">Ref: {{ $record->letter_number }}<br><div class="date">{{ $record->date_issued->format('j F Y') }}</div></div>
-    @if($letterTitle)<div class="employment-heading">{{ $letterTitle }}</div>@endif
     <div class="body">{!! preg_replace('/\*\*(.+?)\*\*/s', '<strong>$1</strong>', e($letterBody)) !!}</div>
     <div class="sign">Yours sincerely,<strong>{{ $letterCompanyName }}</strong><span class="signature-line"></span><strong>{{ $record->signatory_name }}</strong><span class="sign-title">{{ $record->signatory_title }}</span></div>
 </div>
