@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container-fluid px-4 py-3">
+<div class="container-fluid employee-show px-4 py-3">
 
     <!-- HEADER -->
     <div class="card shadow-sm border-0 mb-4">
@@ -98,9 +98,7 @@
     </div>
     @endif
 
-    <!-- ========================================== -->
-    <!-- ALL SECTIONS STACKED VERTICALLY - NO COLUMNS -->
-    <!-- ========================================== -->
+    <div class="employee-details-grid">
 
     <!-- 1. Personal Information -->
     <div class="card shadow-sm border-0 mb-3">
@@ -402,6 +400,8 @@
     </div>
     @endif
 
+    </div>
+
 </div>
 
 <!-- Delete Modal -->
@@ -450,17 +450,46 @@
     .btn-outline-primary { color: #6366f1; border-color: #6366f1; }
     .btn-outline-primary:hover { background-color: #6366f1; color: white; }
     
-    .card {
-        border-radius: 8px !important;
+    .employee-show { color: #1f2937; }
+    .employee-show .card {
+        height: 100%;
+        border-radius: 12px !important;
         border: 1px solid #e5e7eb !important;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, .04) !important;
+        overflow: hidden;
     }
-    .card-header {
+    .employee-show > .card { height: auto; }
+    .employee-show .card-header {
         background-color: #f8fafc !important;
-        padding: 10px 20px !important;
-        border-bottom: 1px solid #e5e7eb !important;
+        padding: 14px 18px !important;
+        border-bottom: 1px solid #eef0f3 !important;
     }
-    .card-body {
-        padding: 20px !important;
+    .employee-show .card-body { padding: 18px !important; }
+    .employee-show .card-body.p-0 { padding: 0 !important; }
+    .employee-details-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        align-items: stretch;
+    }
+    .employee-details-grid > .card { margin-bottom: 0 !important; }
+    .employee-details-grid > .card:has(.table-responsive),
+    .employee-details-grid > .card:has(.table) { grid-column: 1 / -1; }
+    .employee-show .table { margin-bottom: 0; }
+    .employee-show .table > :not(caption) > * > * { padding: .75rem .9rem; vertical-align: middle; }
+    .employee-show .table thead th { color: #64748b; background: #f8fafc; letter-spacing: .04em; }
+    .employee-show .card-header h6 { color: #334155; }
+    .employee-show .employee-details-grid .row { row-gap: 1rem; }
+    .employee-show .employee-details-grid label { letter-spacing: .05em; }
+    .employee-show .employee-details-grid p { margin-top: .2rem; }
+    .employee-show .btn { border-radius: 7px; }
+    @media (max-width: 767.98px) {
+        .employee-show { padding-left: .75rem !important; padding-right: .75rem !important; }
+        .employee-details-grid { grid-template-columns: 1fr; gap: 12px; }
+        .employee-details-grid > .card:has(.table-responsive),
+        .employee-details-grid > .card:has(.table) { grid-column: auto; }
+        .employee-show .card-header, .employee-show .card-body { padding: 14px !important; }
+        .employee-show .card-body.p-0 { padding: 0 !important; }
     }
 </style>
 @endpush
