@@ -63,13 +63,16 @@ class LetterController extends Controller
     {
         $data = $request->validate([
             'employee_id' => ['required', 'integer'],
+            'template_id' => ['required', 'integer', 'exists:memo_templates,id'],
             'letter_type' => ['required', Rule::in(['Memo', 'Employment', 'Salary', 'Bank / Loan', 'Visa / Travel', 'Custom Letter'])], 'date_issued' => ['required', 'date'],
             'body' => ['required', 'string', 'max:30000'],
             'signatory_name' => ['required', 'string', 'max:255'], 'signatory_title' => ['nullable', 'string', 'max:255'],
         ]);
         $employee = Employee::where('company_id', $this->companyId())->whereIn('employee_type', auth()->user()->getAllowedEmployeeTypes())->findOrFail($data['employee_id']);
-        $templateName = ['Memo' => 'General Memo', 'Employment' => 'Employment Confirmation', 'Salary' => 'Salary Confirmation', 'Bank / Loan' => 'Bank / Loan Support', 'Visa / Travel' => 'Visa / Travel Support', 'Custom Letter' => 'Custom Letter'][$data['letter_type']];
-        $template = MemoTemplate::where('category', 'Letter')->where('is_active', true)->where('name', $templateName)->first();
+        $template = MemoTemplate::where('category', 'Letter')->where('is_active', true)->findOrFail($data['template_id']);
+        $templateName = $template->name;
+        $letterTypeByTemplate = ['General Memo' => 'Memo', 'Employment Confirmation' => 'Employment', 'Salary Confirmation' => 'Salary', 'Bank / Loan Support' => 'Bank / Loan', 'Visa / Travel Support' => 'Visa / Travel', 'Custom Letter' => 'Custom Letter'];
+        $letterType = $letterTypeByTemplate[$templateName] ?? 'Custom Letter';
         $body = strtr($data['body'], [
             '{employee_name}' => $employee->full_name,
             '{employee_number}' => $employee->employee_number,
@@ -84,7 +87,7 @@ class LetterController extends Controller
         $number = 'LTR-' . now()->format('Ymd') . '-' . strtoupper(bin2hex(random_bytes(3)));
         $record = LetterIssuance::create([
             'employee_id' => $employee->id, 'memo_template_id' => $template?->id, 'issued_by' => auth()->id(),
-            'letter_number' => $number, 'letter_type' => $data['letter_type'], 'template_name' => $templateName,
+            'letter_number' => $number, 'letter_type' => $letterType, 'template_name' => $templateName,
             'date_issued' => $data['date_issued'], 'addressed_to' => 'To Whom It May Concern', 'body' => $body,
             'signatory_name' => $data['signatory_name'], 'signatory_title' => $data['signatory_title'] ?? null,
         ]);
@@ -96,7 +99,7 @@ class LetterController extends Controller
         $path = 'letters/' . $number . '.pdf';
         Storage::disk(config('filesystems.memo_disk', 'local'))->put($path, $pdf->output());
         $record->update(['document_path' => $path]);
-        return redirect()->route('memos.index')->with('success', "{$data['letter_type']} letter {$number} issued.");
+        return redirect()->route('memos.index')->with('success', "{$templateName} letter {$number} issued.");
     }
 
     public function templates(Request $request)

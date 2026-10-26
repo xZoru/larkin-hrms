@@ -9,22 +9,18 @@
 <form method="POST" action="{{ route('memos.letters.store') }}" id="letter-form">@csrf
 <div class="letter-workspace"><div class="letter-left"><div class="d-flex justify-content-between align-items-center"><h1 style="font-size:20px;margin:0">Employee Letters</h1><a href="{{ route('memos.templates.index') }}" class="btn btn-sm btn-outline-secondary">Edit templates</a></div>
 <section class="letter-card"><div class="letter-head">① &nbsp;Select Employee<small>Choose the staff member this letter is for</small></div><div class="letter-content"><label class="letter-label" for="employee_id">Employee</label><select class="form-select" id="employee_id" name="employee_id" required data-default-company="{{ $defaultCompany?->name }}" data-default-address="{{ $defaultCompany?->address }}" data-default-email="{{ $defaultCompany?->email }}" data-default-website="{{ data_get($defaultCompany?->settings, 'website') }}" data-default-logo="{{ $defaultCompany?->logo_path ? asset($defaultCompany->logo_path) : '' }}"><option value="">— Select an employee —</option>@foreach($employees as $employee)<option value="{{ $employee->id }}" data-name="{{ $employee->full_name }}" data-number="{{ $employee->employee_number }}" data-position="{{ $employee->position_name }}" data-salary="{{ $employee->monthly_salary ?? $employee->base_salary }}" data-fortnightly-salary="{{ $employee->base_salary }}" data-company="{{ $employee->company?->name }}" data-code="{{ $employee->company?->code }}" data-address="{{ $employee->company?->address }}" data-email="{{ $employee->company?->email }}" data-website="{{ data_get($employee->company?->settings, 'website') }}" data-logo="{{ $employee->company?->logo_path ? asset($employee->company->logo_path) : '' }}">{{ $employee->employee_number }} — {{ $employee->full_name }}</option>@endforeach</select></div></section>
-<section class="letter-card"><div class="letter-head">② &nbsp;Letter Type<small>Select the purpose of this letter</small></div><div class="letter-content"><div class="letter-options">@foreach(['Memo','Employment','Salary','Bank / Loan','Visa / Travel','Custom Letter'] as $type)<button class="letter-type" type="button" data-type="{{ $type }}">{{ $type }}</button>@endforeach</div><input type="hidden" name="letter_type" id="letter_type" value="Memo" required></div></section>
+<section class="letter-card"><div class="letter-head">② &nbsp;Letter Type<small>Select a saved letter template</small></div><div class="letter-content"><label class="letter-label" for="letter-template">Template</label><select class="form-select" id="letter-template" name="template_id" required>@foreach($templates as $template)<option value="{{ $template->id }}" data-name="{{ $template->name }}" data-title="{{ $template->title }}" @selected($template->name === 'General Memo')>{{ $template->name }}</option>@endforeach</select><input type="hidden" name="letter_type" id="letter_type" value="Memo" required></div></section>
 <section class="letter-card"><div class="letter-head">③ &nbsp;Letter Details<small>Date and editable content</small></div><div class="letter-content"><label class="letter-label" for="date_issued">Letter date</label><input class="form-control mb-2" id="date_issued" name="date_issued" type="date" value="{{ now()->toDateString() }}" required><label class="letter-label" for="body">Letter content</label><textarea class="form-control" id="body" name="body" required></textarea><div class="letter-token-help">Available: {employee_name}, {employee_number}, {position}, {salary}, {company_name}, {fortnightly_salary}, {date}, {signatory_name}, {signatory_title}</div></div></section>
 <section class="letter-card"><div class="letter-head">⑤ &nbsp;Actions</div><div class="letter-content letter-buttons"><button class="btn btn-primary" type="submit"><i class="fas fa-file-pdf me-1"></i>Issue &amp; Save PDF</button></div></section></div>
 <section class="letter-preview-card"><div class="letter-preview-top">◉ &nbsp; Live Preview<small style="display:block;margin:3px 0 0 25px;color:#a56767;font-weight:400">Preview updates as you edit</small></div><div class="letter-paper-wrap"><div class="letter-paper"><div class="preview-letterhead"><img id="preview-logo" class="preview-letterhead-logo" alt="" hidden><div class="preview-letterhead-info"><strong id="preview-company"></strong><div id="preview-address" class="preview-contact"><span class="preview-contact-icon">&#9675;</span> <span></span></div></div></div><div class="preview-divider"></div><div class="preview-reference">Ref: <span>New letter</span><div id="preview-date" class="preview-date"></div></div><div id="preview-employment-heading" class="letter-employment-heading" hidden></div><div id="preview-body"></div><div class="paper-sign" id="preview-sign">Yours sincerely,<strong id="preview-sign-company"></strong><span class="letter-signature-line"></span><strong id="preview-sign-name"></strong><span id="preview-sign-title"></span></div><div class="preview-letter-footer" id="preview-footer"></div></div></div><div class="letter-content" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><label class="letter-label" for="signatory_name">Signatory name</label><input class="form-control" id="signatory_name" name="signatory_name" placeholder="Full name of the signatory" required></div><div><label class="letter-label" for="signatory_title">Job title</label><input class="form-control" id="signatory_title" name="signatory_title" placeholder="e.g. Human Resources Manager"></div></div></section></div></form>
 <script>
 (()=>{
     const $ = id => document.getElementById(id);
-    const type = $('letter_type'), body = $('body'), emp = $('employee_id'), date = $('date_issued');
-    const templates = @json($templates->keyBy('name')->map->content);
-    const templateNames = {
-        Memo: 'General Memo',
-        Employment: 'Employment Confirmation',
-        Salary: 'Salary Confirmation',
-        'Bank / Loan': 'Bank / Loan Support',
-        'Visa / Travel': 'Visa / Travel Support',
-        'Custom Letter': 'Custom Letter'
+    const type = $('letter_type'), body = $('body'), emp = $('employee_id'), date = $('date_issued'), templateSelect = $('letter-template');
+    const templates = @json($templates->keyBy('id')->map(fn ($template) => ['name' => $template->name, 'content' => $template->content]));
+    const typeByTemplate = {
+        'General Memo': 'Memo', 'Employment Confirmation': 'Employment', 'Salary Confirmation': 'Salary',
+        'Bank / Loan Support': 'Bank / Loan', 'Visa / Travel Support': 'Visa / Travel', 'Custom Letter': 'Custom Letter'
     };
     const companyNames = {'LKE-POM':'Larkin Enterprises Limited','LKE-LAE':'Larkin Enterprises Limited','YJS-POM':'Yellow Jacket Security Limited','YJS-LAE':'Yellow Jacket Security Limited','PARA':'Paragon Tech Limited','ADF':'Larkin Enterprises t/a Ad Focus','WAVE':'Wave Restaurant','CARO':"Caroline's Diner",'HYVE':'Hyve'};
     const displayCompanyName = (code, name) => /ad\s*focus/i.test(name || '') ? 'Larkin Enterprises t/a Ad Focus' : companyNames[code] || (/larkin/i.test(name || '') ? 'Larkin Enterprises Limited' : /yellow jacket/i.test(name || '') ? 'Yellow Jacket Security Limited' : name || '');
@@ -61,9 +57,10 @@
             'Visa / Travel': 'LETTER OF SUPPORT FOR VISA APPLICATION',
             'Custom Letter': 'CONFIRMATION LETTER'
         };
+        const heading = templateSelect.selectedOptions[0]?.dataset.title || titles[type.value] || '';
         const employmentHeading = type.value === 'Employment' && text.startsWith('**CONFIRMATION OF EMPLOYMENT**');
-        $('preview-employment-heading').hidden = !titles[type.value];
-        $('preview-employment-heading').textContent = titles[type.value] || '';
+        $('preview-employment-heading').hidden = !heading;
+        $('preview-employment-heading').textContent = heading;
         if (employmentHeading) text = text.replace(/^\*\*CONFIRMATION OF EMPLOYMENT\*\*\n*/, '');
         text = escapeHtml(text);
         $('preview-body').innerHTML = text.replace(/\*\*(.+?)\*\*/gs, '<strong>$1</strong>').replace(/\n/g, '<br>');
@@ -86,17 +83,16 @@
         $('preview-sign-company').textContent = displayCompany;
         $('preview-footer').textContent = [company?.dataset.website || emp.dataset.defaultWebsite, company?.dataset.email || emp.dataset.defaultEmail].filter(Boolean).join(' | ');
     }
-    function selectType(value) {
-        type.value = value;
-        document.querySelectorAll('.letter-type').forEach(button => button.classList.toggle('active', button.dataset.type === value));
-        const templateName = templateNames[value];
-        if (!manuallyEdited) body.value = (templateName && templates[templateName]) || defaults[value] || '';
+    function selectTemplate() {
+        const template = templates[templateSelect.value];
+        type.value = typeByTemplate[template?.name] || 'Custom Letter';
+        if (!manuallyEdited) body.value = template?.content || defaults[type.value] || '';
         render();
     }
-    document.querySelectorAll('.letter-type').forEach(button => button.addEventListener('click', () => {manuallyEdited = false; selectType(button.dataset.type);}));
+    templateSelect.addEventListener('change', () => {manuallyEdited = false; selectTemplate();});
     body.addEventListener('input', () => {manuallyEdited = true; render();});
     document.querySelectorAll('#employee_id,#date_issued,#signatory_name,#signatory_title').forEach(input => input.addEventListener('input', render));
-    selectType('Memo');
+    selectTemplate();
 })();
 </script>
 @endsection
