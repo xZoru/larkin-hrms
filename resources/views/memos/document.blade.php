@@ -11,7 +11,7 @@
         .contact-line{font-size:8px;font-style:italic;color:#555;line-height:1.4}
         .date{margin:0 0 24px}.recipient{margin:0 0 22px;line-height:1.45}.subject{font-weight:bold;text-decoration:underline;margin:0 0 24px}
         .salutation{margin:0 0 20px}.section{margin:0 0 16px;page-break-inside:avoid}.section-title{font-weight:bold;margin:0 0 5px}
-        .text{white-space:pre-wrap}.sign{margin-top:28px;page-break-inside:avoid}.signature-line{display:block;width:180px;height:1px;border-bottom:1px solid #222;margin:46px 0 6px}
+        .text{white-space:pre-wrap}.sign{margin-top:28px;page-break-inside:avoid}.signature-line{display:block;width:180px;height:1px;border-bottom:1px solid #222;margin:90px 0 6px}
         .muted{color:#666}.footer{position:fixed;left:0;right:0;bottom:-44px;border-top:3px solid #bfc0c4;padding-top:5px;text-align:center;color:#777;font-size:8px}
     </style>
 </head>
