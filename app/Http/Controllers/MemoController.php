@@ -180,8 +180,10 @@ class MemoController extends Controller
             'issued_by' => auth()->id(),
         ]);
 
+        $record->load(['employee.company', 'template', 'issuedBy']);
         $pdf = Pdf::loadView('memos.document', [
-            'record' => $record->load(['employee.company', 'template', 'issuedBy']),
+            'record' => $record,
+            'logoDataUri' => $this->companyLogoDataUri($record->employee->company),
         ])->setPaper('a4');
 
         $path = 'memos/' . $record->memo_number . '.pdf';
@@ -205,7 +207,10 @@ class MemoController extends Controller
         abort_unless($disk->exists($disciplineRecord->document_path), 404);
 
         $disciplineRecord->load(['employee.company', 'template', 'issuedBy']);
-        $pdf = Pdf::loadView('memos.document', ['record' => $disciplineRecord])->setPaper('a4');
+        $pdf = Pdf::loadView('memos.document', [
+            'record' => $disciplineRecord,
+            'logoDataUri' => $this->companyLogoDataUri($disciplineRecord->employee->company),
+        ])->setPaper('a4');
         $disk->put($disciplineRecord->document_path, $pdf->output());
 
         return $disk->download($disciplineRecord->document_path, $disciplineRecord->memo_number . '.pdf');
@@ -264,7 +269,10 @@ class MemoController extends Controller
         ]);
 
         $disciplineRecord->load(['employee.company', 'template', 'issuedBy']);
-        $pdf = Pdf::loadView('memos.document', ['record' => $disciplineRecord])->setPaper('a4');
+        $pdf = Pdf::loadView('memos.document', [
+            'record' => $disciplineRecord,
+            'logoDataUri' => $this->companyLogoDataUri($disciplineRecord->employee->company),
+        ])->setPaper('a4');
         $documentPath = $disciplineRecord->document_path ?: 'memos/' . $disciplineRecord->memo_number . '.pdf';
         $this->memoDisk()->put($documentPath, $pdf->output());
         if (!$disciplineRecord->document_path) {
@@ -334,6 +342,22 @@ class MemoController extends Controller
     private function memoDisk()
     {
         return Storage::disk(config('filesystems.memo_disk', 'local'));
+    }
+
+    private function companyLogoDataUri($company): ?string
+    {
+        if (!$company?->logo_path) {
+            return null;
+        }
+
+        $publicRoot = realpath(public_path());
+        $logoFile = realpath(public_path(ltrim($company->logo_path, '/\\')));
+        if (!$publicRoot || !$logoFile || !str_starts_with($logoFile, $publicRoot) || !is_file($logoFile)) {
+            return null;
+        }
+
+        $mime = mime_content_type($logoFile) ?: 'image/png';
+        return 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($logoFile));
     }
 
 }
