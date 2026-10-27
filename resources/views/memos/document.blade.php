@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <style>
-        @page{size:A4;margin:30px 42px 52px}
+        @page{size:A4;margin:0.45in 0.8in 0.65in}
         body{font-family:DejaVu Sans,sans-serif;font-size:10pt;line-height:1.4;color:#222}
         .page{padding-bottom:12px}.letterhead{width:100%;border-collapse:collapse;margin-bottom:24px}
         .letterhead-logo{width:60%;vertical-align:middle;padding-right:12px}.letterhead-logo img{width:250px;max-height:82px;height:auto;object-fit:contain;object-position:left center}
