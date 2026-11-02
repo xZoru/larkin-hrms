@@ -47,7 +47,7 @@ class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidt
     protected function loadData()
     {
         $this->payroll = \App\Models\Payroll::with(['items.employee.assignments.branch', 'company'])->findOrFail($this->payrollId);
-        $this->payrollItems = $this->payroll->items;
+        $this->payrollItems = $this->filterPayrollItems($this->payroll->items);
         $this->company = $this->payroll->company;
 
         // Add FN Rate to each item
@@ -63,6 +63,21 @@ class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidt
                 $item->fn_rate = round((float) $item->net_pay, 2);
             }
         });
+    }
+
+    protected function filterPayrollItems($items)
+    {
+        return $items
+            ->reject(function ($item) {
+                $details = $item->details ?? [];
+
+                return is_array($details)
+                    && ($details['type'] ?? null) === 'manual_entry';
+            })
+            ->filter(function ($item) {
+                return (float) $item->hours_worked > 0;
+            })
+            ->values();
     }
 
     public function collection()
