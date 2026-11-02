@@ -6,7 +6,7 @@
             Dashboard
         </h2>
         <div class="text-sm text-gray-500">
-            {{ session('current_company_name') ?? auth()->user()->company->name ?? 'Company' }}
+            {{ $dashboardCompanyLabel }}
         </div>
     </div>
 @endsection
@@ -150,7 +150,7 @@
                 <div class="widget-body">
                     @forelse($recentLeaveRequests as $leave)
                         <div class="list-item">
-                            <span class="name">{{ $leave->employee->full_name ?? 'N/A' }}<span class="leave-reason">{{ $leave->leave_type ?: 'Type not recorded' }}</span></span>
+                            <span class="name">{{ $leave->employee->full_name ?? 'N/A' }}<span class="leave-reason">{{ $leave->employee->company->name ?? 'Company unavailable' }} · {{ $leave->leave_type ?: 'Type not recorded' }}</span></span>
                             <span class="meta">{{ $leave->start_date?->format('d/m/y') }} - {{ $leave->end_date?->format('d/m/y') }}</span>
                         </div>
                     @empty
@@ -167,7 +167,7 @@
                 <div class="widget-body">
                     @forelse($expatriatesOnLeave as $leave)
                         <div class="list-item">
-                            <span class="name">{{ $leave->employee->full_name ?? 'N/A' }}<span class="leave-reason">{{ $leave->leave_type ?: 'Type not recorded' }}</span></span>
+                            <span class="name">{{ $leave->employee->full_name ?? 'N/A' }}<span class="leave-reason">{{ $leave->employee->company->name ?? 'Company unavailable' }} · {{ $leave->leave_type ?: 'Type not recorded' }}</span></span>
                             <span class="meta">{{ $leave->start_date?->format('d/m/y') }} - {{ $leave->end_date?->format('d/m/y') }}</span>
                         </div>
                     @empty
