@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class LetterIssuance extends Model
 {
-    protected $fillable = ['employee_id', 'memo_template_id', 'issued_by', 'letter_number', 'letter_type', 'template_name', 'date_issued', 'addressed_to', 'subject', 'letterhead_address', 'body', 'signatory_name', 'signatory_title', 'document_path'];
+    protected $fillable = ['employee_id', 'memo_template_id', 'issued_by', 'letter_number', 'letter_type', 'template_name', 'date_issued', 'addressed_to', 'recipient_address', 'subject', 'letterhead_address', 'body', 'signatory_name', 'signatory_title', 'document_path'];
     protected $casts = ['date_issued' => 'date'];
     public function employee() { return $this->belongsTo(Employee::class); }
     public function template() { return $this->belongsTo(MemoTemplate::class, 'memo_template_id'); }

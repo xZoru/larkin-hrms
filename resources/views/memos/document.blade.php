@@ -27,7 +27,8 @@
     $company = $record->employee->company;
     $settings = $company?->settings ?? [];
     $subject = $record->purpose_template_name ?: 'OFFICIAL MEMORANDUM';
-    $footerItems = array_filter([data_get($settings, 'website'), $company?->email]);
+    $footerEmail = in_array($company?->code, ['LKE-POM', 'LKE-LAE'], true) ? 'info@larkinpng.com' : $company?->email;
+    $footerItems = array_filter([data_get($settings, 'website'), $footerEmail]);
 @endphp
 <table class="letterhead"><tr>
     <td class="logo-cell">@if(!empty($logoDataUri))<img class="logo" src="{{ $logoDataUri }}" alt="">@endif</td>

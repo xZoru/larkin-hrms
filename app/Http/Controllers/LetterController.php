@@ -67,6 +67,7 @@ class LetterController extends Controller
             'letter_type' => ['required', Rule::in(['Memo', 'Employment', 'Salary', 'Bank / Loan', 'Visa / Travel', 'Custom Letter'])], 'date_issued' => ['required', 'date'],
             'body' => ['required', 'string', 'max:30000'],
             'addressed_to' => ['required', 'string', 'max:255'],
+            'recipient_address' => ['nullable', 'string', 'max:2000'],
             'subject' => ['required', 'string', 'max:255'],
             'letterhead_address' => ['nullable', 'string', 'max:2000'],
             'signatory_name' => ['required', 'string', 'max:255'], 'signatory_title' => ['nullable', 'string', 'max:255'],
@@ -92,6 +93,7 @@ class LetterController extends Controller
             'employee_id' => $employee->id, 'memo_template_id' => $template?->id, 'issued_by' => auth()->id(),
             'letter_number' => $number, 'letter_type' => $letterType, 'template_name' => $templateName,
             'date_issued' => $data['date_issued'], 'addressed_to' => $data['addressed_to'],
+            'recipient_address' => $data['recipient_address'] ?? null,
             'subject' => $data['subject'], 'letterhead_address' => $data['letterhead_address'] ?: $this->defaultLetterheadAddress(), 'body' => $body,
             'signatory_name' => $data['signatory_name'], 'signatory_title' => $data['signatory_title'] ?? null,
         ]);

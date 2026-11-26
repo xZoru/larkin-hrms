@@ -31,7 +31,9 @@
     $letterBody = preg_replace('/\R*(?:Yours sincerely,?|Sincerely,)\s*[\s\S]*$/i', '', $letterBody);
     $company = $record->employee->company;
     $letterAddress = $record->letterhead_address ?: "Portion 3205C Fungi Street\nTaurama Rd. Port Moresby, NCD\nP.O. Box 1850 Boroko\nPhone: (675) 320-2777\nFax (675) 320-0551";
-    $footerItems = array_filter([data_get($company?->settings, 'website'), $company?->email]);
+    $recipientAddressLines = preg_split('/\R/', trim($record->recipient_address ?? ''), -1, PREG_SPLIT_NO_EMPTY);
+    $footerEmail = in_array($company?->code, ['LKE-POM', 'LKE-LAE'], true) ? 'info@larkinpng.com' : $company?->email;
+    $footerItems = array_filter([data_get($company?->settings, 'website'), $footerEmail]);
 @endphp
 <table class="letterhead"><tr>
     <td class="logo-cell">@if(!empty($logoDataUri))<img class="logo" src="{{ $logoDataUri }}" alt="">@endif</td>
@@ -40,6 +42,7 @@
     </td>
 </tr></table>
 <div class="date">{{ $record->date_issued->format('j F Y') }}</div>
+@if($recipientAddressLines)<div class="address recipient-address">@foreach($recipientAddressLines as $index => $line)@if($index < 2)<strong>{{ $line }}</strong>@else{{ $line }}@endif<br>@endforeach</div>@endif
 @if($record->addressed_to)<div class="address">{{ $record->addressed_to }};</div>@endif
 <div class="subject">RE: &nbsp;&nbsp;&nbsp; {{ strtoupper($record->subject ?: ($record->template?->title ?: $record->template_name)) }}</div>
 <div class="body">{!! preg_replace('/\*\*(.+?)\*\*/s', '<strong>$1</strong>', e($letterBody)) !!}</div>
