@@ -92,14 +92,14 @@ class LetterController extends Controller
             'employee_id' => $employee->id, 'memo_template_id' => $template?->id, 'issued_by' => auth()->id(),
             'letter_number' => $number, 'letter_type' => $letterType, 'template_name' => $templateName,
             'date_issued' => $data['date_issued'], 'addressed_to' => $data['addressed_to'],
-            'subject' => $data['subject'], 'letterhead_address' => $data['letterhead_address'] ?? null, 'body' => $body,
+            'subject' => $data['subject'], 'letterhead_address' => $data['letterhead_address'] ?: $this->defaultLetterheadAddress(), 'body' => $body,
             'signatory_name' => $data['signatory_name'], 'signatory_title' => $data['signatory_title'] ?? null,
         ]);
         $record->load('employee.company');
         $company = $record->employee->company;
         $logoDataUri = $this->companyLogoDataUri($company);
         $letterCompanyName = $this->letterCompanyName($company);
-        $pdf = Pdf::loadView('memos.letter-document', compact('record', 'logoDataUri', 'letterCompanyName'))->setPaper('a4');
+        $pdf = Pdf::loadView('memos.letter-document', compact('record', 'logoDataUri', 'letterCompanyName'))->setPaper('a4', 'portrait');
         $path = 'letters/' . $number . '.pdf';
         Storage::disk(config('filesystems.memo_disk', 'local'))->put($path, $pdf->output());
         $record->update(['document_path' => $path]);
@@ -123,7 +123,7 @@ class LetterController extends Controller
         $company = $record->employee->company;
         $logoDataUri = $this->companyLogoDataUri($company);
         $letterCompanyName = $this->letterCompanyName($company);
-        $pdf = Pdf::loadView('memos.letter-document', compact('record', 'logoDataUri', 'letterCompanyName'))->setPaper('a4');
+        $pdf = Pdf::loadView('memos.letter-document', compact('record', 'logoDataUri', 'letterCompanyName'))->setPaper('a4', 'portrait');
         $disk = Storage::disk(config('filesystems.memo_disk', 'local'));
         $path = $letterIssuance->document_path ?: 'letters/' . $letterIssuance->letter_number . '.pdf';
         $disk->put($path, $pdf->output());
@@ -171,5 +171,10 @@ class LetterController extends Controller
         }
 
         return $company?->name ?? config('app.name');
+    }
+
+    private function defaultLetterheadAddress(): string
+    {
+        return "Portion 3205C Fungi Street\nTaurama Rd. Port Moresby, NCD\nP.O. Box 1850 Boroko\nPhone: (675) 320-2777\nFax (675) 320-0551";
     }
 }
