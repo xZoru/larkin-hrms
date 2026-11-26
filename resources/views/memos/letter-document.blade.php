@@ -30,7 +30,7 @@
     }
     $letterBody = preg_replace('/\R*(?:Yours sincerely,?|Sincerely,)\s*[\s\S]*$/i', '', $letterBody);
     $company = $record->employee->company;
-    $letterAddress = $company?->address;
+    $letterAddress = $record->letterhead_address ?: $company?->address;
     $footerItems = array_filter([data_get($company?->settings, 'website'), $company?->email]);
 @endphp
 <table class="letterhead"><tr>
@@ -43,7 +43,7 @@
 </tr></table>
 <div class="date">{{ $record->date_issued->format('j F Y') }}</div>
 @if($record->addressed_to)<div class="address">{{ $record->addressed_to }};</div>@endif
-<div class="subject">RE: &nbsp;&nbsp;&nbsp; {{ strtoupper($record->template?->title ?: $record->template_name) }}</div>
+<div class="subject">RE: &nbsp;&nbsp;&nbsp; {{ strtoupper($record->subject ?: ($record->template?->title ?: $record->template_name)) }}</div>
 <div class="body">{!! preg_replace('/\*\*(.+?)\*\*/s', '<strong>$1</strong>', e($letterBody)) !!}</div>
 <div class="sign">Yours sincerely,<br>{{ $letterCompanyName }}<span class="signature-line"></span><strong>{{ $record->signatory_name }}</strong><span class="sign-title">{{ $record->signatory_title }}</span></div>
 <div class="footer">{{ implode(' | ', $footerItems) }}</div>

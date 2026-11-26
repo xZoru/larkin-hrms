@@ -66,6 +66,9 @@ class LetterController extends Controller
             'template_id' => ['required', 'integer', 'exists:memo_templates,id'],
             'letter_type' => ['required', Rule::in(['Memo', 'Employment', 'Salary', 'Bank / Loan', 'Visa / Travel', 'Custom Letter'])], 'date_issued' => ['required', 'date'],
             'body' => ['required', 'string', 'max:30000'],
+            'addressed_to' => ['required', 'string', 'max:255'],
+            'subject' => ['required', 'string', 'max:255'],
+            'letterhead_address' => ['nullable', 'string', 'max:2000'],
             'signatory_name' => ['required', 'string', 'max:255'], 'signatory_title' => ['nullable', 'string', 'max:255'],
         ]);
         $employee = Employee::where('company_id', $this->companyId())->whereIn('employee_type', auth()->user()->getAllowedEmployeeTypes())->findOrFail($data['employee_id']);
@@ -88,7 +91,8 @@ class LetterController extends Controller
         $record = LetterIssuance::create([
             'employee_id' => $employee->id, 'memo_template_id' => $template?->id, 'issued_by' => auth()->id(),
             'letter_number' => $number, 'letter_type' => $letterType, 'template_name' => $templateName,
-            'date_issued' => $data['date_issued'], 'addressed_to' => 'To Whom It May Concern', 'body' => $body,
+            'date_issued' => $data['date_issued'], 'addressed_to' => $data['addressed_to'],
+            'subject' => $data['subject'], 'letterhead_address' => $data['letterhead_address'] ?? null, 'body' => $body,
             'signatory_name' => $data['signatory_name'], 'signatory_title' => $data['signatory_title'] ?? null,
         ]);
         $record->load('employee.company');
