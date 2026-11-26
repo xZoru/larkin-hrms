@@ -94,7 +94,7 @@ class LetterController extends Controller
             'letter_number' => $number, 'letter_type' => $letterType, 'template_name' => $templateName,
             'date_issued' => $data['date_issued'], 'addressed_to' => $data['addressed_to'],
             'recipient_address' => $data['recipient_address'] ?? null,
-            'subject' => $data['subject'], 'letterhead_address' => $data['letterhead_address'] ?: $this->defaultLetterheadAddress(), 'body' => $body,
+            'subject' => $data['subject'], 'letterhead_address' => trim($data['letterhead_address'] ?? '') ?: $this->defaultLetterheadAddress(), 'body' => $body,
             'signatory_name' => $data['signatory_name'], 'signatory_title' => $data['signatory_title'] ?? null,
         ]);
         $record->load('employee.company');

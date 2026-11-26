@@ -30,8 +30,12 @@
     }
     $letterBody = preg_replace('/\R*(?:Yours sincerely,?|Sincerely,)\s*[\s\S]*$/i', '', $letterBody);
     $company = $record->employee->company;
-    $letterAddress = $record->letterhead_address ?: "Portion 3205C Fungi Street\nTaurama Rd. Port Moresby, NCD\nP.O. Box 1850 Boroko\nPhone: (675) 320-2777\nFax (675) 320-0551";
-    $recipientAddressLines = preg_split('/\R/', trim($record->recipient_address ?? ''), -1, PREG_SPLIT_NO_EMPTY);
+    $letterAddress = trim($record->letterhead_address ?? '') ?: "Portion 3205C Fungi Street\nTaurama Rd. Port Moresby, NCD\nP.O. Box 1850 Boroko\nPhone: (675) 320-2777\nFax (675) 320-0551";
+    $recipientAddress = trim($record->recipient_address ?? '');
+    if ($recipientAddress === 'Click here to add recipient details') {
+        $recipientAddress = '';
+    }
+    $recipientAddressLines = preg_split('/\R/', $recipientAddress, -1, PREG_SPLIT_NO_EMPTY);
     $footerEmail = in_array($company?->code, ['LKE-POM', 'LKE-LAE'], true) ? 'info@larkinpng.com' : $company?->email;
     $footerItems = array_filter([data_get($company?->settings, 'website'), $footerEmail]);
 @endphp
