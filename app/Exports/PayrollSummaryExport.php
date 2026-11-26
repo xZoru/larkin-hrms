@@ -313,10 +313,9 @@ class PayrollSummaryExport implements FromCollection, WithStyles, WithColumnWidt
                 $nationalTotal = 0;
                 $expatTotal = 0;
                 foreach ($this->payrollItems as $item) {
-                    $nationality = strtolower($item->employee->nationality ?? 'national');
                     $netPay = (float) ($item->net_pay ?? 0);
 
-                    if (str_contains($nationality, 'expat')) {
+                    if ($item->employee?->isExpatriate() ?? false) {
                         $expatTotal += $netPay;
                     } else {
                         $nationalTotal += $netPay;

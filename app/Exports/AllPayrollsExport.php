@@ -57,7 +57,7 @@ class AllPayrollsExport implements FromCollection, WithColumnWidths, WithEvents,
         // heading and pay date, while every payrun's employee rows contribute
         // to the same totals and payout summary.
         for ($row = 0; $row < 7; $row++) {
-            $rows->push(array_fill(0, 16, null));
+            $rows->push(array_fill(0, 17, null));
         }
 
         foreach ($items as $item) {
@@ -74,7 +74,7 @@ class AllPayrollsExport implements FromCollection, WithColumnWidths, WithEvents,
                 (float) ($item->holiday_pay ?? 0), 0, (float) ($item->allowance ?? 0),
                 (float) ($item->gross_wage ?? 0), (float) ($item->tax ?? 0),
                 (float) ($item->nasfund_ee ?? 0), 0, (float) ($item->loan_deduction ?? 0),
-                (float) ($item->net_pay ?? 0),
+                (float) ($item->other_deductions ?? 0), (float) ($item->net_pay ?? 0),
             ]);
         }
 
@@ -82,7 +82,7 @@ class AllPayrollsExport implements FromCollection, WithColumnWidths, WithEvents,
             'TOTAL', '', 0, 0, 0, 0, 0, 0, 0, 0,
             (float) $items->sum('gross_wage'), (float) $items->sum('tax'),
             (float) $items->sum('nasfund_ee'), 0, (float) $items->sum('loan_deduction'),
-            (float) $items->sum('net_pay'),
+            (float) $items->sum('other_deductions'), (float) $items->sum('net_pay'),
         ]);
 
         $this->sections[] = ['baseRow' => 1, 'payroll' => $payroll, 'items' => $items];
@@ -95,7 +95,7 @@ class AllPayrollsExport implements FromCollection, WithColumnWidths, WithEvents,
         return [
             'A' => 10, 'B' => 28, 'C' => 12, 'D' => 12, 'E' => 12, 'F' => 12,
             'G' => 12, 'H' => 12, 'I' => 12, 'J' => 10, 'K' => 14, 'L' => 12,
-            'M' => 12, 'N' => 10, 'O' => 13, 'P' => 14, 'Q' => 4, 'R' => 4,
+            'M' => 12, 'N' => 10, 'O' => 13, 'P' => 13, 'Q' => 14, 'R' => 4,
             'S' => 4, 'T' => 18, 'U' => 18,
         ];
     }
@@ -121,7 +121,7 @@ class AllPayrollsExport implements FromCollection, WithColumnWidths, WithEvents,
         $headerRow2 = $base + 6;
         $firstDataRow = $base + 7;
         $totalRow = $firstDataRow + $items->count();
-        $lastColumn = 'P';
+        $lastColumn = 'Q';
         $company = $payroll->company;
 
         $sheet->mergeCells("C{$base}:F" . ($base + 2));
@@ -154,51 +154,56 @@ class AllPayrollsExport implements FromCollection, WithColumnWidths, WithEvents,
 
         $this->renderBankPayoutSummary($sheet, $base, $items, $payroll->period_end);
 
-        foreach (['A', 'B', 'K', 'P'] as $column) {
+        foreach (['A', 'B', 'K', 'Q'] as $column) {
             $sheet->mergeCells("{$column}{$headerRow1}:{$column}{$headerRow2}");
         }
         $sheet->mergeCells("C{$headerRow1}:J{$headerRow1}");
-        $sheet->mergeCells("L{$headerRow1}:O{$headerRow1}");
+        $sheet->mergeCells("L{$headerRow1}:P{$headerRow1}");
         foreach ([
             "A{$headerRow1}" => 'EMP. NO.', "B{$headerRow1}" => 'Employee Name',
             "C{$headerRow1}" => 'GROSS', "K{$headerRow1}" => 'Gross Total',
-            "L{$headerRow1}" => 'DEDUCTIONS', "P{$headerRow1}" => 'Net Pay',
+            "L{$headerRow1}" => 'DEDUCTIONS', "Q{$headerRow1}" => 'Net Pay',
         ] as $cell => $value) {
             $sheet->setCellValue($cell, $value);
         }
         foreach ([
             'C' => 'FN Rate', 'D' => 'Basic Pay', 'E' => 'Regular', 'F' => 'Over Time',
             'G' => 'Sunday OT', 'H' => 'Holiday Pay', 'I' => 'Final Pay', 'J' => 'Other',
-            'L' => 'FN Tax', 'M' => 'NPF (6%)', 'N' => 'NCSL', 'O' => 'Cash Adv',
+            'L' => 'FN Tax', 'M' => 'NPF (6%)', 'N' => 'NCSL', 'O' => 'Cash Adv', 'P' => 'Others',
         ] as $column => $value) {
             $sheet->setCellValue("{$column}{$headerRow2}", $value);
         }
 
-        $sheet->getStyle("A{$headerRow1}:P{$headerRow2}")->getFont()->setBold(true)->setSize(9);
-        $sheet->getStyle("A{$headerRow1}:P{$headerRow2}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
-        $sheet->getStyle("A{$headerRow1}:P{$headerRow2}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->getStyle("A{$headerRow1}:Q{$headerRow2}")->getFont()->setBold(true)->setSize(9);
+        $sheet->getStyle("A{$headerRow1}:Q{$headerRow2}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet->getStyle("A{$headerRow1}:Q{$headerRow2}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
 
         if ($items->isNotEmpty()) {
-            $sheet->getStyle("A{$firstDataRow}:P" . ($totalRow - 1))->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('C2F9BF');
+            $sheet->getStyle("A{$firstDataRow}:Q" . ($totalRow - 1))->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('C2F9BF');
             foreach ($items->values() as $index => $item) {
-                if (strtolower($item->employee?->payment_method ?? '') === 'cash') {
-                    $row = $firstDataRow + $index;
-                    $sheet->getStyle("A{$row}:P{$row}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FFFFFF');
+                $row = $firstDataRow + $index;
+                $isExpat = $item->employee?->isExpatriate() ?? false;
+                $isCash = strtolower($item->employee?->payment_method ?? '') === 'cash';
+
+                if ($isExpat) {
+                    $sheet->getStyle("A{$row}:Q{$row}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('DDEBF7');
+                } elseif ($isCash) {
+                    $sheet->getStyle("A{$row}:Q{$row}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FFFFFF');
                 }
             }
-            $sheet->getStyle("C{$firstDataRow}:P" . ($totalRow - 1))->getNumberFormat()->setFormatCode('#,##0.00');
+            $sheet->getStyle("C{$firstDataRow}:Q" . ($totalRow - 1))->getNumberFormat()->setFormatCode('#,##0.00');
         }
 
-        $sheet->getStyle("A{$totalRow}:P{$totalRow}")->getFont()->setBold(true);
-        $sheet->getStyle("A{$totalRow}:P{$totalRow}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FFFF00');
-        $sheet->getStyle("A{$totalRow}:P{$totalRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
-        $sheet->getStyle("C{$totalRow}:P{$totalRow}")->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle("A{$totalRow}:Q{$totalRow}")->getFont()->setBold(true);
+        $sheet->getStyle("A{$totalRow}:Q{$totalRow}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FFFF00');
+        $sheet->getStyle("A{$totalRow}:Q{$totalRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->getStyle("C{$totalRow}:Q{$totalRow}")->getNumberFormat()->setFormatCode('#,##0.00');
     }
 
     private function renderBankPayoutSummary($sheet, int $base, $items, $periodEnd): void
     {
-        $national = $items->filter(fn ($item) => !str_contains(strtolower($item->employee?->nationality ?? 'national'), 'expat'))->sum('net_pay');
-        $expat = $items->filter(fn ($item) => str_contains(strtolower($item->employee?->nationality ?? ''), 'expat'))->sum('net_pay');
+        $national = $items->filter(fn ($item) => !($item->employee?->isExpatriate() ?? false))->sum('net_pay');
+        $expat = $items->filter(fn ($item) => $item->employee?->isExpatriate() ?? false)->sum('net_pay');
         // Keep Main Office employees (including those without a branch
         // assignment) distinct from the individual branch payments.
         $mainOfficeLabels = ['', 'unassigned', 'main office', 'pom'];
