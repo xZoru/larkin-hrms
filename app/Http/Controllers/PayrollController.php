@@ -790,6 +790,7 @@ public function summary(Request $request)
         $companyId = $user->getCurrentCompanyId();
         $items = $request->items;
         $updatedCount = 0;
+        $updatedPayrollIds = [];
 
         foreach ($items as $itemId => $data) {
             $payrollItem = PayrollItem::find($itemId);
@@ -803,7 +804,56 @@ public function summary(Request $request)
             if (in_array($payrollItem->payroll->status, ['Locked', 'Approved', 'Paid'])) continue;
 
             $payrollItem->load('employee');
-            if (!$payrollItem->employee) continue;
+            if (!$payrollItem->employee) {
+                // Manual payroll rows have no employee record, so they need
+                // direct amount updates instead of employee-based recalculation.
+                $manualUpdates = [];
+                $grossWage = (float) $payrollItem->gross_wage;
+                $earningFields = [
+                    'overtime_pay' => 'overtime_pay',
+                    'sunday_pay' => 'sunday_pay',
+                    'holiday_pay' => 'holiday_pay',
+                    'leave_pay' => 'leave_pay',
+                    'other_earnings' => 'allowance',
+                ];
+
+                foreach ($earningFields as $requestField => $payrollField) {
+                    if (array_key_exists($requestField, $data)) {
+                        $amount = (float) $data[$requestField];
+                        $grossWage += $amount - (float) $payrollItem->{$payrollField};
+                        $manualUpdates[$payrollField] = round($amount, 2);
+                    }
+                }
+
+                $deductionFields = [
+                    'ncsl' => 'ncsl',
+                    'loan_deduction' => 'loan_deduction',
+                    'other_deductions' => 'other_deductions',
+                ];
+
+                foreach ($deductionFields as $requestField => $payrollField) {
+                    if (array_key_exists($requestField, $data)) {
+                        $manualUpdates[$payrollField] = round((float) $data[$requestField], 2);
+                    }
+                }
+
+                if ($manualUpdates !== []) {
+                    $totalDeductions = (float) $payrollItem->tax
+                        + (float) $payrollItem->nasfund_ee
+                        + (float) ($manualUpdates['ncsl'] ?? $payrollItem->ncsl)
+                        + (float) ($manualUpdates['loan_deduction'] ?? $payrollItem->loan_deduction)
+                        + (float) ($manualUpdates['other_deductions'] ?? $payrollItem->other_deductions);
+
+                    $manualUpdates['gross_wage'] = round($grossWage, 2);
+                    $manualUpdates['total_deductions'] = round($totalDeductions, 2);
+                    $manualUpdates['net_pay'] = round($grossWage - $totalDeductions, 2);
+                    $payrollItem->update($manualUpdates);
+                    $updatedCount++;
+                    $updatedPayrollIds[$payrollItem->payroll_id] = true;
+                }
+
+                continue;
+            }
 
             // Gross, tax, NASFUND, and net pay are calculated fields. Never
             // trust browser-submitted values for them.
@@ -822,12 +872,16 @@ public function summary(Request $request)
 
             $payrollItem->update(array_merge($earningsAndDeductions, $amounts));
             $updatedCount++;
+            $updatedPayrollIds[$payrollItem->payroll_id] = true;
         }
 
-        // Update payroll totals if any items were updated
-        if ($updatedCount > 0 && isset($payrollItem)) {
-            $payroll = $payrollItem->payroll;
-            $this->syncPayrollTotals($payroll);
+        // The summary can include items from more than one payrun in the
+        // selected fortnight, so sync every payrun that received an update.
+        foreach (array_keys($updatedPayrollIds) as $updatedPayrollId) {
+            $payroll = Payroll::find($updatedPayrollId);
+            if ($payroll) {
+                $this->syncPayrollTotals($payroll);
+            }
         }
 
         return response()->json([
