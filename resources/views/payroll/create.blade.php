@@ -248,7 +248,8 @@
             <form method="GET" action="{{ route('payroll.create') }}" class="flex flex-wrap items-end gap-4">
                 <div style="flex: 1; min-width: 250px;">
                     <label class="block text-xs font-medium text-gray-600 mb-1">Select Fortnight</label>
-                    <select name="fortnight" class="filter-select">
+                    <select name="fortnight" class="filter-select" required>
+                        <option value="" disabled @selected(!$fortnight)>Select a fortnight</option>
                         @foreach($allFortnights as $fn)
                             @php
                                 $p = $fortnightPeriods[$fn] ?? null;
@@ -283,11 +284,11 @@
             <!-- Payroll Stats -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                 <div class="stat-box" style="background: #f8fafc; border: 1px solid #e5e7eb;">
-                    <div class="stat-value" style="color: #1a1f36;">{{ $fortnight }}</div>
+                    <div class="stat-value" style="color: #1a1f36;">{{ $fortnight ?? 'Not selected' }}</div>
                     <div class="stat-label" style="color: #6b7280;">Fortnight</div>
                 </div>
                 <div class="stat-box" style="background: #f8fafc; border: 1px solid #e5e7eb;">
-                    <div class="stat-value" style="color: #1a1f36; font-size: 16px;">{{ $period['start']->format('d/m/y') }} - {{ $period['end']->format('d/m/y') }}</div>
+                    <div class="stat-value" style="color: #1a1f36; font-size: 16px;">@if($period){{ $period['start']->format('d/m/y') }} - {{ $period['end']->format('d/m/y') }}@else Select a fortnight above @endif</div>
                     <div class="stat-label" style="color: #6b7280;">Period</div>
                 </div>
                 <div class="stat-box" style="background: #f8fafc; border: 1px solid #e5e7eb;">
@@ -378,8 +379,13 @@
                                         <div class="icon">
                                             <i class="fas fa-users"></i>
                                         </div>
-                                        <h3>No Active Employees</h3>
-                                        <p>No active employees found for this company in the selected fortnight.</p>
+                                        @if($fortnight)
+                                            <h3>No Active Employees</h3>
+                                            <p>No active employees found for this company in the selected fortnight.</p>
+                                        @else
+                                            <h3>Select a Fortnight</h3>
+                                            <p>Choose the FN you want to process above. Employees will load after you select it.</p>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>
@@ -463,7 +469,7 @@
                 const gross = parseFloat(checkbox.dataset.gross) || 0;
                 totalGross += gross;
             });
-            totalGrossDisplay.textContent = 'K ' + totalGross.toFixed(2);
+            if (totalGrossDisplay) totalGrossDisplay.textContent = 'K ' + totalGross.toFixed(2);
 
             // Enable/Disable submit button
             submitButton.disabled = count === 0;

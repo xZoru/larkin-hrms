@@ -94,8 +94,8 @@ class PayrollController extends Controller
         $companyId = $user->getCurrentCompanyId();
         $allowedTypes = $user->getAllowedEmployeeTypes();
         
-        $fortnight = $request->fortnight ?? $this->getCurrentFortnight();
-        $period = $this->getFortnightPeriod($fortnight);
+        $fortnight = $request->filled('fortnight') ? $request->string('fortnight')->toString() : null;
+        $period = $fortnight ? $this->getFortnightPeriod($fortnight) : null;
         $branches = Branch::where('company_id', $companyId)->where('is_active', true)->orderBy('name')->get();
 
         $allFortnights = $this->getAllFortnights();
@@ -105,18 +105,21 @@ class PayrollController extends Controller
             $fortnightPeriods[$fn] = $this->getFortnightPeriod($fn);
         }
 
-        $employees = Employee::where('company_id', $companyId)
-            ->where('status', 'Active')
-            ->whereIn('employee_type', $allowedTypes)
-            ->whereHas('attendanceSummaries', function ($query) use ($fortnight) {
-                $query->where('fortnight_number', $fortnight)
-                    ->where('total_hours', '>', 0);
-            })
-            ->with(['attendanceSummaries' => function($query) use ($fortnight) {
-                $query->where('fortnight_number', $fortnight);
-            }]);
+        $employees = collect();
+        if ($fortnight && $period) {
+            $employeeQuery = Employee::where('company_id', $companyId)
+                ->where('status', 'Active')
+                ->whereIn('employee_type', $allowedTypes)
+                ->whereHas('attendanceSummaries', function ($query) use ($fortnight) {
+                    $query->where('fortnight_number', $fortnight)
+                        ->where('total_hours', '>', 0);
+                })
+                ->with(['attendanceSummaries' => function($query) use ($fortnight) {
+                    $query->where('fortnight_number', $fortnight);
+                }]);
 
-        $employees = $this->applyPayrollBranchFilter($employees, $request->branch_id, $period['end'])->get();
+            $employees = $this->applyPayrollBranchFilter($employeeQuery, $request->branch_id, $period['end'])->get();
+        }
 
         $activeLoans = Loan::where('company_id', $companyId)
             ->where('status', 'Released')
