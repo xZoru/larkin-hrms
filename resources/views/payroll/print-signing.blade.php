@@ -142,17 +142,17 @@
     @if($payrollItems->count() > 0)
     <table class="signing-table">
         <colgroup>
-            <col style="width: 4%;">
+            <col style="width: 7%;">
             <col style="width: 15%;">
             <col style="width: 36%;">
-            <col style="width: 45%;">
+            <col style="width: 42%;">
         </colgroup>
         <thead>
             <tr>
-                <th style="text-align: center; width: 4%;">#</th>
+                <th style="text-align: center; width: 7%;">#</th>
                 <th style="width: 15%;">EMP. NO</th>
                 <th style="width: 36%;">EMPLOYEE NAME</th>
-                <th style="width: 45%;">SIGNATURE</th>
+                <th style="width: 42%;">SIGNATURE</th>
             </tr>
         </thead>
         <tbody>
